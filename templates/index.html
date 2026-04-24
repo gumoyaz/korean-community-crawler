@@ -236,15 +236,15 @@
   }
   .word-filter-bar button:hover { color: var(--text); border-color: var(--accent); }
 
-  /* ── Tabs ── */
-  .tabs {
+  /* ── Category tabs (전체 / 음식 / 뷰티) ── */
+  .cat-tabs {
     display: flex; gap: 4px;
-    margin-bottom: 20px;
     border-bottom: 1px solid var(--border);
     padding-bottom: 0;
+    margin-bottom: 10px;
   }
-  .tab-btn {
-    padding: 10px 18px;
+  .cat-btn {
+    padding: 9px 18px;
     border: none; background: none; cursor: pointer;
     color: var(--text-dim);
     font-size: 14px; font-weight: 600;
@@ -253,16 +253,68 @@
     transition: color .15s, border-color .15s;
     border-radius: 6px 6px 0 0;
     display: flex; align-items: center; gap: 6px;
+    white-space: nowrap;
   }
-  .tab-btn:hover { color: var(--text); }
-  .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
-  .tab-btn .tab-count {
+  .cat-btn:hover { color: var(--text); }
+  .cat-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+  .cat-btn .tab-count {
     font-size: 11px;
     background: var(--surface2);
     padding: 1px 6px; border-radius: 10px;
     color: var(--text-dim);
   }
-  .tab-btn.active .tab-count { background: var(--accent); color: #fff; }
+  .cat-btn.active .tab-count { background: var(--accent); color: #fff; }
+
+  /* ── Community chip row ── */
+  .src-chips-wrap {
+    position: relative;
+    margin-bottom: 20px;
+  }
+  .src-chips {
+    display: flex; gap: 6px;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    padding: 4px 2px 8px;
+    scrollbar-width: none;
+  }
+  .src-chips::-webkit-scrollbar { display: none; }
+  .src-chip {
+    display: flex; align-items: center; gap: 5px;
+    padding: 6px 13px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: background .15s, color .15s, border-color .15s, transform .1s;
+    user-select: none;
+  }
+  .src-chip:hover { background: var(--surface); color: var(--text); }
+  .src-chip.active {
+    color: #fff;
+    border-color: transparent;
+    transform: scale(1.03);
+  }
+  .src-chip .chip-count {
+    font-size: 10px; opacity: .75;
+    background: rgba(255,255,255,0.15);
+    padding: 1px 5px; border-radius: 8px;
+  }
+  /* scroll fade edges */
+  .src-chips-wrap::before,
+  .src-chips-wrap::after {
+    content: '';
+    position: absolute; top: 0; bottom: 0; width: 28px;
+    pointer-events: none; z-index: 1;
+  }
+  .src-chips-wrap::before { left: 0; background: linear-gradient(to right, var(--bg), transparent); }
+  .src-chips-wrap::after  { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
+
+  /* keep old .tab-btn/.tabs for nothing — remove */
+  .tabs, .tab-btn { display: none; }
 
   /* 소스 아이콘 */
   .src-naver {
@@ -281,8 +333,11 @@
   /* ── Card grid ── */
   #card-container {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 12px;
+  }
+  @media (max-width: 700px) {
+    #card-container { grid-template-columns: 1fr; gap: 8px; }
   }
 
   .card {
@@ -294,6 +349,7 @@
     cursor: pointer;
     text-decoration: none;
     display: flex; flex-direction: column;
+    min-height: 100px;
   }
   .card:hover {
     background: var(--card-hover);
@@ -302,11 +358,11 @@
     border-color: var(--accent);
   }
 
-  .card-body { padding: 11px 13px; flex: 1; display: flex; flex-direction: column; }
+  .card-body { padding: 13px 15px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
 
   .card-meta {
     display: flex; align-items: center; gap: 6px;
-    margin-bottom: 7px;
+    flex-wrap: nowrap; overflow: hidden;
   }
   .card-rank-badge {
     margin-left: auto;
@@ -316,58 +372,55 @@
     padding: 2px 6px; border-radius: 4px;
     letter-spacing: 0.02em;
     flex-shrink: 0;
+    white-space: nowrap;
   }
   .card-rank-badge.top3 { font-size: 14px; background: none; padding: 0; }
   .source-badge {
     font-size: 10px; font-weight: 700;
     padding: 2px 7px; border-radius: 4px;
-    letter-spacing: 0.03em;
-  }
-  .source-badge.naver {
-    background: rgba(3,199,90,0.15); color: var(--naver);
-  }
-  .source-badge.instagram {
-    background: rgba(188,24,136,0.15); color: #e040fb;
-  }
-  .source-badge.sample {
-    background: rgba(136,136,170,0.15); color: var(--text-dim);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 120px;
+    flex-shrink: 0;
   }
   .keyword-tag {
-    font-size: 11px; color: var(--accent);
+    font-size: 10px; color: var(--accent);
     background: rgba(124,108,255,0.12);
-    padding: 2px 7px; border-radius: 4px;
+    padding: 2px 6px; border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 
   .card-title {
-    font-size: 13px; font-weight: 700;
-    line-height: 1.5; margin-bottom: 5px;
+    font-size: 14px; font-weight: 700;
+    line-height: 1.5;
     color: var(--text);
     display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
-  .card-title-emoji {
-    font-style: normal;
-    margin-right: 4px;
-  }
+  .card-title-emoji { font-style: normal; margin-right: 5px; }
+
   .card-summary {
     font-size: 12px; color: var(--text-dim);
     line-height: 1.6;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     flex: 1;
   }
   .card-footer {
     display: flex; align-items: center; justify-content: space-between;
-    margin-top: auto; padding-top: 10px;
+    margin-top: auto; padding-top: 8px;
     border-top: 1px solid var(--border);
     font-size: 11px; color: var(--text-dim);
   }
-  .card-author { display: flex; align-items: center; gap: 4px; }
-  .card-stats { display: flex; gap: 10px; }
+  .card-author { display: flex; align-items: center; gap: 5px; overflow: hidden; }
+  .card-stats { display: flex; gap: 8px; flex-shrink: 0; }
   .card-stat { display: flex; align-items: center; gap: 3px; }
 
   /* ── Loading / Empty ── */
@@ -430,8 +483,7 @@
 
   @media (max-width: 640px) {
     .ticker-wrap { display: none; }
-    .tabs { overflow-x: auto; }
-    .tab-btn { white-space: nowrap; }
+    .cat-btn { padding: 8px 12px; font-size: 13px; }
   }
 </style>
 </head>
@@ -495,43 +547,53 @@
   <!-- 피드 -->
   <div class="section-title">피드</div>
 
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="all" data-src="" onclick="switchTab('all','',this)">
+  <!-- 카테고리 탭 -->
+  <div class="cat-tabs">
+    <button class="cat-btn active" data-tab="all" data-src="" onclick="switchCat('all','',this)">
       전체 <span class="tab-count" id="count-all">0</span>
     </button>
-    <button class="tab-btn" data-tab="" data-src="fmkorea" onclick="switchTab('','fmkorea',this)" style="--tab-color:#ff6b35">
-      🔥 FMKorea <span class="tab-count" id="count-fmkorea">0</span>
-    </button>
-    <button class="tab-btn" data-tab="" data-src="todayhumor" onclick="switchTab('','todayhumor',this)" style="--tab-color:#2ecc71">
-      😂 오늘의유머 <span class="tab-count" id="count-todayhumor">0</span>
-    </button>
-    <button class="tab-btn" data-tab="" data-src="ruliweb" onclick="switchTab('','ruliweb',this)" style="--tab-color:#3498db">
-      🎮 루리웹 <span class="tab-count" id="count-ruliweb">0</span>
-    </button>
-    <button class="tab-btn" data-tab="" data-src="clien" onclick="switchTab('','clien',this)" style="--tab-color:#9b59b6">
-      💻 클리앙 <span class="tab-count" id="count-clien">0</span>
-    </button>
-    <button class="tab-btn" data-tab="instagram" data-src="" onclick="switchTab('instagram','',this)" style="--tab-color:#e040fb">
-      📸 인스타 <span class="tab-count" id="count-instagram">0</span>
-    </button>
-    <button class="tab-btn" data-tab="" data-src="theqoo" onclick="switchTab('','theqoo',this)" style="--tab-color:#e91e8c">
-      💗 더쿠 <span class="tab-count" id="count-theqoo">0</span>
-    </button>
-    <button class="tab-btn" data-tab="" data-src="mlbpark" onclick="switchTab('','mlbpark',this)" style="--tab-color:#1565c0">
-      ⚾ MLB파크 <span class="tab-count" id="count-mlbpark">0</span>
-    </button>
-    <button class="tab-btn" data-tab="" data-src="instiz" onclick="switchTab('','instiz',this)" style="--tab-color:#ff7675">
-      💬 인스티즈 <span class="tab-count" id="count-instiz">0</span>
-    </button>
-    <button class="tab-btn" data-tab="" data-src="bobaedream" onclick="switchTab('','bobaedream',this)" style="--tab-color:#fdcb6e">
-      🚗 보배드림 <span class="tab-count" id="count-bobaedream">0</span>
-    </button>
-    <button class="tab-btn" data-tab="food" data-src="" onclick="switchTab('food','',this)">
+    <button class="cat-btn" data-tab="food" data-src="" onclick="switchCat('food','',this)">
       🍽 음식/카페 <span class="tab-count" id="count-food">0</span>
     </button>
-    <button class="tab-btn" data-tab="beauty" data-src="" onclick="switchTab('beauty','',this)">
+    <button class="cat-btn" data-tab="beauty" data-src="" onclick="switchCat('beauty','',this)">
       💄 뷰티/패션 <span class="tab-count" id="count-beauty">0</span>
     </button>
+  </div>
+
+  <!-- 커뮤니티 칩 -->
+  <div class="src-chips-wrap">
+    <div class="src-chips" id="src-chips">
+      <button class="src-chip active" data-src="" onclick="switchSrc('',this)" style="background:var(--accent)">
+        전체 <span class="chip-count" id="chip-count-all">0</span>
+      </button>
+      <button class="src-chip" data-src="fmkorea" data-color="#ff6b35" onclick="switchSrc('fmkorea',this)">
+        🔥 FM코리아 <span class="chip-count" id="chip-count-fmkorea">0</span>
+      </button>
+      <button class="src-chip" data-src="todayhumor" data-color="#2ecc71" onclick="switchSrc('todayhumor',this)">
+        😂 오늘의유머 <span class="chip-count" id="chip-count-todayhumor">0</span>
+      </button>
+      <button class="src-chip" data-src="ruliweb" data-color="#3498db" onclick="switchSrc('ruliweb',this)">
+        🎮 루리웹 <span class="chip-count" id="chip-count-ruliweb">0</span>
+      </button>
+      <button class="src-chip" data-src="clien" data-color="#9b59b6" onclick="switchSrc('clien',this)">
+        💻 클리앙 <span class="chip-count" id="chip-count-clien">0</span>
+      </button>
+      <button class="src-chip" data-src="instagram" data-color="#e040fb" onclick="switchSrc('instagram',this)">
+        📸 인스타 <span class="chip-count" id="chip-count-instagram">0</span>
+      </button>
+      <button class="src-chip" data-src="theqoo" data-color="#e91e8c" onclick="switchSrc('theqoo',this)">
+        💗 더쿠 <span class="chip-count" id="chip-count-theqoo">0</span>
+      </button>
+      <button class="src-chip" data-src="mlbpark" data-color="#1565c0" onclick="switchSrc('mlbpark',this)">
+        ⚾ MLB파크 <span class="chip-count" id="chip-count-mlbpark">0</span>
+      </button>
+      <button class="src-chip" data-src="instiz" data-color="#ff7675" onclick="switchSrc('instiz',this)">
+        💬 인스티즈 <span class="chip-count" id="chip-count-instiz">0</span>
+      </button>
+      <button class="src-chip" data-src="bobaedream" data-color="#fdcb6e" onclick="switchSrc('bobaedream',this)">
+        🚗 보배드림 <span class="chip-count" id="chip-count-bobaedream">0</span>
+      </button>
+    </div>
   </div>
 
   <div id="card-container"></div>
@@ -583,7 +645,7 @@ async function loadCounts() {
       mlbpark:    fetch('/api/trends?source=mlbpark').then(r=>r.json()),
       instiz:     fetch('/api/trends?source=instiz').then(r=>r.json()),
       bobaedream: fetch('/api/trends?source=bobaedream').then(r=>r.json()),
-      instagram:  fetch('/api/trends?tab=instagram').then(r=>r.json()),
+      instagram:  fetch('/api/trends?source=instagram').then(r=>r.json()),
       food:       fetch('/api/trends?tab=food').then(r=>r.json()),
       beauty:     fetch('/api/trends?tab=beauty').then(r=>r.json()),
     };
@@ -591,8 +653,12 @@ async function loadCounts() {
       await Promise.all(Object.entries(fetches).map(async ([k,p]) => [k, await p]))
     );
     for (const [key, data] of Object.entries(results)) {
+      // category tab counts
       const el = document.getElementById(`count-${key}`);
       if (el) el.textContent = data.total || 0;
+      // chip counts
+      const chip = document.getElementById(`chip-count-${key}`);
+      if (chip) chip.textContent = data.total || 0;
     }
   } catch(e) {}
 }
@@ -798,13 +864,42 @@ function updateStatus(data) {
   }
 }
 
-// ── 탭 전환 ──────────────────────────────────────────────────────────────────
+// ── 탭/칩 전환 ────────────────────────────────────────────────────────────────
 
-function switchTab(tab, src, btn) {
+function switchCat(tab, src, btn) {
   currentTab = tab;
-  currentSrc = src;
-  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  currentSrc = '';
+  // reset chip selection to "전체"
+  document.querySelectorAll('.src-chip').forEach(c => {
+    c.classList.remove('active');
+    c.style.background = '';
+  });
+  const allChip = document.querySelector('.src-chip[data-src=""]');
+  if (allChip) { allChip.classList.add('active'); allChip.style.background = 'var(--accent)'; }
+
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  loadData(tab, src);
+}
+
+function switchSrc(src, btn) {
+  currentSrc = src;
+  // For community chips, use tab=all but filter by source
+  // instagram is a source, not a tab
+  const tab = 'all';
+  currentTab = tab;
+
+  // reset cat tabs to "전체"
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('.cat-btn[data-tab="all"]')?.classList.add('active');
+
+  document.querySelectorAll('.src-chip').forEach(c => {
+    c.classList.remove('active');
+    c.style.background = '';
+  });
+  btn.classList.add('active');
+  btn.style.background = btn.dataset.color || '#7c6cff';
+
   loadData(tab, src);
 }
 
