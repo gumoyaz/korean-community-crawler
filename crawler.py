@@ -625,13 +625,26 @@ class TrendCrawler:
         posts = [p for p in posts if self._age_decay(p.get('date', '')) > 0.0]
 
         max_views = max((p['views'] for p in posts if p['views'] > 0), default=1)
+        # 소스별로 조회수 데이터가 있는지 파악
+        src_has_views = {}
+        for p in posts:
+            src = p['source']
+            if src not in src_has_views:
+                src_has_views[src] = False
+            if p['views'] > 0:
+                src_has_views[src] = True
+
         for p in posts:
             v = p['views']
             view_score = (math.log1p(v) / math.log1p(max_views)) * 60 if v > 0 else 0
-            base_score = p['position_score'] * 0.4 + view_score * 0.6
+            # 조회수 데이터가 없는 사이트는 position_score 100% 사용
+            if src_has_views.get(p['source']):
+                base_score = p['position_score'] * 0.4 + view_score * 0.6
+            else:
+                base_score = p['position_score']
             decay = self._age_decay(p.get('date', ''))
             p['rank_score'] = round(base_score * decay, 1)
-            p['age_decay'] = round(decay, 2)  # 디버그용
+            p['age_decay'] = round(decay, 2)
 
         sorted_posts = sorted(posts, key=lambda x: x['rank_score'], reverse=True)
         for i, p in enumerate(sorted_posts):
