@@ -13,7 +13,7 @@ import random
 import threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timezone
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -276,7 +276,7 @@ class TrendCrawler:
             if len(self._history) > HISTORY_SIZE:
                 self._history.pop(0)
             self._trends = self._score_trends(unique, self._history)
-            self._last_updated = datetime.now().isoformat()
+            self._last_updated = datetime.now(timezone.utc).isoformat()
             self._crawl_count += 1
             self._status = 'ok'
 
@@ -328,7 +328,7 @@ class TrendCrawler:
                     'url': full_url,
                     'image': '',
                     'author': '',
-                    'date': datetime.now().strftime('%Y-%m-%d'),
+                    'date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M'),
                     'keyword': self._main_category(text),
                     'is_food':    self._matches(text, FOOD_WORDS),
                     'is_beauty':  self._matches(text, BEAUTY_WORDS),
@@ -400,7 +400,7 @@ class TrendCrawler:
                     'url': f'https://www.instagram.com/p/{shortcode}/',
                     'image': node.get('thumbnail_src', ''),
                     'author': '',
-                    'date': datetime.fromtimestamp(node.get('taken_at_timestamp', time.time())).strftime('%Y-%m-%d'),
+                    'date': datetime.fromtimestamp(node.get('taken_at_timestamp', time.time()), tz=timezone.utc).strftime('%Y-%m-%d %H:%M'),
                     'keyword': self._main_category(text),
                     'is_food':   self._matches(text, FOOD_WORDS),
                     'is_beauty': self._matches(text, BEAUTY_WORDS),
@@ -434,7 +434,7 @@ class TrendCrawler:
             'url': f'https://www.instagram.com/explore/tags/{hashtag}/',
             'image': '',
             'author': f'user_{random.randint(1000,9999)}',
-            'date': datetime.now().strftime('%Y-%m-%d'),
+            'date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M'),
             'keyword': self._main_category(text),
             'is_food':   self._matches(text, FOOD_WORDS),
             'is_beauty': self._matches(text, BEAUTY_WORDS),
