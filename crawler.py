@@ -114,9 +114,11 @@ COMMUNITY_SOURCES = [
             'https://www.instiz.net/pt?page=2',
         ],
         'title_sel': '.listsubject a',
+        'title_inner_sel': '.sbj',
         'view_sel': None,
         'date_sel': None,
         'date_sibling': 'listno',
+        'date_inner': 'div.listno.regdate',
         'base_url': 'https://www.instiz.net',
         'color': '#ff7675',
         'emoji': '💬',
@@ -415,11 +417,16 @@ class TrendCrawler:
                 sib_cls = src['date_sibling']
                 for a in anchors:
                     parent_td = a.find_parent('td')
+                    date_val = ''
                     if parent_td:
                         sib = parent_td.find_next_sibling('td', class_=sib_cls)
-                        date_per_anchor[id(a)] = self._parse_date(sib.get_text().strip()) if sib else ''
-                    else:
-                        date_per_anchor[id(a)] = ''
+                        if sib:
+                            date_val = self._parse_date(sib.get_text().strip())
+                        elif src.get('date_inner'):
+                            inner = a.select_one(src['date_inner'])
+                            if inner:
+                                date_val = self._parse_date(inner.get_text().strip())
+                    date_per_anchor[id(a)] = date_val
             elif src.get('date_sel'):
                 raw_dates = [el.get_text().strip() for el in soup.select(src['date_sel'])]
                 if not raw_dates:
@@ -435,6 +442,9 @@ class TrendCrawler:
                 if anchor_has_all:
                     title_el = a.select_one(src['title_text_sel'])
                     title = title_el.get_text().strip() if title_el else ''
+                elif src.get('title_inner_sel'):
+                    inner = a.select_one(src['title_inner_sel'])
+                    title = inner.get_text().strip() if inner else re.sub(r'\d+$', '', a.get_text().strip()).strip()
                 else:
                     title = re.sub(r'\d+$', '', a.get_text().strip()).strip()
                 if len(title) < 4:
