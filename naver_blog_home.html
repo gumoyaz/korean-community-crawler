@@ -1,0 +1,356 @@
+
+
+
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <base href="/home" />
+    <meta name="robots" content="noindex,nofollow"/>
+    <meta name="referrer" content="always"/>
+    <meta name="format-detection" content="telephone=no">
+    <link rel="shortcut icon" type="image/x-icon" href="https://ssl.pstatic.net/static/blog/icon/favicon.ico"/>
+    
+
+
+
+
+ 
+
+	
+	
+		<meta property="og:title" content="네이버 블로그"/>
+		<meta property="og:image" content="https://ssl.pstatic.net/static/blog/icon/og_270x270.png"/>
+		<meta property="og:description" content="당신의 모든 기록을 담는 공간"/>
+	
+
+<meta property="me:feed:serviceId" content="blog" />
+
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <title>네이버 블로그</title>
+
+    <link rel="stylesheet" type="text/css" href="https://ssl.pstatic.net/t.static.blog/section/versioning/section_ngapp-140682605_https.css" charset="UTF-8" />
+
+    <script>
+        var angularConfig = {"isDev":false,"jeagleEyeDebug":false};
+        var readOnlyStatus = {"isReadOnly":false,"startTime":null,"endTime":null,"reason":null,"usageTip":null,"maintenanceType":null,"maintenancePeriod":null};
+        var urlMap = {"item2":"https://item2.naver.com","likeit":"https://blog.like.naver.com","admin":"https://admin.blog.naver.com","section":"https://section.blog.naver.com","blog":"https://blog.naver.com","mkt_p1":"https://mkt.naver.com/p1/","kin":"http://kin.naver.com","search":"https://search.naver.com","apigw_like":"https://apis.naver.com/blogserver/like","guestbook":"https://guestbook.blog.naver.com","ugc_blog_post_query":"https://post-query.blog.naver.com","beyond_analytics":"https://scv-blog.io.naver.com/jackpotlog/v1/logs","sspndpsdk":"https://ssl.pstatic.net/tveta/libs/ndpsdk/prod","gn_stndard":"https://ssl.pstatic.net/static.gn/templates/gnb_utf8.nhn","sellerBlog":"https://seller.blog.naver.com","ad":"https://siape.veta.naver.com","id_secret":"https://nid.naver.com","likeitcdn":"https://static-like.pstatic.net","nmobile":"https://m.blog.naver.com","spi":"https://ssl.pstatic.net/spi","blog_proxy":"https://proxy.blog.naver.com","blogprofilethumb":"https://blogpfthumb-phinf.pstatic.net","help":"http://help.naver.com","uns":"https://notice.naver.com","thumbnail2":"https://blogthumb.pstatic.net"};
+        var g_ssc = "blog.mainv2";
+        var isGladSdkNew = true;
+
+        // 팝업을 통해서 부모창을 제어하기 위해 필요
+        // document.domain = 'naver.com';
+        //튜토리얼 css 가 제대로 동작안해서 필요
+        var doc = document.documentElement;
+        doc.setAttribute('data-useragent',navigator.userAgent);
+        var uploadURL = "https://upload.blog.naver.com";
+        var userNaverId = "";
+    </script>
+    
+
+
+
+
+
+
+
+<script type="text/javascript" src="https://ssl.pstatic.net/t.static.blog/section/versioning//common/lib/jquery/3.2.1/jquery-3.2.1-d2d8ca4_https.js"></script>
+<script>
+    jQuery.noConflict(); // jindo 와 $ 출돌(ViewMoreFollowings.jsp)
+</script>
+
+
+    
+    
+        <!-- ntmScriptPath가 없으면 환경에 따라 직접 설정 -->
+        
+        
+        
+            <script src="https://ssl.pstatic.net/t.static.blog/section/versioning//common/lib/ntm/ntm-blog-web-0f5c6ad_https.js"></script>
+        
+    
+
+
+<script type="text/javascript" src="https://ssl.pstatic.net/t.static.blog/section/versioning/NtmBaLog-1178534701_https.js" charset="UTF-8"></script>
+
+    
+
+    <script type="text/javascript" src="https://ssl.pstatic.net/t.static.blog/section/versioning//common/js/lottie.min-0e23629_https.js"></script>
+    <script type="text/javascript" src="https://ssl.pstatic.net/t.static.blog/section/versioning//common/js/like/reaction.lottie-03755cf_https.js"></script>
+    <script type="text/javascript" src="https://ssl.pstatic.net/t.static.blog/section/versioning/NgAppBundle1-1786807267_https.js" charset="UTF-8"></script>
+    <script type="text/javascript" src="https://ssl.pstatic.net/t.static.blog/section/versioning/NgAppBundle2-1025154579_https.js" charset="UTF-8"></script>
+    <script type="text/javascript" src="https://ssl.pstatic.net/t.static.blog/section/versioning/NgTemplate-459302667_https.js" charset="UTF-8"></script>
+
+</head>
+<template id="blogDomainRegisterLayerTemplate">
+    <div id="sellerAlertLayer" class="SetBlogId_layer_wrap" style="display:none;">
+        <div class="caution_alert_content">
+            <i class="icon"></i>
+            <div class="text_area">
+                <strong class="title">블로그 주소 변경 불가 안내</strong>
+                <p class="desc">
+                    블로그 마켓 판매자의 이력 관리를 위해<br>
+                    블로그 주소 변경이 불가합니다.
+                </p>
+            </div>
+            <div class="btn_area">
+                <a href="https://help.naver.com/alias/blog/blogmarket/blogmarket14.naver" class="btn">자세히 보기</a>
+                <button id="sellerAlertLayerClose" type="button" class="close_btn">레이어 닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="blogDomainRegisterSuggestionLayer" class="SetBlogId_layer_wrap IntroBlogId_layer" style="display: none;">
+        <div class="BlogId_content">
+            <div class="img_area">
+                <img src="https://ssl.pstatic.net/static/blog/img_ani_blogid1.gif" width="335" height="260" class="img" alt="블로그 아이디가 필요해요!">
+            </div>
+            <div class="text_area">
+                <strong class="title">블로그 아이디가 필요해요!</strong>
+                <p class="desc">
+                    블로그에서 진짜 나를 기록하고<br>
+                    다양한 이웃과 소식을 만나보세요. 지금 시작해볼까요?
+                </p>
+            </div>
+            <div class="btn_area">
+                <a id="blogDomainRegisterStartBtn" onclick="sendClickNlog('bsu.popupok', '');return false;" class="btn">블로그 아이디 만들기</a>
+                <a id="blogDomainRegisterSuggestionLayerCloseBtn" onclick="sendClickNlog('bsu.popupclose', '');return false;" class="close_btn">블로그 아이디 만들기 레이어 닫기</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="domainInputLayer" class="SetBlogId_layer_wrap" style="display: none;">
+        <div class="BlogId_content">
+            <h1 id="blogDomainTitle" class="title_h1"></h1>
+            <div class="domain">
+                blog.naver.com/<strong id="domainIdInfo" class="blogid"></strong>
+            </div>
+            <!-- 오류 .error -->
+            <!-- 인증 성공 .success -->
+            <div id="blogidMessageWrap" class="input_blogid_area">
+                <input id="domainInput" class="input_text" type="text" placeholder="블로그아이디" maxlength="20" autocomplete="off">
+                <div class="right_area">
+                    <button id="clearDomainInputBtn" type="button" class="del_btn" style="display: none">
+                        입력 내용 삭제
+                    </button>
+                    <!-- 아이디 입력중 -->
+                    <i class="loading_icon" id="loading_icon"></i>
+                </div>
+                <div id="domainMessage" class="message"></div>
+            </div>
+            <div id= "recommendDomainIdDiv" class="recommend_blogid">
+                <ul id="recommendDomainId" class="list">
+                </ul>
+            </div>
+            <div class="desc_area">
+                <ul class="list">
+                    <li class="item">
+                        설정한 아이디는 나중에 변경할 수 없으니 신중하게 입력해주세요.
+                    </li>
+                    <li class="item blogDomainChangeOnlyViewDesc">
+                        변경 전 공유된 블로그/글/클립 링크는 연결이 끊길 수 있습니다.
+                    </li>
+                    <li class="item">
+                        <strong class="strong">네이버 아이디 또는 개인정보가 포함된 문자 사용</strong>은 피해주세요.
+                    </li>
+                    <li class="item blogDomainChangeOnlyViewDesc">
+                        블로그 도움말에서 아이디 변경 유의사항을 확인해보세요.
+                    </li>
+                </ul>
+            </div>
+            <div class="btn_area">
+                <button id="blogDomainRegisterCancelBtn" type="button" class="cancel_btn">
+                    나중에 할게요
+                </button>
+                <input id="domainRegisterBtn" type="submit" value="확인" class="submit_btn" onclick="return false;" disabled="">
+            </div>
+        </div>
+    </div>
+
+    <div id="domainChangeConfirmLayer" class="SetBlogId_layer_wrap SetBlogIdAlert_wrap" style="display:none;">
+        <div class="SetBlogIdAlert_content">
+            <div class="blogid_area">
+                <div id="changeConfirmDomainId" class="blogid"></div>
+                <div id="changeConfirmDomainURL" class="domain"></div>
+            </div>
+            <div class="text_area">
+                <p class="text_small">
+                    1. 이전 주소로 공유된 글은<br>
+                    3개월간 새로운 주소로 연결을 지원하며<br>
+                    이후 언제든 연결이 끊길 수 있습니다.
+                </p>
+                <p class="text_small">
+                    2. 블로그 아이디는 한번 변경하면<br>
+                    <strong class="red_color">다시 변경이 불가능</strong>합니다.
+                </p>
+                <p class="text_small">
+                    <strong>변경하시겠습니까?</strong>
+                </p>
+            </div>
+            <div class="btn_area">
+                <button id="changeConfirmCancleBtn" type="button" class="btn">취소</button>
+                <button id="changeConfirmSubmitBtn" type="button" class="btn">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="domainConfirmLayer" class="SetBlogId_layer_wrap SetBlogIdAlert_wrap" style="display:none;">
+        <div class="SetBlogIdAlert_content">
+            <div class="blogid_area">
+                <div class="img_area">
+                    <img src="https://ssl.pstatic.net/static/blog/img_ani_blogid2.gif" width="208" height="86" alt="섬네일">
+                </div>
+                <div id="confirmDomainId" class="blogid"></div>
+                <div id="confirmDomainURL" class="domain"></div>
+            </div>
+            <div class="text_area">
+                <p class="text_red">
+                    블로그 아이디는 한번 정하면
+                    <br>
+                    다시 변경이 불가능합니다.
+                </p>
+                <p class="text">이 아이디로 블로그를 만들까요?</p>
+            </div>
+            <div class="btn_area">
+                <button id="confirmCancleBtn" type="button" class="btn">취소</button>
+                <button id="confirmSubmitBtn" type="button" class="btn">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="domainWelcomeLayer" class="SetBlogId_layer_wrap WelcomeSetBlogId_layer_wrap" style="display:none">
+        <div class="BlogId_content">
+            <h1 class="title_h1">
+                환영합니다!<br>
+                블로그 아이디가 만들어졌어요.
+            </h1>
+            <div class="img_area">
+                <img src="https://ssl.pstatic.net/static/blog/img_ani_blogid3_2.gif" class="img" width="500" height="281" alt="섬네일"/>
+            </div>
+            <div class="text_area">
+                <div id="welcomeBlogId" class="blogid"></div>
+                <div id="welcomeBlogURL" class="domain">
+                    blog.naver.com/
+                </div>
+            </div>
+            <div class="btn_area">
+                <a id="closeWelcomeLayer" onclick="sendClickNlog('bsu*i.start', '');return false;" class="btn blue">바로 시작하기</a>
+                <a id="nextStep" onclick="sendClickNlog('bsu*i.inform', '');return false;" class="btn green">추가정보 입력하기</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="blogBasicInfoLayer" class="SetBlogId_layer_wrap InputBlogId_layer_wrap" style="display:none">
+        <div class="BlogId_content">
+            <h1 class="title_h1">기본정보를 입력해주세요.</h1>
+            <p class="title_desc">나중에 언제든지 변경할 수 있어요.</p>
+            <div class="profile_area">
+                <div class="profile">
+                    <div id="blogDomainProfileImage" class="img" title="" style="background-image: url(https://ssl.pstatic.net/static/blog/profile/Profile_defaultIMG_A@2x.png);"></div>
+                </div>
+                <button id="profileSetBtn" onclick="sendClickNlog('bsu*p.profile', '');return false;"  type="button" class="profile_set_btn">프로필 이미지 설정</button>
+                <div id="profileSetLayer" class="profile_set_layer">
+                    <div class="top_btn_area">
+                        <button id="profileImageClear" onclick="sendClickNlog('bsu*p.prfdelete', '');" type="button" class="del_btn">지우기</button>
+                        <div class="file_btn">
+                            <label class="label" for="profile_upload_btn">사진 업로드</label>
+                            <input type="file" onclick="sendClickNlog('bsu*p.prfupload', '');" id="profile_upload_btn" class="input_file" accept=".png, .jpg, .jpeg, .gif, .bmp"/>
+                        </div>
+                    </div>
+                    <ul id="profilePresetList" class="profile_list">
+                        <li class="item">
+                            <button type="button" onclick="sendClickNlog('bsu*p.prfop1', '');" class="btn"><img src="https://ssl.pstatic.net/static/blog/profile/img_profile_preset_01.png" width="59" height="59" class="img" alt="프리셋1"  /></button>
+                        </li>
+                        <li class="item">
+                            <button type="button" onclick="sendClickNlog('bsu*p.prfop2', '');" class="btn"><img src="https://ssl.pstatic.net/static/blog/profile/img_profile_preset_02.png" width="59" height="59" class="img" alt="프리셋2"  /></button>
+                        </li>
+                        <li class="item">
+                            <button type="button" onclick="sendClickNlog('bsu*p.prfop3', '');" class="btn"><img src="https://ssl.pstatic.net/static/blog/profile/img_profile_preset_03.png" width="59" height="59" class="img" alt="프리셋3"  /></button>
+                        </li>
+                        <li class="item">
+                            <button type="button" onclick="sendClickNlog('bsu*p.prfop4', '');" class="btn"><img src="https://ssl.pstatic.net/static/blog/profile/img_profile_preset_04.png" width="59" height="59" class="img" alt="프리셋4"  /></button>
+                        </li>
+                        <li class="item">
+                            <button type="button" onclick="sendClickNlog('bsu*p.prfop5', '');" class="btn"><img src="https://ssl.pstatic.net/static/blog/profile/img_profile_preset_05.png" width="59" height="59" class="img" alt="프리셋5"  /></button>
+                        </li>
+                        <li class="item">
+                            <button type="button" onclick="sendClickNlog('bsu*p.prfop6', '');" class="btn"><img src="https://ssl.pstatic.net/static/blog/profile/img_profile_preset_06.png" width="59" height="59" class="img" alt="프리셋6"  /></button>
+                        </li>
+                        <li class="item">
+                            <button type="button" onclick="sendClickNlog('bsu*p.prfop7', '');" class="btn"><img src="https://ssl.pstatic.net/static/blog/profile/img_profile_preset_07.png" width="59" height="59" class="img" alt="프리셋7" /></button>
+                        </li>
+                        <li class="item">
+                            <button type="button" onclick="sendClickNlog('bsu*p.prfop8', '');" class="btn"><img src="https://ssl.pstatic.net/static/blog/profile/img_profile_preset_08.png" width="59" height="59" class="img" alt="프리셋8" /></button>
+                        </li>
+                    </ul>
+                    <div class="btn_area">
+                        <button id="proflieImageCancelBtn" onclick="sendClickNlog('bsu*p.prfccl', '');" type="button" class="cancel_btn">취소</button>
+                        <button id="proflieImageSelectedBtn" onclick="sendClickNlog('bsu*p.prfok', '');" type="button" class="submit_btn">적용</button>
+                    </div>
+                </div>
+            </div>
+            <div class="input_area">
+                <div class="input">
+                    <label class="label" for="nickname">별명</label>
+                    <input onclick="sendClickNlog('bsu*p.nickname', '');" type="text" class="input_text" id="nickname" maxlength="20" autocomplete="off"/>
+                </div>
+                <div class="input">
+                    <label class="label" for="blogname">블로그명</label>
+                    <input onclick="sendClickNlog('bsu*p.blogname', '');" type="text" class="input_text" id="blogname" maxlength="50" autocomplete="off"/>
+                </div>
+                <div class="input">
+                    <label class="label">블로그 주제</label>
+                    <button id="showBlogThemeList" onclick="sendClickNlog('bsu*p.blogtopic', '');" type="button" class="theme_btn">주제 없음</button>
+                    <div id="basicInfoBlogThemeList" class="theme_list_layer">
+                        <strong class="title">엔터테인먼트·예술</strong>
+                        <ul class="list">
+                            <li class="item">
+                                <input type="radio" onclick="sendClickNlog('bsu*p.option1', '');" class="input_radio" name="theme"  id="theme1" data-directoryseq="5">
+                                <label for="theme1" class="label">문학·책</label>
+                            </li>
+
+                            <li class="item">
+                                <input type="radio" onclick="sendClickNlog('bsu*p.option2', '');" class="input_radio" name="theme" id="theme2" data-directoryseq="6">
+                                <label for="theme2" class="label">영화</label>
+                            </li>
+
+                            <li class="item">
+                                <input type="radio" onclick="sendClickNlog('bsu*p.option3', '');" class="input_radio" name="theme" id="theme3" data-directoryseq="8">
+                                <label for="theme3" class="label">미술·디자인</label>
+                            </li>
+
+                            <li class="item">
+                                <input type="radio" onclick="sendClickNlog('bsu*p.option4', '');" class="input_radio" name="theme" id="theme4" data-directoryseq="7">
+                                <label for="theme4" class="label">공연·전시</label>
+                            </li>
+
+                            <li class="item">
+                                <input type="radio" onclick="sendClickNlog('bsu*p.option5', '');" class="input_radio" name="theme" id="theme5" data-directoryseq="11">
+                                <label for="theme5" class="label">음악</label>
+                            </li>
+
+                            <li class="item">
+                                <input type="radio" onclick="sendClickNlog('bsu*p.option6', '');" class="input_radio" name="theme" id="theme6" data-directoryseq="9">
+                                <label for="theme6" class="label">드라마</label>
+                            </li>
+
+                            <li class="item">
+                                <input type="radio" onclick="sendClickNlog('bsu*p.option7', '');" class="input_radio" name="theme" id="theme7" data-directoryseq="12">
+                                <label for="theme7" class="label">스타·연예인</label>
+                            </li>
+                            <li class="item">
+                                <input type="radio" onclick="sendClickNlog('bsu*p.option8', '');" class="input_radio" name="theme" id="theme8" data-directoryseq="13">
+                                <label for="theme8" class="label">만화·애니</label>
+                            </li>
+
+                            <li class="item">
+                                <input type="radio" onclick="sendClickNlog('bsu*p.option9', '');" class="input_radio" name="theme" id="theme9" data-directoryseq="10">
+                                <label for="theme9" class="label">방송</label>
+                            </li>
+                        </ul>
+                        <strong class="title">생활·노하우·쇼핑</strong>
+                        <ul class="list">
+                            <li class="item">
+                                <input type="radio" onclick="sendClickNlog('bsu*p.option10', '');" class="input_radio" name="theme" id="theme10" data-directoryseq="14">
+                   

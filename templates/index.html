@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>한국 SNS 트렌드 포착기</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a24;
+    --surface2: #22222f;
+    --border: #2e2e40;
+    --text: #e8e8f0;
+    --text-dim: #8888aa;
+    --accent: #7c6cff;
+    --accent2: #ff6c9d;
+    --naver: #03c75a;
+    --insta-grad: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+    --food: #ff9f43;
+    --rising: #ff4757;
+    --card-hover: #26263a;
+    --radius: 14px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #1a0a3a 0%, #0a1a3a 50%, #0f0f13 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px 16px;
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--insta-grad);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo h1 { font-size: 18px; font-weight: 700; }
+  .logo span { color: var(--text-dim); font-size: 13px; font-weight: 400; }
+
+  .header-right {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .status-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-dim);
+    background: var(--surface2);
+    padding: 5px 10px; border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #4ade80;
+    animation: pulse 2s infinite;
+  }
+  .status-dot.crawling { background: #fbbf24; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .refresh-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none; cursor: pointer;
+    padding: 7px 14px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    transition: opacity .2s, transform .1s;
+  }
+  .refresh-btn:hover { opacity: .85; }
+  .refresh-btn:active { transform: scale(.97); }
+  .refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Rising ticker ── */
+  .ticker-wrap {
+    background: rgba(255,71,87,0.08);
+    border-bottom: 1px solid rgba(255,71,87,0.15);
+    padding: 8px 24px;
+    display: flex; align-items: center; gap: 12px;
+    overflow: hidden;
+  }
+  .ticker-label {
+    font-size: 11px; font-weight: 700;
+    color: var(--rising);
+    background: rgba(255,71,87,0.15);
+    padding: 2px 8px; border-radius: 4px;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+  }
+  .ticker-scroll {
+    display: flex; gap: 20px;
+    animation: ticker 30s linear infinite;
+    white-space: nowrap;
+  }
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .ticker-item {
+    font-size: 13px; color: var(--text-dim);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .ticker-item .word { color: var(--text); font-weight: 600; }
+  .ticker-item .arrow { color: var(--rising); font-size: 12px; }
+
+  /* ── Main ── */
+  main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 16px;
+  }
+
+  /* ── Trend section ── */
+  .section-title {
+    font-size: 13px; font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after {
+    content: ''; flex: 1;
+    height: 1px; background: var(--border);
+  }
+
+  .trend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 640px) { .trend-grid { grid-template-columns: 1fr; } }
+
+  .trend-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .trend-box h3 {
+    font-size: 13px; font-weight: 700; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .trend-box h3 .badge {
+    font-size: 10px; padding: 2px 6px; border-radius: 4px;
+    background: rgba(255,71,87,0.2); color: var(--rising);
+  }
+
+  /* 급상승 리스트 */
+  .rising-list { list-style: none; }
+  .rising-list li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .rising-list li:last-child { border-bottom: none; }
+  .rising-rank {
+    font-size: 11px; font-weight: 700;
+    color: var(--text-dim); width: 18px; text-align: center;
+  }
+  .rising-rank.top3 { color: var(--rising); }
+  .rising-word { flex: 1; font-weight: 600; }
+  .rising-vel {
+    font-size: 11px; color: var(--rising);
+    background: rgba(255,71,87,0.1);
+    padding: 2px 6px; border-radius: 4px;
+  }
+  .rising-count { font-size: 12px; color: var(--text-dim); }
+
+  /* 단어 구름 */
+  .word-cloud {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .word-tag {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .2s, opacity .15s;
+    border: 1px solid transparent;
+    user-select: none;
+  }
+  .word-tag:hover { transform: scale(1.08); opacity: 0.9; }
+  .word-tag.size-3 { font-size: 17px; padding: 6px 14px; }
+  .word-tag.size-2 { font-size: 14px; }
+  .word-tag.size-1 { font-size: 12px; }
+  .word-tag.rising {
+    animation: word-pulse 2s ease-in-out infinite;
+  }
+  @keyframes word-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,71,87,0); }
+    50%       { box-shadow: 0 0 0 5px rgba(255,71,87,0.25); }
+  }
+  .word-tag.active-filter {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+    transform: scale(1.05);
+  }
+  .word-filter-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(124,108,255,0.08);
+    border: 1px solid rgba(124,108,255,0.25);
+    border-radius: 8px;
+    padding: 9px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+  }
+  .word-filter-bar button {
+    background: none; border: 1px solid var(--border);
+    color: var(--text-dim); cursor: pointer;
+    padding: 3px 9px; border-radius: 5px; font-size: 12px;
+  }
+  .word-filter-bar button:hover { color: var(--text); border-color: var(--accent); }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex; gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+  }
+  .tab-btn {
+    padding: 10px 18px;
+    border: none; background: none; cursor: pointer;
+    color: var(--text-dim);
+    font-size: 14px; font-weight: 600;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color .15s, border-color .15s;
+    border-radius: 6px 6px 0 0;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab-btn .tab-count {
+    font-size: 11px;
+    background: var(--surface2);
+    padding: 1px 6px; border-radius: 10px;
+    color: var(--text-dim);
+  }
+  .tab-btn.active .tab-count { background: var(--accent); color: #fff; }
+
+  /* 소스 아이콘 */
+  .src-naver {
+    display: inline-block; background: var(--naver);
+    width: 8px; height: 8px; border-radius: 2px;
+  }
+  .src-insta {
+    display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+    background: linear-gradient(135deg, #f09433, #dc2743, #bc1888);
+  }
+  .src-food {
+    display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--food);
+  }
+
+  /* ── Card grid ── */
+  #card-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 10px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: background .2s, transform .15s, box-shadow .2s;
+    cursor: pointer;
+    text-decoration: none;
+    display: flex; flex-direction: column;
+  }
+  .card:hover {
+    background: var(--card-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+    border-color: var(--accent);
+  }
+
+  .card-body { padding: 11px 13px; flex: 1; display: flex; flex-direction: column; }
+
+  .card-meta {
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 7px;
+  }
+  .card-rank-badge {
+    margin-left: auto;
+    font-size: 11px; font-weight: 800;
+    color: var(--text-dim);
+    background: var(--surface2);
+    padding: 2px 6px; border-radius: 4px;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+  }
+  .card-rank-badge.top3 { font-size: 14px; background: none; padding: 0; }
+  .source-badge {
+    font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 4px;
+    letter-spacing: 0.03em;
+  }
+  .source-badge.naver {
+    background: rgba(3,199,90,0.15); color: var(--naver);
+  }
+  .source-badge.instagram {
+    background: rgba(188,24,136,0.15); color: #e040fb;
+  }
+  .source-badge.sample {
+    background: rgba(136,136,170,0.15); color: var(--text-dim);
+  }
+  .keyword-tag {
+    font-size: 11px; color: var(--accent);
+    background: rgba(124,108,255,0.12);
+    padding: 2px 7px; border-radius: 4px;
+  }
+
+  .card-title {
+    font-size: 13px; font-weight: 700;
+    line-height: 1.5; margin-bottom: 5px;
+    color: var(--text);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .card-title-emoji {
+    font-style: normal;
+    margin-right: 4px;
+  }
+  .card-summary {
+    font-size: 12px; color: var(--text-dim);
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    flex: 1;
+  }
+  .card-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 12px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+    font-size: 11px; color: var(--text-dim);
+  }
+  .card-author { display: flex; align-items: center; gap: 4px; }
+  .card-stats { display: flex; gap: 10px; }
+  .card-stat { display: flex; align-items: center; gap: 3px; }
+
+  /* ── Loading / Empty ── */
+  .loading-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .skeleton {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+  .skeleton-img { height: 160px; background: var(--surface2); }
+  .skeleton-body { padding: 14px; }
+  .skeleton-line {
+    height: 12px; background: var(--surface2);
+    border-radius: 4px; margin-bottom: 8px;
+  }
+  .skeleton-line.short { width: 60%; }
+  @keyframes shimmer {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .5; }
+  }
+
+  .empty-state {
+    grid-column: 1/-1;
+    text-align: center; padding: 60px 20px;
+    color: var(--text-dim);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+  /* ── Refresh timer bar ── */
+  .timer-bar-wrap {
+    height: 2px; background: var(--border);
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+  }
+  .timer-bar {
+    height: 100%;
+    background: var(--accent);
+    transition: width 1s linear;
+  }
+
+  /* ── Toast ── */
+  .toast {
+    position: fixed; bottom: 20px; right: 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 13px;
+    box-shadow: var(--shadow);
+    transform: translateY(20px); opacity: 0;
+    transition: all .3s;
+    z-index: 300;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  @media (max-width: 640px) {
+    .ticker-wrap { display: none; }
+    .tabs { overflow-x: auto; }
+    .tab-btn { white-space: nowrap; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">📡</div>
+      <div>
+        <h1>한국 SNS 트렌드 포착기</h1>
+        <span>네이버 블로그 &amp; 인스타그램 실시간 트렌드</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-badge">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">로딩 중…</span>
+      </div>
+      <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">새로고침</button>
+    </div>
+  </div>
+</header>
+
+<!-- 급상승 티커 -->
+<div class="ticker-wrap">
+  <span class="ticker-label">🔥 급상승</span>
+  <div style="overflow:hidden;flex:1">
+    <div class="ticker-scroll" id="ticker">
+      <span class="ticker-item"><span class="arrow">▲</span> 로딩 중...</span>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<main>
+
+  <!-- 트렌드 분석 -->
+  <div class="section-title">트렌드 분석</div>
+  <div class="trend-grid">
+
+    <!-- 급상승 키워드 -->
+    <div class="trend-box">
+      <h3>🚀 급상승 키워드 <span class="badge">실시간</span></h3>
+      <ul class="rising-list" id="rising-list">
+        <li><span class="rising-rank">-</span><span class="rising-word">로딩 중…</span></li>
+      </ul>
+    </div>
+
+    <!-- 단어 구름 -->
+    <div class="trend-box">
+      <h3>💬 인기 단어 구름</h3>
+      <div class="word-cloud" id="word-cloud">
+        <span style="color:var(--text-dim);font-size:13px">로딩 중…</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 피드 -->
+  <div class="section-title">피드</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="all" data-src="" onclick="switchTab('all','',this)">
+      전체 <span class="tab-count" id="count-all">0</span>
+    </button>
+    <button class="tab-btn" data-tab="" data-src="fmkorea" onclick="switchTab('','fmkorea',this)" style="--tab-color:#ff6b35">
+      🔥 FMKorea <span class="tab-count" id="count-fmkorea">0</span>
+    </button>
+    <button class="tab-btn" data-tab="" data-src="todayhumor" onclick="switchTab('','todayhumor',this)" style="--tab-color:#2ecc71">
+      😂 오늘의유머 <span class="tab-count" id="count-todayhumor">0</span>
+    </button>
+    <button class="tab-btn" data-tab="" data-src="ruliweb" onclick="switchTab('','ruliweb',this)" style="--tab-color:#3498db">
+      🎮 루리웹 <span class="tab-count" id="count-ruliweb">0</span>
+    </button>
+    <button class="tab-btn" data-tab="" data-src="clien" onclick="switchTab('','clien',this)" style="--tab-color:#9b59b6">
+      💻 클리앙 <span class="tab-count" id="count-clien">0</span>
+    </button>
+    <button class="tab-btn" data-tab="instagram" data-src="" onclick="switchTab('instagram','',this)" style="--tab-color:#e040fb">
+      📸 인스타 <span class="tab-count" id="count-instagram">0</span>
+    </button>
+    <button class="tab-btn" data-tab="" data-src="theqoo" onclick="switchTab('','theqoo',this)" style="--tab-color:#e91e8c">
+      💗 더쿠 <span class="tab-count" id="count-theqoo">0</span>
+    </button>
+    <button class="tab-btn" data-tab="" data-src="mlbpark" onclick="switchTab('','mlbpark',this)" style="--tab-color:#1565c0">
+      ⚾ MLB파크 <span class="tab-count" id="count-mlbpark">0</span>
+    </button>
+    <button class="tab-btn" data-tab="food" data-src="" onclick="switchTab('food','',this)">
+      🍽 음식/카페 <span class="tab-count" id="count-food">0</span>
+    </button>
+    <button class="tab-btn" data-tab="beauty" data-src="" onclick="switchTab('beauty','',this)">
+      💄 뷰티/패션 <span class="tab-count" id="count-beauty">0</span>
+    </button>
+  </div>
+
+  <div id="card-container"></div>
+
+</main>
+
+<!-- 자동 갱신 타이머 바 -->
+<div class="timer-bar-wrap">
+  <div class="timer-bar" id="timer-bar" style="width:100%"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const REFRESH_MS = {{ refresh_interval }} * 1000;
+let currentTab = 'all';
+let allData = null;
+let nextRefresh = Date.now() + REFRESH_MS;
+let timerInterval = null;
+
+// ── 데이터 로드 ──────────────────────────────────────────────────────────────
+
+let currentSrc = '';
+
+async function loadData(tab = currentTab, src = currentSrc) {
+  try {
+    const res = await fetch(`/api/trends?tab=${tab}&source=${src}`);
+    if (!res.ok) throw new Error(res.status);
+    const data = await res.json();
+    allData = data;
+    renderAll(data);
+    updateStatus(data);
+  } catch (e) {
+    console.error('로드 오류:', e);
+    showToast('데이터 로드 실패. 재시도 중…');
+  }
+}
+
+async function loadCounts() {
+  try {
+    const fetches = {
+      all:        fetch('/api/trends?tab=all').then(r=>r.json()),
+      fmkorea:    fetch('/api/trends?source=fmkorea').then(r=>r.json()),
+      todayhumor: fetch('/api/trends?source=todayhumor').then(r=>r.json()),
+      ruliweb:    fetch('/api/trends?source=ruliweb').then(r=>r.json()),
+      clien:      fetch('/api/trends?source=clien').then(r=>r.json()),
+      theqoo:     fetch('/api/trends?source=theqoo').then(r=>r.json()),
+      mlbpark:    fetch('/api/trends?source=mlbpark').then(r=>r.json()),
+      instagram:  fetch('/api/trends?tab=instagram').then(r=>r.json()),
+      food:       fetch('/api/trends?tab=food').then(r=>r.json()),
+      beauty:     fetch('/api/trends?tab=beauty').then(r=>r.json()),
+    };
+    const results = Object.fromEntries(
+      await Promise.all(Object.entries(fetches).map(async ([k,p]) => [k, await p]))
+    );
+    for (const [key, data] of Object.entries(results)) {
+      const el = document.getElementById(`count-${key}`);
+      if (el) el.textContent = data.total || 0;
+    }
+  } catch(e) {}
+}
+
+// ── 렌더링 ───────────────────────────────────────────────────────────────────
+
+function renderAll(data) {
+  renderCards(data.posts || []);
+  if (data.trends) {
+    renderRising(data.trends.rising || []);
+    renderWordCloud(data.trends.top || []);
+    renderTicker(data.trends.rising || []);
+  }
+  loadCounts();
+}
+
+function renderCards(posts) {
+  const container = document.getElementById('card-container');
+  container.innerHTML = '';
+
+  if (!posts.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">🔍</div>
+        <div>표시할 포스트가 없습니다.</div>
+      </div>`;
+    return;
+  }
+
+  posts.forEach(post => {
+    const card = document.createElement('a');
+    card.className = 'card';
+    card.href = post.url;
+    card.target = '_blank';
+    card.rel = 'noopener noreferrer';
+
+    const color = post.source_color || '#7c6cff';
+    const emoji = post.source_emoji || '📝';
+    const label = post.source_label || post.source;
+    const sampleNote = post.is_sample ? ' (샘플)' : '';
+    const catBadge = post.is_food ? '🍽 음식' : post.is_beauty ? '💄 뷰티' : post.is_fashion ? '👗 패션' : post.is_travel ? '✈️ 여행' : '';
+
+    // 제목 키워드 기반 이모지
+    const titleEmojis = [
+      [['먹','음식','맛집','식당','카페','밥','라면','치킨','피자','커피','케이크','디저트','파스타','초밥'], '🍽️'],
+      [['여행','해외','일본','유럽','제주','부산','관광','호텔','비행기'], '✈️'],
+      [['뷰티','화장','피부','헤어','다이어트','네일','향수'], '💄'],
+      [['게임','리그','롤','배그','오버워치','마인크래프트','스팀'], '🎮'],
+      [['축구','야구','농구','스포츠','선수','경기','리그'], '⚽'],
+      [['영화','드라마','넷플','웹툰','소설','애니'], '🎬'],
+      [['아이돌','가수','연예','콘서트','팬','앨범'], '🎤'],
+      [['주식','코인','부동산','경제','돈','투자'], '💰'],
+      [['강아지','고양이','반려','펫','동물'], '🐾'],
+      [['패션','옷','코디','쇼핑','하울','브랜드'], '👗'],
+      [['육아','아이','아기','유치원','초등'], '👶'],
+      [['IT','컴퓨터','폰','애플','삼성','AI','ChatGPT'], '💻'],
+    ];
+    let contentEmoji = emoji;
+    for (const [keywords, e] of titleEmojis) {
+      if (keywords.some(k => post.title.includes(k))) { contentEmoji = e; break; }
+    }
+
+    const rankLabel = post.rank <= 3
+      ? ['🥇','🥈','🥉'][post.rank - 1]
+      : `#${post.rank}`;
+    const rankClass = post.rank <= 3 ? 'card-rank-badge top3' : 'card-rank-badge';
+
+    const dateStr = post.date || '';
+    const likes    = post.likes    ? `<span class="card-stat">❤️ ${fmtNum(post.likes)}</span>` : '';
+    const comments = post.comments ? `<span class="card-stat">💬 ${fmtNum(post.comments)}</span>` : '';
+
+    card.innerHTML = `
+      <div class="card-body">
+        <div class="card-meta">
+          <span class="source-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${emoji} ${escHtml(label)}${sampleNote}</span>
+          ${catBadge ? `<span class="keyword-tag">${catBadge}</span>` : ''}
+          <span class="${rankClass}">${rankLabel}</span>
+        </div>
+        <div class="card-title"><em class="card-title-emoji">${contentEmoji}</em>${escHtml(post.title)}</div>
+        ${post.summary ? `<div class="card-summary">${escHtml(post.summary)}</div>` : ''}
+        <div class="card-footer">
+          <div class="card-author">
+            ${post.author ? `<span>✍️ ${escHtml(post.author)}</span>` : ''}
+            ${dateStr ? `<span>${dateStr}</span>` : ''}
+          </div>
+          <div class="card-stats">${likes}${comments}</div>
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function renderRising(rising) {
+  const list = document.getElementById('rising-list');
+  if (!rising.length) {
+    list.innerHTML = '<li><span style="color:var(--text-dim);font-size:13px">데이터 수집 중… (2회 이상 크롤링 후 표시)</span></li>';
+    return;
+  }
+  list.innerHTML = rising.slice(0, 10).map((item, i) => `
+    <li>
+      <span class="rising-rank ${i < 3 ? 'top3' : ''}">${i+1}</span>
+      <span class="rising-word">${escHtml(item.word)}</span>
+      <span class="rising-vel">+${item.velocity}</span>
+      <span class="rising-count">${item.count}회</span>
+    </li>
+  `).join('');
+}
+
+function renderWordCloud(top) {
+  const cloud = document.getElementById('word-cloud');
+  if (!top.length) { cloud.innerHTML = '<span style="color:var(--text-dim);font-size:13px">로딩 중…</span>'; return; }
+
+  const maxScore = Math.max(...top.map(t => t.score), 1);
+  const colors = [
+    ['rgba(124,108,255,0.15)', '#7c6cff'],
+    ['rgba(255,108,157,0.15)', '#ff6c9d'],
+    ['rgba(3,199,90,0.15)', '#03c75a'],
+    ['rgba(255,159,67,0.15)', '#ff9f43'],
+    ['rgba(96,165,250,0.15)', '#60a5fa'],
+    ['rgba(251,191,36,0.15)', '#fbbf24'],
+  ];
+
+  const risingWords = new Set((allData?.trends?.rising || []).map(r => r.word));
+  const risingMap = Object.fromEntries((allData?.trends?.rising || []).map(r => [r.word, r.velocity]));
+
+  cloud.innerHTML = top.slice(0, 40).map((item, i) => {
+    const ratio = item.score / maxScore;
+    const size = ratio > 0.7 ? 'size-3' : ratio > 0.4 ? 'size-2' : 'size-1';
+    const isRising = risingWords.has(item.word);
+    const [bg, col] = isRising
+      ? ['rgba(255,71,87,0.15)', '#ff4757']
+      : colors[i % colors.length];
+    const vel = risingMap[item.word];
+    const tooltip = `${item.count}회 언급${isRising ? ` · 급상승 +${vel}` : ''}`;
+    const prefix = isRising ? '▲ ' : '';
+    return `<span class="word-tag ${size}${isRising ? ' rising' : ''}"
+      style="background:${bg};color:${col};border-color:${col}44"
+      title="${tooltip}"
+      onclick="filterByWord('${item.word.replace(/'/g,"\\'")}')"
+      >${prefix}${escHtml(item.word)}</span>`;
+  }).join('');
+}
+
+let activeWordFilter = null;
+
+function filterByWord(word) {
+  if (activeWordFilter === word) {
+    activeWordFilter = null;
+    document.querySelectorAll('.word-tag').forEach(t => t.classList.remove('active-filter'));
+    document.getElementById('word-filter-bar')?.remove();
+    renderCards(allData?.posts || []);
+    return;
+  }
+  activeWordFilter = word;
+  document.querySelectorAll('.word-tag').forEach(t => {
+    const w = t.textContent.replace(/^▲\s*/, '').trim();
+    t.classList.toggle('active-filter', w === word);
+  });
+
+  const filtered = (allData?.posts || []).filter(p => p.title.includes(word));
+
+  let bar = document.getElementById('word-filter-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'word-filter-bar';
+    bar.className = 'word-filter-bar';
+    document.getElementById('card-container').before(bar);
+  }
+  bar.innerHTML = `<span>🔍 "<strong>${escHtml(word)}</strong>" 관련 포스트 <strong>${filtered.length}개</strong></span>
+    <button onclick="filterByWord('${word.replace(/'/g,"\\'")}')">✕ 필터 해제</button>`;
+
+  renderCards(filtered);
+}
+
+function renderTicker(rising) {
+  const ticker = document.getElementById('ticker');
+  if (!rising.length) return;
+  const items = rising.slice(0, 10).map(r =>
+    `<span class="ticker-item"><span class="arrow">▲</span><span class="word">${escHtml(r.word)}</span> (+${r.velocity})</span>`
+  ).join('');
+  // 반복을 위해 두 번
+  ticker.innerHTML = items + items;
+}
+
+// ── 상태 업데이트 ─────────────────────────────────────────────────────────────
+
+function updateStatus(data) {
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  dot.className = 'status-dot' + (data.status === 'crawling' ? ' crawling' : '');
+
+  if (data.last_updated) {
+    const d = new Date(data.last_updated);
+    txt.textContent = `마지막 갱신: ${d.toLocaleTimeString('ko-KR')}`;
+  } else {
+    txt.textContent = data.status === 'crawling' ? '크롤링 중…' : '대기 중';
+  }
+}
+
+// ── 탭 전환 ──────────────────────────────────────────────────────────────────
+
+function switchTab(tab, src, btn) {
+  currentTab = tab;
+  currentSrc = src;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadData(tab, src);
+}
+
+// ── 수동 새로고침 ─────────────────────────────────────────────────────────────
+
+async function manualRefresh() {
+  const btn = document.getElementById('refresh-btn');
+  btn.disabled = true;
+  btn.textContent = '크롤링 중…';
+  showToast('🔄 크롤링 시작…');
+  try {
+    await fetch('/api/refresh', { method: 'POST' });
+    // 크롤링 완료 폴링
+    for (let i = 0; i < 30; i++) {
+      await sleep(2000);
+      const status = await fetch('/api/status').then(r=>r.json());
+      if (status.status === 'ok') {
+        await loadData();
+        showToast('✅ 새 트렌드 수집 완료!');
+        nextRefresh = Date.now() + REFRESH_MS;
+        break;
+      }
+    }
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '새로고침';
+  }
+}
+
+// ── 자동 갱신 타이머 ──────────────────────────────────────────────────────────
+
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(async () => {
+    const remaining = nextRefresh - Date.now();
+    const pct = Math.max(0, Math.min(100, (remaining / REFRESH_MS) * 100));
+    document.getElementById('timer-bar').style.width = pct + '%';
+
+    if (remaining <= 0) {
+      nextRefresh = Date.now() + REFRESH_MS;
+      await loadData();
+      showToast('🔄 자동 갱신 완료');
+    }
+  }, 1000);
+}
+
+// ── 유틸 ─────────────────────────────────────────────────────────────────────
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function fmtNum(n) {
+  if (n >= 10000) return (n/10000).toFixed(1) + '만';
+  if (n >= 1000) return (n/1000).toFixed(1) + 'k';
+  return n;
+}
+
+function formatDate(s) {
+  if (!s) return '';
+  try {
+    const d = new Date(s);
+    const now = new Date();
+    const diff = now - d;
+    if (diff < 60*60*1000) return `${Math.floor(diff/60000)}분 전`;
+    if (diff < 24*60*60*1000) return `${Math.floor(diff/3600000)}시간 전`;
+    return `${d.getMonth()+1}/${d.getDate()}`;
+  } catch { return s; }
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── 스켈레톤 생성 ─────────────────────────────────────────────────────────────
+
+function renderSkeletons() {
+  const container = document.getElementById('card-container');
+  container.innerHTML = Array(12).fill(`
+    <div class="skeleton">
+      <div class="skeleton-body">
+        <div class="skeleton-line short"></div>
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line short"></div>
+      </div>
+    </div>`).join('');
+}
+
+// ── 초기화 ────────────────────────────────────────────────────────────────────
+
+async function init() {
+  renderSkeletons();
+  await loadData();
+
+  // 데이터가 없으면(크롤링 중) 3초마다 폴링
+  if (!allData || allData.total === 0) {
+    showToast('🔄 크롤링 중… 잠시 기다려 주세요');
+    const poll = setInterval(async () => {
+      const st = await fetch('/api/status').then(r => r.json());
+      if (st.status === 'ok' && st.total > 0) {
+        clearInterval(poll);
+        await loadData();
+        showToast('✅ 데이터 로드 완료!');
+      }
+    }, 3000);
+  }
+
+  startTimer();
+}
+
+init();
+</script>
+</body>
+</html>

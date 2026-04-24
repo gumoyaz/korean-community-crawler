@@ -1,0 +1,20 @@
+{
+  "더쿠 핫": {
+    "sel": ".title a",
+    "count": 26,
+    "url": "https://theqoo.net/hot",
+    "samples": [
+      "🩵더쿠X리얼베리어🩵 수분장벽✨ 워터리 히알 세럼 체험단 30인 모집",
+      "[공지] 언금 공지 해제"
+    ]
+  },
+  "MLB파크 야구": {
+    "sel": ".tit a",
+    "count": 31,
+    "url": "https://mlbpark.donga.com/mp/b.php?b=bullpen",
+    "samples": [
+      "화투 혼자 쳐본분?.gif",
+      "\"눈치없는 무주택자 납세증명서 요구했다가 퇴짜\""
+    ]
+  }
+}
