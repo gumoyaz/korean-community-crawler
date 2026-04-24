@@ -141,7 +141,7 @@ COMMUNITY_SOURCES = [
             'https://www.miznet.net/bbs/board.php?bo_table=free',
             'https://www.miznet.net/bbs/board.php?bo_table=free&page=2',
         ],
-        'title_sel': 'td.td_subject .bo_tit',
+        'title_sel': 'td.td_subject a[href*="wr_id"]',
         'view_sel': None,
         'date_sel': 'td.td_datetime',
         'base_url': 'https://www.miznet.net',
@@ -392,8 +392,10 @@ class TrendCrawler:
             # 날짜 파싱
             dates = []
             if src.get('date_sel'):
-                for el in soup.select(src['date_sel']):
-                    dates.append(self._parse_date(el.get_text().strip()))
+                raw_dates = [el.get_text().strip() for el in soup.select(src['date_sel'])]
+                if not raw_dates:
+                    print(f'[{src["label"]}] date_sel="{src["date_sel"]}" 결과 없음')
+                dates = [self._parse_date(d) for d in raw_dates]
 
             items = []
             for pos, a in enumerate(anchors):
@@ -450,9 +452,13 @@ class TrendCrawler:
             return []
 
     def _parse_date(self, text: str) -> str:
-        """다양한 날짜 포맷을 'YYYY-MM-DD HH:MM UTC' ISO 형식으로 변환."""
+        """다양한 날짜 포맷을 'YYYY-MM-DD HH:MM' 형식으로 변환."""
         now = datetime.now(timezone.utc)
         text = text.strip()
+        # 인스티즈 등: "HH:MM l 조회 N" 형태에서 날짜 부분만 추출
+        text = re.sub(r'\s*[lL│|ㅣ]\s*조회.*$', '', text).strip()
+        if not text:
+            return ''
         try:
             # "N분 전"
             m = re.match(r'(\d+)분\s*전', text)
@@ -462,15 +468,26 @@ class TrendCrawler:
             m = re.match(r'(\d+)시간\s*전', text)
             if m:
                 return (now - timedelta(hours=int(m.group(1)))).strftime('%Y-%m-%d %H:%M')
+            # "N일 전"
+            m = re.match(r'(\d+)일\s*전', text)
+            if m:
+                return (now - timedelta(days=int(m.group(1)))).strftime('%Y-%m-%d %H:%M')
+            # "어제"
+            if text.strip() == '어제':
+                return (now - timedelta(days=1)).strftime('%Y-%m-%d')
             # "HH:MM" (오늘)
             m = re.match(r'^(\d{1,2}):(\d{2})$', text)
             if m:
                 return now.strftime('%Y-%m-%d') + f" {m.group(1).zfill(2)}:{m.group(2)}"
+            # "MM.DD HH:MM" (인스티즈 등)
+            m = re.match(r'^(\d{1,2})[.](\d{1,2})\s+(\d{1,2}):(\d{2})$', text)
+            if m:
+                return f"{now.year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)} {m.group(3).zfill(2)}:{m.group(4)}"
             # "MM.DD" 또는 "MM/DD"
             m = re.match(r'^(\d{1,2})[./](\d{1,2})$', text)
             if m:
                 return f"{now.year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}"
-            # "YY/MM/DD HH:MM" (오늘의유머 포맷)
+            # "YY/MM/DD HH:MM" (오늘의유머)
             m = re.match(r'^(\d{2})/(\d{2})/(\d{2})\s+(\d{1,2}):(\d{2})$', text)
             if m:
                 return f"20{m.group(1)}-{m.group(2)}-{m.group(3)} {m.group(4).zfill(2)}:{m.group(5)}"
@@ -478,7 +495,11 @@ class TrendCrawler:
             m = re.match(r'^(\d{2})/(\d{2})/(\d{2})$', text)
             if m:
                 return f"20{m.group(1)}-{m.group(2)}-{m.group(3)}"
-            # "YYYY.MM.DD" 또는 "YYYY-MM-DD"
+            # "YY.MM.DD" (더쿠 오래된 글: "24.12.06")
+            m = re.match(r'^(\d{2})[.](\d{2})[.](\d{2})$', text)
+            if m:
+                return f"20{m.group(1)}-{m.group(2)}-{m.group(3)}"
+            # "YYYY.MM.DD" 또는 "YYYY-MM-DD" (선택적 시간 포함)
             m = re.match(r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})', text)
             if m:
                 base = f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
