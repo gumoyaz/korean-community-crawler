@@ -593,6 +593,9 @@
       <button class="src-chip" data-src="bobaedream" data-color="#fdcb6e" onclick="switchSrc('bobaedream',this)">
         🚗 보배드림 <span class="chip-count" id="chip-count-bobaedream">0</span>
       </button>
+      <button class="src-chip" data-src="miznet" data-color="#a29bfe" onclick="switchSrc('miznet',this)">
+        👩 미즈넷 <span class="chip-count" id="chip-count-miznet">0</span>
+      </button>
     </div>
   </div>
 
@@ -645,6 +648,7 @@ async function loadCounts() {
       mlbpark:    fetch('/api/trends?source=mlbpark').then(r=>r.json()),
       instiz:     fetch('/api/trends?source=instiz').then(r=>r.json()),
       bobaedream: fetch('/api/trends?source=bobaedream').then(r=>r.json()),
+      miznet:     fetch('/api/trends?source=miznet').then(r=>r.json()),
       instagram:  fetch('/api/trends?source=instagram').then(r=>r.json()),
       food:       fetch('/api/trends?tab=food').then(r=>r.json()),
       beauty:     fetch('/api/trends?tab=beauty').then(r=>r.json()),

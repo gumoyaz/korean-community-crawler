@@ -134,6 +134,20 @@ COMMUNITY_SOURCES = [
         'color': '#fdcb6e',
         'emoji': '🚗',
     },
+    {
+        'id': 'miznet',
+        'label': '미즈넷',
+        'pages': [
+            'https://www.miznet.net/bbs/board.php?bo_table=free',
+            'https://www.miznet.net/bbs/board.php?bo_table=free&page=2',
+        ],
+        'title_sel': 'td.td_subject .bo_tit',
+        'view_sel': None,
+        'date_sel': 'td.td_datetime',
+        'base_url': 'https://www.miznet.net',
+        'color': '#a29bfe',
+        'emoji': '👩',
+    },
 ]
 
 INSTAGRAM_HASHTAGS = [
