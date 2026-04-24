@@ -148,6 +148,19 @@ COMMUNITY_SOURCES = [
         'color': '#a29bfe',
         'emoji': '👩',
     },
+    {
+        'id': 'humoruniv',
+        'label': '웃긴대학',
+        'pages': [
+            'https://web.humoruniv.com/board/humor/board_best.html',
+        ],
+        'title_sel': 'td a[href*="read.html"]',
+        'view_sel': None,
+        'date_sel': None,
+        'base_url': 'https://web.humoruniv.com/board/humor',
+        'color': '#f9ca24',
+        'emoji': '🤣',
+    },
 ]
 
 INSTAGRAM_HASHTAGS = [
@@ -172,6 +185,30 @@ FASHION_WORDS = {
 TRAVEL_WORDS = {
     '여행', '관광', '호텔', '항공', '비행기', '유럽', '일본', '동남아', '제주', '부산',
     '강릉', '속초', '해외여행', '국내여행', '캠핑', '드라이브'
+}
+GAME_WORDS = {
+    '게임', '롤', '리그오브레전드', '배그', '배틀그라운드', '오버워치', '마인크래프트',
+    '스팀', '닌텐도', '플스', 'PS5', '엑박', '피파', '디아블로', '로스트아크',
+    '메이플', '던파', '와우', '포트나이트', '엘든링', '사이버펑크', '발로란트',
+    '애플', '삼성', '아이폰', '갤럭시', '인텔', '엔비디아', 'CPU', 'GPU',
+    '노트북', '태블릿', '스마트폰', '컴퓨터', '프로그래밍', 'AI', '인공지능',
+    '유튜브', '넷플릭스', '앱', '소프트웨어', '하드웨어', '리뷰',
+}
+CELEB_WORDS = {
+    '아이돌', '연예인', '가수', '배우', '드라마', '영화', '콘서트', '팬미팅',
+    '앨범', '컴백', 'BTS', '블랙핑크', '뉴진스', '아이브', '에스파', '방탄',
+    '케이팝', '엔터', '연예계', '스타', '팬', '직캠', '뮤직비디오', '티저',
+    '오디션', '데뷔', '소속사', '음원', '멜론', '스트리밍', '시상식',
+}
+HUMOR_WORDS = {
+    '개그', '코미디', '유머', '웃음', '병맛', '드립', '개드립', '짤', '밈',
+    '움짤', '레전드짤', '웃대', '에펨코리아', '기묘한', '황당', '충격',
+}
+CAR_WORDS = {
+    '자동차', '차량', '주행', '연비', '엔진', '수입차', '국산차',
+    '현대차', '기아차', '제네시스', '테슬라', '아우디', '벤츠', 'BMW',
+    '볼보', '포르쉐', '전기차', '하이브리드', '중고차', '신차', '튜닝',
+    '보배드림', '자동차사고', '교통사고',
 }
 
 STOP_WORDS = {
@@ -395,6 +432,10 @@ class TrendCrawler:
                     'is_beauty':  self._matches(text, BEAUTY_WORDS),
                     'is_fashion': self._matches(text, FASHION_WORDS),
                     'is_travel':  self._matches(text, TRAVEL_WORDS),
+                    'is_game':    self._matches(text, GAME_WORDS),
+                    'is_celeb':   self._matches(text, CELEB_WORDS),
+                    'is_humor':   self._matches(text, HUMOR_WORDS),
+                    'is_car':     self._matches(text, CAR_WORDS),
                     'views': views,
                     'position_score': position_score,
                     'rank_score': 0,   # refresh()에서 정규화 후 채움
@@ -508,6 +549,10 @@ class TrendCrawler:
                     'is_beauty': self._matches(text, BEAUTY_WORDS),
                     'is_fashion':self._matches(text, FASHION_WORDS),
                     'is_travel': self._matches(text, TRAVEL_WORDS),
+                    'is_game':   self._matches(text, GAME_WORDS),
+                    'is_celeb':  self._matches(text, CELEB_WORDS),
+                    'is_humor':  self._matches(text, HUMOR_WORDS),
+                    'is_car':    self._matches(text, CAR_WORDS),
                     'views': node.get('edge_liked_by', {}).get('count', 0),
                     'likes': node.get('edge_liked_by', {}).get('count', 0),
                     'comments': node.get('edge_media_to_comment', {}).get('count', 0),
@@ -542,6 +587,10 @@ class TrendCrawler:
             'is_beauty': self._matches(text, BEAUTY_WORDS),
             'is_fashion':self._matches(text, FASHION_WORDS),
             'is_travel': self._matches(text, TRAVEL_WORDS),
+            'is_game':   self._matches(text, GAME_WORDS),
+            'is_celeb':  self._matches(text, CELEB_WORDS),
+            'is_humor':  self._matches(text, HUMOR_WORDS),
+            'is_car':    self._matches(text, CAR_WORDS),
             'views': 0,
             'likes': random.randint(300, 9000),
             'comments': random.randint(10, 400),
@@ -634,9 +683,12 @@ class TrendCrawler:
 
         categories = {
             '음식/카페':  sum(1 for p in posts if p.get('is_food')),
-            '뷰티/운동':  sum(1 for p in posts if p.get('is_beauty')),
-            '패션':       sum(1 for p in posts if p.get('is_fashion')),
+            '뷰티/패션':  sum(1 for p in posts if p.get('is_beauty') or p.get('is_fashion')),
             '여행':       sum(1 for p in posts if p.get('is_travel')),
+            '게임/IT':    sum(1 for p in posts if p.get('is_game')),
+            '연예/아이돌': sum(1 for p in posts if p.get('is_celeb')),
+            '유머':       sum(1 for p in posts if p.get('is_humor')),
+            '자동차':     sum(1 for p in posts if p.get('is_car')),
         }
 
         return {'rising': rising, 'top': top, 'keywords': keywords, 'categories': categories}
@@ -647,8 +699,11 @@ class TrendCrawler:
         return any(w in text for w in word_set)
 
     def _main_category(self, text: str) -> str:
-        for cat, words in [('음식', FOOD_WORDS), ('뷰티', BEAUTY_WORDS),
-                           ('패션', FASHION_WORDS), ('여행', TRAVEL_WORDS)]:
+        for cat, words in [
+            ('음식', FOOD_WORDS), ('뷰티', BEAUTY_WORDS), ('패션', FASHION_WORDS),
+            ('여행', TRAVEL_WORDS), ('게임/IT', GAME_WORDS), ('연예', CELEB_WORDS),
+            ('유머', HUMOR_WORDS), ('자동차', CAR_WORDS),
+        ]:
             if self._matches(text, words):
                 return cat
         return '일반'

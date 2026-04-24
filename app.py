@@ -53,6 +53,14 @@ def api_trends():
         data['posts'] = [p for p in data['posts'] if p.get('is_food')]
     elif tab == 'beauty':
         data['posts'] = [p for p in data['posts'] if p.get('is_beauty') or p.get('is_fashion')]
+    elif tab == 'game':
+        data['posts'] = [p for p in data['posts'] if p.get('is_game')]
+    elif tab == 'celeb':
+        data['posts'] = [p for p in data['posts'] if p.get('is_celeb')]
+    elif tab == 'humor':
+        data['posts'] = [p for p in data['posts'] if p.get('is_humor')]
+    elif tab == 'car':
+        data['posts'] = [p for p in data['posts'] if p.get('is_car')]
     data['total'] = len(data['posts'])
     return jsonify(data)
 

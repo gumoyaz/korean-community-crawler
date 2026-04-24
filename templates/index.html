@@ -269,6 +269,7 @@
   .src-chips-wrap {
     position: relative;
     margin-bottom: 20px;
+    display: flex; align-items: center; gap: 4px;
   }
   .src-chips {
     display: flex; gap: 6px;
@@ -276,6 +277,7 @@
     scroll-behavior: smooth;
     padding: 4px 2px 8px;
     scrollbar-width: none;
+    flex: 1;
   }
   .src-chips::-webkit-scrollbar { display: none; }
   .src-chip {
@@ -303,15 +305,32 @@
     background: rgba(255,255,255,0.15);
     padding: 1px 5px; border-radius: 8px;
   }
-  /* scroll fade edges */
-  .src-chips-wrap::before,
-  .src-chips-wrap::after {
+  .chip-arrow {
+    flex-shrink: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    border-radius: 50%;
+    width: 28px; height: 28px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 13px;
+    transition: background .15s, color .15s;
+    user-select: none;
+  }
+  .chip-arrow:hover { background: var(--surface); color: var(--text); }
+  .chip-arrow:disabled { opacity: .3; cursor: default; }
+  /* fade edges */
+  .src-chips-fade {
+    position: relative; flex: 1; overflow: hidden;
+  }
+  .src-chips-fade::before,
+  .src-chips-fade::after {
     content: '';
-    position: absolute; top: 0; bottom: 0; width: 28px;
+    position: absolute; top: 0; bottom: 0; width: 20px;
     pointer-events: none; z-index: 1;
   }
-  .src-chips-wrap::before { left: 0; background: linear-gradient(to right, var(--bg), transparent); }
-  .src-chips-wrap::after  { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
+  .src-chips-fade::before { left: 0; background: linear-gradient(to right, var(--bg), transparent); }
+  .src-chips-fade::after  { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
 
   /* keep old .tab-btn/.tabs for nothing — remove */
   .tabs, .tab-btn { display: none; }
@@ -552,16 +571,30 @@
     <button class="cat-btn active" data-tab="all" data-src="" onclick="switchCat('all','',this)">
       전체 <span class="tab-count" id="count-all">0</span>
     </button>
+    <button class="cat-btn" data-tab="game" data-src="" onclick="switchCat('game','',this)">
+      🎮 게임/IT <span class="tab-count" id="count-game">0</span>
+    </button>
+    <button class="cat-btn" data-tab="celeb" data-src="" onclick="switchCat('celeb','',this)">
+      🎤 연예/아이돌 <span class="tab-count" id="count-celeb">0</span>
+    </button>
+    <button class="cat-btn" data-tab="humor" data-src="" onclick="switchCat('humor','',this)">
+      😂 유머 <span class="tab-count" id="count-humor">0</span>
+    </button>
     <button class="cat-btn" data-tab="food" data-src="" onclick="switchCat('food','',this)">
       🍽 음식/카페 <span class="tab-count" id="count-food">0</span>
     </button>
     <button class="cat-btn" data-tab="beauty" data-src="" onclick="switchCat('beauty','',this)">
       💄 뷰티/패션 <span class="tab-count" id="count-beauty">0</span>
     </button>
+    <button class="cat-btn" data-tab="car" data-src="" onclick="switchCat('car','',this)">
+      🚗 자동차 <span class="tab-count" id="count-car">0</span>
+    </button>
   </div>
 
   <!-- 커뮤니티 칩 -->
   <div class="src-chips-wrap">
+    <button class="chip-arrow" id="chip-prev" onclick="scrollChips(-1)">&#8249;</button>
+    <div class="src-chips-fade">
     <div class="src-chips" id="src-chips">
       <button class="src-chip active" data-src="" onclick="switchSrc('',this)" style="background:var(--accent)">
         전체 <span class="chip-count" id="chip-count-all">0</span>
@@ -596,7 +629,12 @@
       <button class="src-chip" data-src="miznet" data-color="#a29bfe" onclick="switchSrc('miznet',this)">
         👩 미즈넷 <span class="chip-count" id="chip-count-miznet">0</span>
       </button>
+      <button class="src-chip" data-src="humoruniv" data-color="#f9ca24" onclick="switchSrc('humoruniv',this)">
+        🤣 웃긴대학 <span class="chip-count" id="chip-count-humoruniv">0</span>
+      </button>
     </div>
+    </div>
+    <button class="chip-arrow" id="chip-next" onclick="scrollChips(1)">&#8250;</button>
   </div>
 
   <div id="card-container"></div>
@@ -649,9 +687,14 @@ async function loadCounts() {
       instiz:     fetch('/api/trends?source=instiz').then(r=>r.json()),
       bobaedream: fetch('/api/trends?source=bobaedream').then(r=>r.json()),
       miznet:     fetch('/api/trends?source=miznet').then(r=>r.json()),
+      humoruniv:  fetch('/api/trends?source=humoruniv').then(r=>r.json()),
       instagram:  fetch('/api/trends?source=instagram').then(r=>r.json()),
       food:       fetch('/api/trends?tab=food').then(r=>r.json()),
       beauty:     fetch('/api/trends?tab=beauty').then(r=>r.json()),
+      game:       fetch('/api/trends?tab=game').then(r=>r.json()),
+      celeb:      fetch('/api/trends?tab=celeb').then(r=>r.json()),
+      humor:      fetch('/api/trends?tab=humor').then(r=>r.json()),
+      car:        fetch('/api/trends?tab=car').then(r=>r.json()),
     };
     const results = Object.fromEntries(
       await Promise.all(Object.entries(fetches).map(async ([k,p]) => [k, await p]))
@@ -905,6 +948,11 @@ function switchSrc(src, btn) {
   btn.style.background = btn.dataset.color || '#7c6cff';
 
   loadData(tab, src);
+}
+
+function scrollChips(dir) {
+  const el = document.getElementById('src-chips');
+  el.scrollBy({ left: dir * 200, behavior: 'smooth' });
 }
 
 // ── 수동 새로고침 ─────────────────────────────────────────────────────────────
