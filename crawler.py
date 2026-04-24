@@ -13,7 +13,7 @@ import random
 import threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -46,6 +46,7 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': '.subject a',
         'view_sel': '.hits',
+        'date_sel': 'td.date',
         'base_url': 'https://www.todayhumor.co.kr',
         'color': '#2ecc71',
         'emoji': '😂',
@@ -59,6 +60,7 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': '.subject a',
         'view_sel': 'td.hit',
+        'date_sel': 'td.time',
         'base_url': 'https://bbs.ruliweb.com',
         'color': '#3498db',
         'emoji': '🎮',
@@ -72,6 +74,7 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': '.list_subject',
         'view_sel': '.hit',
+        'date_sel': '.list_time span',
         'base_url': 'https://www.clien.net',
         'color': '#9b59b6',
         'emoji': '💻',
@@ -85,6 +88,7 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': '.title a',
         'view_sel': None,
+        'date_sel': '.date',
         'base_url': 'https://theqoo.net',
         'color': '#e91e8c',
         'emoji': '💗',
@@ -97,6 +101,7 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': '.tit a',
         'view_sel': None,
+        'date_sel': '.date',
         'base_url': 'https://mlbpark.donga.com',
         'color': '#1565c0',
         'emoji': '⚾',
@@ -297,6 +302,12 @@ class TrendCrawler:
                 for el in soup.select(src['view_sel']):
                     view_counts.append(self._parse_count(el.get_text().strip()))
 
+            # 날짜 파싱
+            dates = []
+            if src.get('date_sel'):
+                for el in soup.select(src['date_sel']):
+                    dates.append(self._parse_date(el.get_text().strip()))
+
             items = []
             for pos, a in enumerate(anchors):
                 title = a.get_text().strip()
@@ -328,7 +339,7 @@ class TrendCrawler:
                     'url': full_url,
                     'image': '',
                     'author': '',
-                    'date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M'),
+                    'date': dates[pos] if pos < len(dates) else '',
                     'keyword': self._main_category(text),
                     'is_food':    self._matches(text, FOOD_WORDS),
                     'is_beauty':  self._matches(text, BEAUTY_WORDS),
@@ -346,6 +357,40 @@ class TrendCrawler:
         except Exception as e:
             print(f'[{src["label"]}] {url} 오류: {e}')
             return []
+
+    def _parse_date(self, text: str) -> str:
+        """다양한 날짜 포맷을 'YYYY-MM-DD HH:MM UTC' ISO 형식으로 변환."""
+        now = datetime.now(timezone.utc)
+        text = text.strip()
+        try:
+            # "N분 전"
+            m = re.match(r'(\d+)분\s*전', text)
+            if m:
+                return (now - timedelta(minutes=int(m.group(1)))).strftime('%Y-%m-%d %H:%M')
+            # "N시간 전"
+            m = re.match(r'(\d+)시간\s*전', text)
+            if m:
+                return (now - timedelta(hours=int(m.group(1)))).strftime('%Y-%m-%d %H:%M')
+            # "HH:MM" (오늘)
+            m = re.match(r'^(\d{1,2}):(\d{2})$', text)
+            if m:
+                return now.strftime('%Y-%m-%d') + f" {m.group(1).zfill(2)}:{m.group(2)}"
+            # "MM.DD" 또는 "MM/DD"
+            m = re.match(r'^(\d{1,2})[./](\d{1,2})$', text)
+            if m:
+                return f"{now.year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}"
+            # "YYYY.MM.DD" 또는 "YYYY-MM-DD"
+            m = re.match(r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})', text)
+            if m:
+                base = f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
+                # 뒤에 시간 있으면 추가
+                t = re.search(r'(\d{1,2}):(\d{2})', text)
+                if t:
+                    return base + f" {t.group(1).zfill(2)}:{t.group(2)}"
+                return base
+        except Exception:
+            pass
+        return ''
 
     def _parse_count(self, text: str) -> int:
         text = text.replace(',', '').strip()
