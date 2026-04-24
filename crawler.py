@@ -86,7 +86,7 @@ COMMUNITY_SOURCES = [
             'https://theqoo.net/hot',
             'https://theqoo.net/hot?page=2',
         ],
-        'title_sel': '.title a',
+        'title_sel': '.title a:not(.replyNum)',
         'view_sel': None,
         'date_sel': '.time',
         'base_url': 'https://theqoo.net',
@@ -115,7 +115,8 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': '.listsubject a',
         'view_sel': None,
-        'date_sel': '.listno',
+        'date_sel': None,
+        'date_sibling': 'listno',
         'base_url': 'https://www.instiz.net',
         'color': '#ff7675',
         'emoji': '💬',
@@ -154,7 +155,7 @@ COMMUNITY_SOURCES = [
         'pages': [
             'https://web.humoruniv.com/board/humor/board_best.html',
         ],
-        'title_sel': 'td a[href*="read.html"]',
+        'title_sel': 'td.li_sbj a[href*="read.html"]',
         'view_sel': None,
         'date_sel': 'td.li_date',
         'base_url': 'https://web.humoruniv.com/board/humor',
@@ -391,13 +392,25 @@ class TrendCrawler:
 
             # 날짜 파싱
             dates = []
-            if src.get('date_sel'):
+            date_per_anchor = {}  # per-row 방식 (인스티즈 등)
+            if src.get('date_sibling'):
+                # 각 title anchor의 부모 td에서 next sibling td로 날짜 추출
+                sib_cls = src['date_sibling']
+                for a in anchors:
+                    parent_td = a.find_parent('td')
+                    if parent_td:
+                        sib = parent_td.find_next_sibling('td', class_=sib_cls)
+                        date_per_anchor[id(a)] = self._parse_date(sib.get_text().strip()) if sib else ''
+                    else:
+                        date_per_anchor[id(a)] = ''
+            elif src.get('date_sel'):
                 raw_dates = [el.get_text().strip() for el in soup.select(src['date_sel'])]
                 if not raw_dates:
                     print(f'[{src["label"]}] date_sel="{src["date_sel"]}" 결과 없음')
                 dates = [self._parse_date(d) for d in raw_dates]
 
             items = []
+            item_pos = 0  # 실제로 추가된 아이템 수 (빈 제목 제외)
             for pos, a in enumerate(anchors):
                 title = re.sub(r'\d+$', '', a.get_text().strip()).strip()
                 if len(title) < 4:
@@ -412,12 +425,18 @@ class TrendCrawler:
                 else:
                     full_url = src['base_url'] + '/' + href
 
-                views = view_counts[pos] if pos < len(view_counts) else 0
+                views = view_counts[item_pos] if item_pos < len(view_counts) else 0
 
                 # 위치 점수 (1위 = 100, 아래로 갈수록 감소)
-                position_score = max(0, 100 - pos * 3)
+                position_score = max(0, 100 - item_pos * 3)
+
+                if date_per_anchor:
+                    date_val = date_per_anchor.get(id(a), '')
+                else:
+                    date_val = dates[item_pos] if item_pos < len(dates) else ''
 
                 text = title
+                item_pos += 1
                 items.append({
                     'source': src['id'],
                     'source_label': src['label'],
@@ -428,7 +447,7 @@ class TrendCrawler:
                     'url': full_url,
                     'image': '',
                     'author': '',
-                    'date': dates[pos] if pos < len(dates) else '',
+                    'date': date_val,
                     'keyword': self._main_category(text),
                     'is_food':    self._matches(text, FOOD_WORDS),
                     'is_beauty':  self._matches(text, BEAUTY_WORDS),
