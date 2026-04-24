@@ -88,7 +88,7 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': '.title a',
         'view_sel': None,
-        'date_sel': '.date',
+        'date_sel': '.time',
         'base_url': 'https://theqoo.net',
         'color': '#e91e8c',
         'emoji': '💗',
@@ -288,10 +288,18 @@ class TrendCrawler:
     # ── community scraper ─────────────────────────────────────────────────────
 
     def _scrape_community(self, src: dict, url: str) -> list:
-        try:
+        for attempt in range(2):
+          try:
             headers = {**HEADERS, 'Referer': src['base_url'] + '/'}
-            r = requests.get(url, headers=headers, timeout=10)
+            r = requests.get(url, headers=headers, timeout=12)
             r.raise_for_status()
+            break
+          except Exception as e:
+            if attempt == 1:
+                print(f'[{src["label"]}] {url} 오류: {e}')
+                return []
+            time.sleep(2)
+        try:
             soup = BeautifulSoup(r.content, 'html.parser')
 
             anchors = soup.select(src['title_sel'])
@@ -379,11 +387,18 @@ class TrendCrawler:
             m = re.match(r'^(\d{1,2})[./](\d{1,2})$', text)
             if m:
                 return f"{now.year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}"
+            # "YY/MM/DD HH:MM" (오늘의유머 포맷)
+            m = re.match(r'^(\d{2})/(\d{2})/(\d{2})\s+(\d{1,2}):(\d{2})$', text)
+            if m:
+                return f"20{m.group(1)}-{m.group(2)}-{m.group(3)} {m.group(4).zfill(2)}:{m.group(5)}"
+            # "YY/MM/DD"
+            m = re.match(r'^(\d{2})/(\d{2})/(\d{2})$', text)
+            if m:
+                return f"20{m.group(1)}-{m.group(2)}-{m.group(3)}"
             # "YYYY.MM.DD" 또는 "YYYY-MM-DD"
             m = re.match(r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})', text)
             if m:
                 base = f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
-                # 뒤에 시간 있으면 추가
                 t = re.search(r'(\d{1,2}):(\d{2})', text)
                 if t:
                     return base + f" {t.group(1).zfill(2)}:{t.group(2)}"
