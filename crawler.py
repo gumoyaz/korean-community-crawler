@@ -74,7 +74,7 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': '.list_subject',
         'view_sel': '.hit',
-        'date_sel': '.list_time span',
+        'date_sel': '.list_time span.timestamp',
         'base_url': 'https://www.clien.net',
         'color': '#9b59b6',
         'emoji': '💻',
@@ -101,10 +101,38 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': '.tit a',
         'view_sel': None,
-        'date_sel': '.date',
+        'date_sel': None,
         'base_url': 'https://mlbpark.donga.com',
         'color': '#1565c0',
         'emoji': '⚾',
+    },
+    {
+        'id': 'instiz',
+        'label': '인스티즈',
+        'pages': [
+            'https://www.instiz.net/pt',
+            'https://www.instiz.net/pt?page=2',
+        ],
+        'title_sel': '.listsubject a',
+        'view_sel': None,
+        'date_sel': '.date',
+        'base_url': 'https://www.instiz.net',
+        'color': '#ff7675',
+        'emoji': '💬',
+    },
+    {
+        'id': 'bobaedream',
+        'label': '보배드림',
+        'pages': [
+            'https://www.bobaedream.co.kr/list?code=freeb',
+            'https://www.bobaedream.co.kr/list?code=freeb&page=2',
+        ],
+        'title_sel': 'a.bsubject',
+        'view_sel': None,
+        'date_sel': 'td.date',
+        'base_url': 'https://www.bobaedream.co.kr',
+        'color': '#fdcb6e',
+        'emoji': '🚗',
     },
 ]
 
@@ -318,7 +346,7 @@ class TrendCrawler:
 
             items = []
             for pos, a in enumerate(anchors):
-                title = a.get_text().strip()
+                title = re.sub(r'\d+$', '', a.get_text().strip()).strip()
                 if len(title) < 4:
                     continue
                 href = a.get('href', '')

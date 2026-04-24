@@ -520,6 +520,12 @@
     <button class="tab-btn" data-tab="" data-src="mlbpark" onclick="switchTab('','mlbpark',this)" style="--tab-color:#1565c0">
       ⚾ MLB파크 <span class="tab-count" id="count-mlbpark">0</span>
     </button>
+    <button class="tab-btn" data-tab="" data-src="instiz" onclick="switchTab('','instiz',this)" style="--tab-color:#ff7675">
+      💬 인스티즈 <span class="tab-count" id="count-instiz">0</span>
+    </button>
+    <button class="tab-btn" data-tab="" data-src="bobaedream" onclick="switchTab('','bobaedream',this)" style="--tab-color:#fdcb6e">
+      🚗 보배드림 <span class="tab-count" id="count-bobaedream">0</span>
+    </button>
     <button class="tab-btn" data-tab="food" data-src="" onclick="switchTab('food','',this)">
       🍽 음식/카페 <span class="tab-count" id="count-food">0</span>
     </button>
@@ -575,6 +581,8 @@ async function loadCounts() {
       clien:      fetch('/api/trends?source=clien').then(r=>r.json()),
       theqoo:     fetch('/api/trends?source=theqoo').then(r=>r.json()),
       mlbpark:    fetch('/api/trends?source=mlbpark').then(r=>r.json()),
+      instiz:     fetch('/api/trends?source=instiz').then(r=>r.json()),
+      bobaedream: fetch('/api/trends?source=bobaedream').then(r=>r.json()),
       instagram:  fetch('/api/trends?tab=instagram').then(r=>r.json()),
       food:       fetch('/api/trends?tab=food').then(r=>r.json()),
       beauty:     fetch('/api/trends?tab=beauty').then(r=>r.json()),
