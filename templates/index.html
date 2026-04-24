@@ -632,6 +632,9 @@
       <button class="src-chip" data-src="humoruniv" data-color="#f9ca24" onclick="switchSrc('humoruniv',this)">
         🤣 웃긴대학 <span class="chip-count" id="chip-count-humoruniv">0</span>
       </button>
+      <button class="src-chip" data-src="arcalive" data-color="#00b4d8" onclick="switchSrc('arcalive',this)">
+        🌊 아카라이브 <span class="chip-count" id="chip-count-arcalive">0</span>
+      </button>
     </div>
     </div>
     <button class="chip-arrow" id="chip-next" onclick="scrollChips(1)">&#8250;</button>
@@ -688,6 +691,7 @@ async function loadCounts() {
       bobaedream: fetch('/api/trends?source=bobaedream').then(r=>r.json()),
       miznet:     fetch('/api/trends?source=miznet').then(r=>r.json()),
       humoruniv:  fetch('/api/trends?source=humoruniv').then(r=>r.json()),
+      arcalive:   fetch('/api/trends?source=arcalive').then(r=>r.json()),
       instagram:  fetch('/api/trends?source=instagram').then(r=>r.json()),
       food:       fetch('/api/trends?tab=food').then(r=>r.json()),
       beauty:     fetch('/api/trends?tab=beauty').then(r=>r.json()),

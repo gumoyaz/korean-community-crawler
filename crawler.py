@@ -163,6 +163,22 @@ COMMUNITY_SOURCES = [
         'color': '#f9ca24',
         'emoji': '🤣',
     },
+    {
+        'id': 'arcalive',
+        'label': '아카라이브',
+        'pages': [
+            'https://arca.live/b/breaking',
+            'https://arca.live/b/breaking?p=2',
+        ],
+        'title_sel': 'a.vrow.column:not(.notice)',
+        'title_text_sel': '.col-title .title',
+        'view_sel': '.col-view',
+        'date_sel': 'time[datetime]',
+        'date_attr': 'datetime',
+        'base_url': 'https://arca.live',
+        'color': '#00b4d8',
+        'emoji': '🌊',
+    },
 ]
 
 INSTAGRAM_HASHTAGS = [
@@ -410,10 +426,17 @@ class TrendCrawler:
                     print(f'[{src["label"]}] date_sel="{src["date_sel"]}" 결과 없음')
                 dates = [self._parse_date(d) for d in raw_dates]
 
+            # 아카라이브처럼 anchor 자체에서 title/views/date를 모두 추출하는 경우
+            anchor_has_all = bool(src.get('title_text_sel'))
+
             items = []
             item_pos = 0  # 실제로 추가된 아이템 수 (빈 제목 제외)
             for pos, a in enumerate(anchors):
-                title = re.sub(r'\d+$', '', a.get_text().strip()).strip()
+                if anchor_has_all:
+                    title_el = a.select_one(src['title_text_sel'])
+                    title = title_el.get_text().strip() if title_el else ''
+                else:
+                    title = re.sub(r'\d+$', '', a.get_text().strip()).strip()
                 if len(title) < 4:
                     continue
                 href = a.get('href', '')
@@ -426,15 +449,28 @@ class TrendCrawler:
                 else:
                     full_url = src['base_url'] + '/' + href
 
-                views = view_counts[item_pos] if item_pos < len(view_counts) else 0
+                if anchor_has_all:
+                    # views from within anchor
+                    view_el = a.select_one(src['view_sel']) if src.get('view_sel') else None
+                    views = self._parse_count(view_el.get_text().strip()) if view_el else 0
+                    # date from within anchor
+                    date_val = ''
+                    if src.get('date_sel'):
+                        date_el = a.select_one(src['date_sel'])
+                        if date_el:
+                            raw = date_el.get(src['date_attr']) if src.get('date_attr') else date_el.get_text().strip()
+                            date_val = self._parse_date(raw) if raw else ''
+                else:
+                    views = view_counts[item_pos] if item_pos < len(view_counts) else 0
 
                 # 위치 점수 (1위 = 100, 아래로 갈수록 감소)
                 position_score = max(0, 100 - item_pos * 3)
 
-                if date_per_anchor:
-                    date_val = date_per_anchor.get(id(a), '')
-                else:
-                    date_val = dates[item_pos] if item_pos < len(dates) else ''
+                if not anchor_has_all:
+                    if date_per_anchor:
+                        date_val = date_per_anchor.get(id(a), '')
+                    else:
+                        date_val = dates[item_pos] if item_pos < len(dates) else ''
 
                 text = title
                 item_pos += 1
