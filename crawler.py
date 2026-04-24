@@ -153,7 +153,8 @@ COMMUNITY_SOURCES = [
         'id': 'humoruniv',
         'label': '웃긴대학',
         'pages': [
-            'https://web.humoruniv.com/board/humor/board_best.html',
+            'https://web.humoruniv.com/board/humor/list.html?table=pds',
+            'https://web.humoruniv.com/board/humor/list.html?table=pds&page=2',
         ],
         'title_sel': 'td.li_sbj a[href*="read.html"]',
         'view_sel': None,
@@ -676,11 +677,13 @@ class TrendCrawler:
 
         for p in posts:
             v = p['views']
-            view_score = (math.log1p(v) / math.log1p(max_views)) * 60 if v > 0 else 0
-            # 조회수 데이터가 없는 사이트는 position_score 100% 사용
+            # view_score: 0~100 정규화 (조회수 있는 사이트와 없는 사이트 동일 스케일)
+            view_score = (math.log1p(v) / math.log1p(max_views)) * 100 if v > 0 else 0
             if src_has_views.get(p['source']):
-                base_score = p['position_score'] * 0.4 + view_score * 0.6
+                # 조회수 있는 사이트: 위치(50%) + 조회수(50%), 최대 100점
+                base_score = p['position_score'] * 0.5 + view_score * 0.5
             else:
+                # 조회수 없는 사이트: 위치 점수만, 최대 100점
                 base_score = p['position_score']
             decay = self._age_decay(p.get('date', ''))
             p['rank_score'] = round(base_score * decay, 1)
