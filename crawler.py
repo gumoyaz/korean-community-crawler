@@ -602,15 +602,37 @@ class TrendCrawler:
 
     # ── trend scoring ─────────────────────────────────────────────────────────
 
+    MAX_AGE_DAYS = 90   # 3개월 초과 글 제외
+    DECAY_HALF   = 30   # 30일마다 점수 절반 (e^(-age/30))
+
+    def _age_decay(self, date_str: str) -> float:
+        """날짜 문자열로부터 시간 감쇠 계수(0.0~1.0) 반환. 날짜 없으면 1.0."""
+        import math
+        if not date_str:
+            return 1.0
+        try:
+            dt = datetime.strptime(date_str[:16], '%Y-%m-%d %H:%M').replace(tzinfo=timezone.utc)
+            age_days = (datetime.now(timezone.utc) - dt).total_seconds() / 86400
+            if age_days > self.MAX_AGE_DAYS:
+                return 0.0   # 필터 대상
+            return math.exp(-age_days / self.DECAY_HALF)
+        except Exception:
+            return 1.0
+
     def _assign_ranks(self, posts: list) -> list:
         import math
+        # 3개월 초과 제거
+        posts = [p for p in posts if self._age_decay(p.get('date', '')) > 0.0]
+
         max_views = max((p['views'] for p in posts if p['views'] > 0), default=1)
         for p in posts:
             v = p['views']
             view_score = (math.log1p(v) / math.log1p(max_views)) * 60 if v > 0 else 0
-            p['rank_score'] = round(p['position_score'] * 0.4 + view_score * 0.6, 1)
+            base_score = p['position_score'] * 0.4 + view_score * 0.6
+            decay = self._age_decay(p.get('date', ''))
+            p['rank_score'] = round(base_score * decay, 1)
+            p['age_decay'] = round(decay, 2)  # 디버그용
 
-        # 전체 통합 랭킹 (rank_score 내림차순)
         sorted_posts = sorted(posts, key=lambda x: x['rank_score'], reverse=True)
         for i, p in enumerate(sorted_posts):
             p['rank'] = i + 1
