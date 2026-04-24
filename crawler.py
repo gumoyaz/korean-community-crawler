@@ -115,7 +115,7 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': '.listsubject a',
         'view_sel': None,
-        'date_sel': '.date',
+        'date_sel': '.listno',
         'base_url': 'https://www.instiz.net',
         'color': '#ff7675',
         'emoji': '💬',
@@ -156,7 +156,7 @@ COMMUNITY_SOURCES = [
         ],
         'title_sel': 'td a[href*="read.html"]',
         'view_sel': None,
-        'date_sel': None,
+        'date_sel': 'td.li_date',
         'base_url': 'https://web.humoruniv.com/board/humor',
         'color': '#f9ca24',
         'emoji': '🤣',
@@ -483,8 +483,8 @@ class TrendCrawler:
             m = re.match(r'^(\d{1,2})[.](\d{1,2})\s+(\d{1,2}):(\d{2})$', text)
             if m:
                 return f"{now.year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)} {m.group(3).zfill(2)}:{m.group(4)}"
-            # "MM.DD" 또는 "MM/DD"
-            m = re.match(r'^(\d{1,2})[./](\d{1,2})$', text)
+            # "MM.DD", "MM/DD", "MM-DD"
+            m = re.match(r'^(\d{1,2})[./-](\d{1,2})$', text)
             if m:
                 return f"{now.year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}"
             # "YY/MM/DD HH:MM" (오늘의유머)
