@@ -547,10 +547,13 @@ class TrendCrawler:
         )
 
         try:
-            import google.generativeai as genai
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-2.0-flash')
-            response = model.generate_content(prompt)
+            from google import genai
+            client = genai.Client(api_key=api_key)
+            response = client.models.generate_content(
+                model='gemini-1.5-flash',
+                contents=prompt,
+            )
+            print('[Gemini] 요약 생성 완료')
             return response.text.strip()
         except Exception as e:
             print(f'[Gemini] 요약 생성 오류: {e}')
