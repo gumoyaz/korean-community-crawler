@@ -816,17 +816,25 @@ class TrendCrawler:
     MAX_AGE_DAYS = 90   # 3개월 초과 글 제외
     DECAY_HALF   = 30   # 30일마다 점수 절반 (e^(-age/30))
 
+    def _age_days(self, date_str: str) -> float:
+        """날짜 문자열로부터 경과 일수 반환. 날짜 없으면 0."""
+        if not date_str:
+            return 0.0
+        try:
+            dt = datetime.strptime(date_str[:10], '%Y-%m-%d').replace(tzinfo=timezone.utc)
+            return (datetime.now(timezone.utc) - dt).total_seconds() / 86400
+        except Exception:
+            return 0.0
+
     def _age_decay(self, date_str: str) -> float:
-        """날짜 문자열로부터 시간 감쇠 계수(0.0~1.0) 반환. 날짜 없으면 1.0."""
-        import math
+        """3개월 초과 필터용 (0.0 = 제외). _assign_ranks의 decay는 별도 계산."""
         if not date_str:
             return 1.0
         try:
-            dt = datetime.strptime(date_str[:16], '%Y-%m-%d %H:%M').replace(tzinfo=timezone.utc)
-            age_days = (datetime.now(timezone.utc) - dt).total_seconds() / 86400
+            age_days = self._age_days(date_str)
             if age_days > self.MAX_AGE_DAYS:
-                return 0.0   # 필터 대상
-            return math.exp(-age_days / self.DECAY_HALF)
+                return 0.0
+            return 1.0   # 필터 통과 여부만 판단, 실제 decay는 _assign_ranks에서
         except Exception:
             return 1.0
 
@@ -835,47 +843,70 @@ class TrendCrawler:
         # 3개월 초과 제거
         posts = [p for p in posts if self._age_decay(p.get('date', '')) > 0.0]
 
-        # 소스별 최대 조회수 + 조회수 유무 파악
-        src_max_views = {}
+        # ── Step 1: 소스별 engagement 최대값 파악 ────────────────────────────
+        src_max = {}   # {src: {'views':1, 'likes':1, 'comments':1}}
         src_has_views = {}
         for p in posts:
             src = p['source']
-            if src not in src_has_views:
+            if src not in src_max:
+                src_max[src] = {'views': 1, 'likes': 1, 'comments': 1}
                 src_has_views[src] = False
-                src_max_views[src] = 1
             if p['views'] > 0:
                 src_has_views[src] = True
-                src_max_views[src] = max(src_max_views[src], p['views'])
+                src_max[src]['views']    = max(src_max[src]['views'],    p['views'])
+            if p.get('likes', 0) > 0:
+                src_max[src]['likes']    = max(src_max[src]['likes'],    p['likes'])
+            if p.get('comments', 0) > 0:
+                src_max[src]['comments'] = max(src_max[src]['comments'], p['comments'])
 
+        # ── Step 2: 종합 engagement 점수 계산 ────────────────────────────────
+        # 조회수 60% + 추천수 25% + 댓글수 15% (소스별 로그 정규화)
+        # → "꼭 봐야 할 글"을 engagement 합산으로 판단
+        # 반감기 14일(기존 30일→단축)로 최신 글에 유리하게
         for p in posts:
-            v = p['views']
             src = p['source']
-            # view_score: 소스별 최대 조회수 기준으로 정규화 (0~100)
-            # → 조회수 규모가 다른 커뮤니티들이 공평하게 경쟁
-            src_max = src_max_views.get(src, 1)
-            view_score = (math.log1p(v) / math.log1p(src_max)) * 100 if v > 0 else 0
+            mx  = src_max[src]
+
+            def norm(val, mx_val):
+                return (math.log1p(val) / math.log1p(mx_val)) * 100 if val > 0 else 0
+
+            view_score    = norm(p['views'],              mx['views'])
+            like_score    = norm(p.get('likes', 0),      mx['likes'])
+            comment_score = norm(p.get('comments', 0),   mx['comments'])
+
             if src_has_views.get(src):
-                # 조회수 있는 사이트: 위치(50%) + 조회수(50%), 최대 100점
-                base_score = p['position_score'] * 0.5 + view_score * 0.5
+                engagement  = view_score * 0.60 + like_score * 0.25 + comment_score * 0.15
+                base_score  = p['position_score'] * 0.35 + engagement * 0.65
             else:
-                # 조회수 없는 사이트: 위치 점수만, 최대 100점
-                base_score = p['position_score']
-            decay = self._age_decay(p.get('date', ''))
+                base_score  = p['position_score']
+
+            # 반감기 21일 감쇠 — 새 글에 유리하되 이슈글이 급락하지 않게
+            # 오늘=100%, 3일=87%, 1주=72%, 2주=51%, 1달=26%
+            age_days = self._age_days(p.get('date', ''))
+            decay = math.exp(-age_days / 21) if age_days >= 0 else 1.0
             p['rank_score'] = round(base_score * decay, 1)
-            p['age_decay'] = round(decay, 2)
+            p['age_decay']  = round(decay, 2)
 
         sorted_posts = sorted(posts, key=lambda x: x['rank_score'], reverse=True)
 
-        # 다양성 보장: 같은 소스에서 이미 선택된 글이 많을수록 점감 패널티
-        # DAMPEN^n 적용 → 1번째 글 100%, 2번째 80%, 3번째 64%, ...
-        # → FM코리아/클리앙 등이 상위를 독점하지 않고 커뮤니티별로 골고루 노출
+        # ── Step 3: 채널 대표글 가산점 (+10%) ────────────────────────────────
+        # 각 채널에서 가장 높은 점수를 받은 1개 글에 보너스
+        # → 조회수 없는 채널도 대표글은 상위에 노출될 기회 확보
+        seen_src: set = set()
+        for p in sorted_posts:
+            if p['source'] not in seen_src:
+                p['rank_score'] = round(p['rank_score'] * 1.10, 1)
+                seen_src.add(p['source'])
+        sorted_posts = sorted(sorted_posts, key=lambda x: x['rank_score'], reverse=True)
+
+        # ── Step 4: 다양성 점감 패널티 (DAMPEN=0.80) ─────────────────────────
+        # 같은 소스 2번째 글 80%, 3번째 64% ... → 특정 커뮤니티 독점 방지
         DAMPEN = 0.80
         src_counts: dict = {}
         for p in sorted_posts:
-            src = p['source']
-            n = src_counts.get(src, 0)
+            n = src_counts.get(p['source'], 0)
             p['diversity_score'] = p['rank_score'] * (DAMPEN ** n)
-            src_counts[src] = n + 1
+            src_counts[p['source']] = n + 1
 
         final = sorted(sorted_posts, key=lambda x: x['diversity_score'], reverse=True)
         for i, p in enumerate(final):
