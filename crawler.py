@@ -536,14 +536,20 @@ class TrendCrawler:
         lines = []
         for p in top_posts:
             label = p.get('source_label') or src_label_map.get(p['source'], p['source'])
-            lines.append(f"- [{label}] {p['title']}")
+            views = p.get('views', 0)
+            views_str = f' (조회수 {views:,})' if views else ''
+            lines.append(f"- [{label}] {p['title']}{views_str}")
 
         prompt = (
             "다음은 오늘 한국 주요 인터넷 커뮤니티에서 가장 화제가 된 글들입니다:\n\n"
             + "\n".join(lines)
-            + "\n\n위 글들을 바탕으로 오늘 온라인에서 어떤 이슈들이 화제인지 "
-            "자연스럽고 간결하게 3~5문장으로 요약해주세요. "
-            "각 커뮤니티를 일일이 나열하지 말고, 주제별로 묶어서 흐름이 느껴지게 써주세요."
+            + "\n\n위 글들을 바탕으로 오늘 온라인 커뮤니티의 분위기와 주요 이슈를 요약해주세요.\n"
+            "작성 규칙:\n"
+            "- 5~7문장으로 작성\n"
+            "- 단순 나열이 아닌, 각 이슈의 핵심 내용과 왜 화제인지를 구체적으로 설명\n"
+            "- 조회수가 높은 글일수록 더 비중 있게 다루기\n"
+            "- 주제별로 자연스럽게 묶어서 흐름이 느껴지게\n"
+            "- 커뮤니티 이름은 나열하지 말 것"
         )
 
         try:
