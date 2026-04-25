@@ -2,6 +2,8 @@ from flask import Flask, jsonify, render_template, request
 from crawler import TrendCrawler
 import threading
 import time
+from dotenv import load_dotenv
+load_dotenv()
 
 app = Flask(__name__)
 crawler = TrendCrawler()
