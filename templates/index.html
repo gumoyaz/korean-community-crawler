@@ -898,7 +898,13 @@ function renderWordCloud(top) {
   const risingWords = new Set((allData?.trends?.rising || []).map(r => r.word));
   const risingMap = Object.fromEntries((allData?.trends?.rising || []).map(r => [r.word, r.velocity]));
 
-  cloud.innerHTML = top.slice(0, 40).map((item, i) => {
+  // 현재 포스트에 실제로 있는 단어만 표시 (히스토리에만 있고 현재 없는 단어 제거)
+  const currentPosts = allData?.posts || [];
+  const validTop = top.filter(item =>
+    currentPosts.some(p => (p.title || '').includes(item.word) || (p.summary || '').includes(item.word))
+  );
+
+  cloud.innerHTML = validTop.slice(0, 40).map((item, i) => {
     const ratio = item.score / maxScore;
     const size = ratio > 0.7 ? 'size-3' : ratio > 0.4 ? 'size-2' : 'size-1';
     const isRising = risingWords.has(item.word);
