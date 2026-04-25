@@ -265,21 +265,16 @@
   }
   .cat-btn.active .tab-count { background: var(--accent); color: #fff; }
 
-  /* ── Community chip row ── */
+  /* ── Community chip grid ── */
   .src-chips-wrap {
-    position: relative;
     margin-bottom: 20px;
-    display: flex; align-items: center; gap: 4px;
   }
   .src-chips {
-    display: flex; gap: 6px;
-    overflow-x: auto;
-    scroll-behavior: smooth;
-    padding: 4px 2px 8px;
-    scrollbar-width: none;
-    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 0 8px;
   }
-  .src-chips::-webkit-scrollbar { display: none; }
   .src-chip {
     display: flex; align-items: center; gap: 5px;
     padding: 6px 13px;
@@ -290,7 +285,6 @@
     font-size: 13px; font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    flex-shrink: 0;
     transition: background .15s, color .15s, border-color .15s, transform .1s;
     user-select: none;
   }
@@ -305,32 +299,6 @@
     background: rgba(255,255,255,0.15);
     padding: 1px 5px; border-radius: 8px;
   }
-  .chip-arrow {
-    flex-shrink: 0;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
-    border-radius: 50%;
-    width: 28px; height: 28px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer; font-size: 13px;
-    transition: background .15s, color .15s;
-    user-select: none;
-  }
-  .chip-arrow:hover { background: var(--surface); color: var(--text); }
-  .chip-arrow:disabled { opacity: .3; cursor: default; }
-  /* fade edges */
-  .src-chips-fade {
-    position: relative; flex: 1; overflow: hidden;
-  }
-  .src-chips-fade::before,
-  .src-chips-fade::after {
-    content: '';
-    position: absolute; top: 0; bottom: 0; width: 20px;
-    pointer-events: none; z-index: 1;
-  }
-  .src-chips-fade::before { left: 0; background: linear-gradient(to right, var(--bg), transparent); }
-  .src-chips-fade::after  { right: 0; background: linear-gradient(to left, var(--bg), transparent); }
 
   /* keep old .tab-btn/.tabs for nothing — remove */
   .tabs, .tab-btn { display: none; }
@@ -593,8 +561,6 @@
 
   <!-- 커뮤니티 칩 -->
   <div class="src-chips-wrap">
-    <button class="chip-arrow" id="chip-prev" onclick="scrollChips(-1)">&#8249;</button>
-    <div class="src-chips-fade">
     <div class="src-chips" id="src-chips">
       <button class="src-chip active" data-src="" onclick="switchSrc('',this)" style="background:var(--accent)">
         전체 <span class="chip-count" id="chip-count-all">0</span>
@@ -651,8 +617,6 @@
         📰 딴지일보 <span class="chip-count" id="chip-count-ddanzi">0</span>
       </button>
     </div>
-    </div>
-    <button class="chip-arrow" id="chip-next" onclick="scrollChips(1)">&#8250;</button>
   </div>
 
   <div id="card-container"></div>
@@ -974,10 +938,7 @@ function switchSrc(src, btn) {
   loadData(tab, src);
 }
 
-function scrollChips(dir) {
-  const el = document.getElementById('src-chips');
-  el.scrollBy({ left: dir * 200, behavior: 'smooth' });
-}
+
 
 // ── 수동 새로고침 ─────────────────────────────────────────────────────────────
 
