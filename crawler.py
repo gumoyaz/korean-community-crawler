@@ -196,6 +196,21 @@ COMMUNITY_SOURCES = [
         'color': '#00b4d8',
         'emoji': '🌊',
     },
+    {
+        'id': 'ddanzi',
+        'label': '딴지일보',
+        'pages': [
+            'https://www.ddanzi.com/free',
+            'https://www.ddanzi.com/free?page=2',
+        ],
+        'title_sel': 'table tr td a[href*="/free/"]',
+        'view_sel': 'table tr td:last-child',
+        'date_sel': None,
+        'default_date': 'today',
+        'base_url': 'https://www.ddanzi.com',
+        'color': '#6c5ce7',
+        'emoji': '📰',
+    },
 ]
 
 INSTAGRAM_HASHTAGS = [
@@ -982,7 +997,7 @@ class TrendCrawler:
         # 같은 소스 2번째 글 65%, 3번째 42%, 5번째 18%, 7번째 8% (사실상 바닥)
         # → 특정 커뮤니티 독점 방지 + MAX_PER_SOURCE 하드 캡으로 뒤쪽 잡글 제거
         DAMPEN = 0.65
-        MAX_PER_SOURCE = 15
+        MAX_PER_SOURCE = 25
         src_counts: dict = {}
         for p in sorted_posts:
             n = src_counts.get(p['source'], 0)
