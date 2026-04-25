@@ -360,19 +360,24 @@ class TrendCrawler:
 
     def _fetch_todaybeststory(self) -> list:
         """todaybeststory.com API에서 오늘의 베스트 글 수집 (22개 커뮤니티 포함)."""
+        today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        api_url = 'https://todaybeststory.com/api/v2/communities/posts/range'
+        raw_posts = []
         try:
-            today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-            headers = _random_headers({'Referer': 'https://todaybeststory.com/communities'})
-            r = requests.get(
-                'https://todaybeststory.com/api/v2/communities/posts/range',
-                headers=headers,
-                params={'startDate': today, 'endDate': today, 'page': 1, 'limit': 100},
-                timeout=15,
-            )
-            r.raise_for_status()
-            data = r.json()
+            for page in range(1, 6):  # 최대 5페이지 = 500개
+                headers = _random_headers({'Referer': 'https://todaybeststory.com/communities'})
+                r = requests.get(api_url, headers=headers,
+                    params={'startDate': today, 'endDate': today, 'page': page, 'limit': 100},
+                    timeout=15)
+                r.raise_for_status()
+                data = r.json()
+                raw_posts.extend(data.get('items', []))
+                if not data.get('hasNext'):
+                    break
+                time.sleep(random.uniform(0.3, 0.8))
         except Exception as e:
-            print(f'[TodayBestStory] 오류: {e}')
+            print(f'[TodayBestStory] 오류 (page {page}): {e}')
+        if not raw_posts:
             return []
 
         COMMUNITY_ID_MAP = {
@@ -401,7 +406,7 @@ class TrendCrawler:
         }
 
         items = []
-        for post in data.get('items', []):
+        for post in raw_posts:
             cid = post.get('communityId', '')
             src_info = COMMUNITY_ID_MAP.get(cid)
             if not src_info:
@@ -450,7 +455,7 @@ class TrendCrawler:
                 'comments': post.get('commentCount', 0) or 0,
                 'is_sample': False,
             })
-        print(f'[TodayBestStory] {len(items)}개 수집')
+        print(f'[TodayBestStory] {len(raw_posts)}개 원본 → {len(items)}개 파싱 완료')
         return items
 
     def refresh(self):
