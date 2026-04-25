@@ -718,6 +718,7 @@ class TrendCrawler:
                     'comments': 0,
                     'is_sample': False,
                 })
+            print(f'[{src["label"]}] {url} → {len(items)}개')
             return items
         except Exception as e:
             print(f'[{src["label"]}] {url} 오류: {e}')
