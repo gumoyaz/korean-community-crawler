@@ -8,7 +8,7 @@ load_dotenv()
 app = Flask(__name__)
 crawler = TrendCrawler()
 
-REFRESH_INTERVAL = 300  # 5분
+REFRESH_INTERVAL = 600  # 10분
 
 
 def _background_loop():
