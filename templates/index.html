@@ -635,6 +635,21 @@
       <button class="src-chip" data-src="arcalive" data-color="#00b4d8" onclick="switchSrc('arcalive',this)">
         🌊 아카라이브 <span class="chip-count" id="chip-count-arcalive">0</span>
       </button>
+      <button class="src-chip" data-src="dcinside" data-color="#0066cc" onclick="switchSrc('dcinside',this)">
+        🎭 디시인사이드 <span class="chip-count" id="chip-count-dcinside">0</span>
+      </button>
+      <button class="src-chip" data-src="dogdrip" data-color="#00b894" onclick="switchSrc('dogdrip',this)">
+        🐶 도그드립 <span class="chip-count" id="chip-count-dogdrip">0</span>
+      </button>
+      <button class="src-chip" data-src="inven" data-color="#d35400" onclick="switchSrc('inven',this)">
+        ⚔️ 인벤 <span class="chip-count" id="chip-count-inven">0</span>
+      </button>
+      <button class="src-chip" data-src="ppomppu" data-color="#27ae60" onclick="switchSrc('ppomppu',this)">
+        💰 뽐뿌 <span class="chip-count" id="chip-count-ppomppu">0</span>
+      </button>
+      <button class="src-chip" data-src="ddanzi" data-color="#6c5ce7" onclick="switchSrc('ddanzi',this)">
+        📰 딴지일보 <span class="chip-count" id="chip-count-ddanzi">0</span>
+      </button>
     </div>
     </div>
     <button class="chip-arrow" id="chip-next" onclick="scrollChips(1)">&#8250;</button>
@@ -692,6 +707,11 @@ async function loadCounts() {
       natekorea:  fetch('/api/trends?source=natekorea').then(r=>r.json()),
       humoruniv:  fetch('/api/trends?source=humoruniv').then(r=>r.json()),
       arcalive:   fetch('/api/trends?source=arcalive').then(r=>r.json()),
+      dcinside:   fetch('/api/trends?source=dcinside').then(r=>r.json()),
+      dogdrip:    fetch('/api/trends?source=dogdrip').then(r=>r.json()),
+      inven:      fetch('/api/trends?source=inven').then(r=>r.json()),
+      ppomppu:    fetch('/api/trends?source=ppomppu').then(r=>r.json()),
+      ddanzi:     fetch('/api/trends?source=ddanzi').then(r=>r.json()),
       instagram:  fetch('/api/trends?source=instagram').then(r=>r.json()),
       food:       fetch('/api/trends?tab=food').then(r=>r.json()),
       beauty:     fetch('/api/trends?tab=beauty').then(r=>r.json()),

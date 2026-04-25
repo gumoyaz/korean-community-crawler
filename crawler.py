@@ -358,6 +358,101 @@ class TrendCrawler:
                 'sources': [s['label'] for s in COMMUNITY_SOURCES],
             }
 
+    def _fetch_todaybeststory(self) -> list:
+        """todaybeststory.com API에서 오늘의 베스트 글 수집 (22개 커뮤니티 포함)."""
+        try:
+            today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+            headers = _random_headers({'Referer': 'https://todaybeststory.com/communities'})
+            r = requests.get(
+                'https://todaybeststory.com/api/v2/communities/posts/range',
+                headers=headers,
+                params={'startDate': today, 'endDate': today, 'page': 1, 'limit': 100},
+                timeout=15,
+            )
+            r.raise_for_status()
+            data = r.json()
+        except Exception as e:
+            print(f'[TodayBestStory] 오류: {e}')
+            return []
+
+        COMMUNITY_ID_MAP = {
+            'FMK': ('fmkorea', 'FMKorea', '🔥', '#ff6b35'),
+            'DCI': ('dcinside', '디시인사이드', '🎭', '#0066cc'),
+            'RUL': ('ruliweb', '루리웹', '🎮', '#3498db'),
+            'CLI': ('clien', '클리앙', '💻', '#9b59b6'),
+            'QOO': ('theqoo', '더쿠', '💗', '#e91e8c'),
+            'MLB': ('mlbpark', 'MLB파크', '⚾', '#1565c0'),
+            'INS': ('instiz', '인스티즈', '💬', '#ff7675'),
+            'BOB': ('bobaedream', '보배드림', '🚗', '#fdcb6e'),
+            'HUM': ('humoruniv', '웃긴대학', '🤣', '#f9ca24'),
+            'ARC': ('arcalive', '아카라이브', '🌊', '#00b4d8'),
+            'NAT': ('natekorea', '네이트판', '💁', '#e17055'),
+            'DDA': ('ddanzi', '딴지일보', '📰', '#6c5ce7'),
+            'DOG': ('dogdrip', '도그드립', '🐶', '#00b894'),
+            'ETO': ('etoland', '이토랜드', '🎯', '#fd79a8'),
+            'GAS': ('gasengi', '가생이닷컴', '🌏', '#e84393'),
+            'ILB': ('ilbe', '일베', '⚡', '#636e72'),
+            'INV': ('inven', '인벤', '⚔️', '#d35400'),
+            'PPO': ('ppomppu', '뽐뿌', '💰', '#27ae60'),
+            'SLR': ('slrclub', 'SLR클럽', '📷', '#2980b9'),
+            'TOD': ('todayhumor', '오늘의유머', '😂', '#2ecc71'),
+            'YGO': ('ygosu', '와고수', '🎲', '#8e44ad'),
+            '82C': ('cook82', '82쿡', '👩‍🍳', '#e74c3c'),
+        }
+
+        items = []
+        for post in data.get('items', []):
+            cid = post.get('communityId', '')
+            src_info = COMMUNITY_ID_MAP.get(cid)
+            if not src_info:
+                continue
+            src_id, src_label, src_emoji, src_color = src_info
+
+            title = post.get('postTitle', '').strip()
+            if len(title) < 4:
+                continue
+
+            url = post.get('postUrl', '')
+            if not url:
+                continue
+
+            date_raw = post.get('postDatetime', '')
+            date_val = self._parse_date(date_raw[:10]) if date_raw else datetime.now(timezone.utc).strftime('%Y-%m-%d')
+
+            views = post.get('readCount', 0) or 0
+            text = title + ' ' + post.get('postDesc', '')
+
+            items.append({
+                'source': src_id,
+                'source_label': src_label,
+                'source_emoji': src_emoji,
+                'source_color': src_color,
+                'title': title,
+                'summary': post.get('postDesc', '').strip(),
+                'url': url,
+                'image': '',
+                'author': post.get('postWriterName', ''),
+                'date': date_val,
+                'keyword': self._main_category(text),
+                'is_food':    self._matches(text, FOOD_WORDS),
+                'is_beauty':  self._matches(text, BEAUTY_WORDS),
+                'is_fashion': self._matches(text, FASHION_WORDS),
+                'is_travel':  self._matches(text, TRAVEL_WORDS),
+                'is_game':    self._matches(text, GAME_WORDS),
+                'is_celeb':   self._matches(text, CELEB_WORDS),
+                'is_humor':   self._matches(text, HUMOR_WORDS),
+                'is_car':     self._matches(text, CAR_WORDS),
+                'views': views,
+                'position_score': max(0, 100 - len(items) * 2),
+                'rank_score': 0,
+                'rank': 0,
+                'likes': post.get('upvoteCount', 0) or 0,
+                'comments': post.get('commentCount', 0) or 0,
+                'is_sample': False,
+            })
+        print(f'[TodayBestStory] {len(items)}개 수집')
+        return items
+
     def refresh(self):
         with self._lock:
             self._status = 'crawling'
@@ -369,6 +464,8 @@ class TrendCrawler:
                 items = self._scrape_community(src, url)
                 posts.extend(items)
                 time.sleep(0.5)
+
+        posts.extend(self._fetch_todaybeststory())
 
         for tag in INSTAGRAM_HASHTAGS:
             posts.extend(self._fetch_instagram(tag))
