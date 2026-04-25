@@ -865,9 +865,22 @@ class TrendCrawler:
             p['age_decay'] = round(decay, 2)
 
         sorted_posts = sorted(posts, key=lambda x: x['rank_score'], reverse=True)
-        for i, p in enumerate(sorted_posts):
+
+        # 다양성 보장: 같은 소스에서 이미 선택된 글이 많을수록 점감 패널티
+        # DAMPEN^n 적용 → 1번째 글 100%, 2번째 80%, 3번째 64%, ...
+        # → FM코리아/클리앙 등이 상위를 독점하지 않고 커뮤니티별로 골고루 노출
+        DAMPEN = 0.80
+        src_counts: dict = {}
+        for p in sorted_posts:
+            src = p['source']
+            n = src_counts.get(src, 0)
+            p['diversity_score'] = p['rank_score'] * (DAMPEN ** n)
+            src_counts[src] = n + 1
+
+        final = sorted(sorted_posts, key=lambda x: x['diversity_score'], reverse=True)
+        for i, p in enumerate(final):
             p['rank'] = i + 1
-        return sorted_posts
+        return final
 
     # 동사/형용사 어미 패턴 (긴 것부터 순서대로)
     _SUFFIX_RE = re.compile(
