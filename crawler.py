@@ -549,7 +549,7 @@ class TrendCrawler:
         try:
             url = (
                 'https://generativelanguage.googleapis.com/v1beta/models/'
-                'gemini-1.5-flash:generateContent'
+                'gemini-1.5-flash-latest:generateContent'
             )
             payload = {'contents': [{'parts': [{'text': prompt}]}]}
             r = requests.post(url, json=payload,
