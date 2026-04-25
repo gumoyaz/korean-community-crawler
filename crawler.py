@@ -443,7 +443,7 @@ class TrendCrawler:
         print(f'[TodayBestStory] {len(raw_posts)}개 원본 → {len(items)}개 파싱 완료')
         return items
 
-    AI_SUMMARY_INTERVAL = 3600  # 1시간마다 AI 요약 갱신
+    AI_SUMMARY_INTERVAL = 21600  # 6시간마다 AI 요약 갱신
 
     def refresh(self):
         with self._lock:
