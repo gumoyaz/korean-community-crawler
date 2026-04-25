@@ -180,7 +180,22 @@ COMMUNITY_SOURCES = [
         'color': '#f9ca24',
         'emoji': '🤣',
     },
-    # 아카라이브: todaybeststory API 경유 (ARC 매핑) — 직접 스크래핑 제거
+    {
+        'id': 'arcalive',
+        'label': '아카라이브',
+        'pages': [
+            'https://arca.live/b/live?sort=recommend',
+            'https://arca.live/b/live?sort=recommend&p=2',
+        ],
+        'title_sel': 'a.vrow.column:not(.notice)',
+        'title_text_sel': '.col-title .title',
+        'view_sel': '.col-view',
+        'date_sel': 'time[datetime]',
+        'date_attr': 'datetime',
+        'base_url': 'https://arca.live',
+        'color': '#00b4d8',
+        'emoji': '🌊',
+    },
 ]
 
 INSTAGRAM_HASHTAGS = [
