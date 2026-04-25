@@ -396,6 +396,10 @@ class TrendCrawler:
             '82C': ('cook82', '82쿡', '👩‍🍳', '#e74c3c'),
         }
 
+        # 커뮤니티별 글 수 로그 (디버그)
+        cid_counts = Counter(post.get('communityId', '') for post in raw_posts)
+        print(f'[TodayBestStory] 커뮤니티별 글 수: {dict(cid_counts.most_common())}')
+
         items = []
         for post in raw_posts:
             cid = post.get('communityId', '')
