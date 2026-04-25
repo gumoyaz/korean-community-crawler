@@ -265,6 +265,46 @@
   }
   .cat-btn.active .tab-count { background: var(--accent); color: #fff; }
 
+  /* ── AI 요약 ── */
+  .ai-summary-box {
+    background: linear-gradient(135deg, #1a1040 0%, #0d1a30 100%);
+    border: 1px solid #3a2a6a;
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  .ai-summary-box::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, #7c6cff, #ff6c9d, #00b4d8);
+  }
+  .ai-summary-header {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 12px;
+  }
+  .ai-summary-header h3 {
+    font-size: 14px; font-weight: 700; color: var(--accent);
+    letter-spacing: 0.3px;
+  }
+  .ai-summary-header .ai-badge {
+    font-size: 10px; font-weight: 700;
+    background: linear-gradient(135deg, #7c6cff, #ff6c9d);
+    color: #fff; padding: 2px 7px; border-radius: 10px;
+    letter-spacing: 0.5px;
+  }
+  .ai-summary-updated {
+    margin-left: auto; font-size: 11px; color: var(--text-dim);
+  }
+  .ai-summary-text {
+    font-size: 14px; line-height: 1.8; color: var(--text);
+    white-space: pre-wrap;
+  }
+  .ai-summary-text.loading {
+    color: var(--text-dim); font-style: italic;
+  }
+
   /* ── Community chip grid ── */
   .src-chips-wrap {
     margin-bottom: 20px;
@@ -509,6 +549,16 @@
 <!-- Main -->
 <main>
 
+  <!-- AI 오늘의 요약 -->
+  <div class="ai-summary-box" id="ai-summary-box" style="display:none">
+    <div class="ai-summary-header">
+      <h3>✨ 오늘의 커뮤니티 요약</h3>
+      <span class="ai-badge">Gemini AI</span>
+      <span class="ai-summary-updated" id="ai-summary-updated"></span>
+    </div>
+    <div class="ai-summary-text loading" id="ai-summary-text">요약을 불러오는 중…</div>
+  </div>
+
   <!-- 트렌드 분석 -->
   <div class="section-title">트렌드 분석</div>
   <div class="trend-grid">
@@ -707,7 +757,30 @@ function renderAll(data) {
     renderWordCloud(data.trends.top || []);
     renderTicker(data.trends.rising || []);
   }
+  renderAiSummary(data);
   loadCounts();
+}
+
+function renderAiSummary(data) {
+  const box = document.getElementById('ai-summary-box');
+  const textEl = document.getElementById('ai-summary-text');
+  const updatedEl = document.getElementById('ai-summary-updated');
+  if (!box || !textEl) return;
+
+  const summary = data.ai_summary || '';
+  if (!summary) {
+    box.style.display = 'none';
+    return;
+  }
+
+  box.style.display = 'block';
+  textEl.textContent = summary;
+  textEl.classList.remove('loading');
+
+  if (data.ai_summary_updated) {
+    const d = new Date(data.ai_summary_updated);
+    updatedEl.textContent = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' 기준';
+  }
 }
 
 function renderCards(posts) {

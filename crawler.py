@@ -4,6 +4,7 @@ Sources: FMKorea, 오늘의유머, 루리웹, 클리앙 + Instagram fallback.
 Trend scoring: keyword frequency + velocity (rate of change between rounds).
 """
 
+import os
 import requests
 from bs4 import BeautifulSoup
 import re
@@ -325,6 +326,8 @@ class TrendCrawler:
         self._last_updated = None
         self._status = 'idle'
         self._crawl_count = 0
+        self._ai_summary: str = ''
+        self._ai_summary_updated = None
 
     def get_data(self) -> dict:
         with self._lock:
@@ -336,6 +339,8 @@ class TrendCrawler:
                 'total': len(self._posts),
                 'crawl_count': self._crawl_count,
                 'sources': [s['label'] for s in COMMUNITY_SOURCES],
+                'ai_summary': self._ai_summary,
+                'ai_summary_updated': self._ai_summary_updated.isoformat() if self._ai_summary_updated else None,
             }
 
     def _fetch_todaybeststory(self) -> list:
@@ -438,9 +443,12 @@ class TrendCrawler:
         print(f'[TodayBestStory] {len(raw_posts)}개 원본 → {len(items)}개 파싱 완료')
         return items
 
+    AI_SUMMARY_INTERVAL = 3600  # 1시간마다 AI 요약 갱신
+
     def refresh(self):
         with self._lock:
             self._status = 'crawling'
+            last_sum = self._ai_summary_updated
 
         posts = []
 
@@ -475,15 +483,71 @@ class TrendCrawler:
 
         counter = self._word_counter(unique)
 
+        # AI 요약 갱신 (1시간 간격, GOOGLE_API_KEY 설정 시)
+        now = datetime.now(timezone.utc)
+        needs_summary = (last_sum is None or
+                         (now - last_sum).total_seconds() > self.AI_SUMMARY_INTERVAL)
+        new_summary = None
+        if needs_summary:
+            new_summary = self._generate_ai_summary(unique)
+
         with self._lock:
             self._posts = unique
             self._history.append(counter)
             if len(self._history) > HISTORY_SIZE:
                 self._history.pop(0)
             self._trends = self._score_trends(unique, self._history)
-            self._last_updated = datetime.now(timezone.utc).isoformat()
+            self._last_updated = now.isoformat()
             self._crawl_count += 1
             self._status = 'ok'
+            if new_summary:
+                self._ai_summary = new_summary
+                self._ai_summary_updated = now
+
+    # ── AI 요약 ───────────────────────────────────────────────────────────────
+
+    def _generate_ai_summary(self, posts: list) -> str:
+        """소스별 대표 글 제목으로 오늘의 커뮤니티 요약 생성 (Gemini API)."""
+        api_key = os.environ.get('GOOGLE_API_KEY', '')
+        if not api_key:
+            return ''
+
+        # 소스별 1위 글만 추출 (최대 20개)
+        seen_src: set = set()
+        top_posts: list = []
+        for p in posts:
+            if p['source'] not in seen_src:
+                top_posts.append(p)
+                seen_src.add(p['source'])
+            if len(top_posts) >= 20:
+                break
+
+        if not top_posts:
+            return ''
+
+        src_label_map = {s['id']: s['label'] for s in COMMUNITY_SOURCES}
+        lines = []
+        for p in top_posts:
+            label = p.get('source_label') or src_label_map.get(p['source'], p['source'])
+            lines.append(f"- [{label}] {p['title']}")
+
+        prompt = (
+            "다음은 오늘 한국 주요 인터넷 커뮤니티에서 가장 화제가 된 글들입니다:\n\n"
+            + "\n".join(lines)
+            + "\n\n위 글들을 바탕으로 오늘 온라인에서 어떤 이슈들이 화제인지 "
+            "자연스럽고 간결하게 3~5문장으로 요약해주세요. "
+            "각 커뮤니티를 일일이 나열하지 말고, 주제별로 묶어서 흐름이 느껴지게 써주세요."
+        )
+
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-2.0-flash')
+            response = model.generate_content(prompt)
+            return response.text.strip()
+        except Exception as e:
+            print(f'[Gemini] 요약 생성 오류: {e}')
+            return ''
 
     # ── community scraper ─────────────────────────────────────────────────────
 
