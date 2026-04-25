@@ -179,27 +179,7 @@ COMMUNITY_SOURCES = [
         'color': '#f9ca24',
         'emoji': '🤣',
     },
-    {
-        'id': 'arcalive',
-        'label': '아카라이브',
-        'pages': [
-            'https://arca.live/b/humor?sort=recommend',
-            'https://arca.live/b/game?sort=recommend',
-            'https://arca.live/b/travel?sort=recommend',
-            'https://arca.live/b/worldnews?sort=recommend',
-            'https://arca.live/b/anime?sort=recommend',
-            'https://arca.live/b/cats?sort=recommend',
-            'https://arca.live/b/movie?sort=recommend',
-        ],
-        'title_sel': 'a.vrow.column:not(.notice)',
-        'title_text_sel': '.col-title .title',
-        'view_sel': '.col-view',
-        'date_sel': 'time[datetime]',
-        'date_attr': 'datetime',
-        'base_url': 'https://arca.live',
-        'color': '#00b4d8',
-        'emoji': '🌊',
-    },
+    # 아카라이브: todaybeststory API 경유 (ARC 매핑) — 직접 스크래핑 제거
 ]
 
 INSTAGRAM_HASHTAGS = [
