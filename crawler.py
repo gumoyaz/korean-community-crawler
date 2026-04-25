@@ -448,7 +448,7 @@ class TrendCrawler:
                 'is_humor':   self._matches(text, HUMOR_WORDS),
                 'is_car':     self._matches(text, CAR_WORDS),
                 'views': views,
-                'position_score': max(0, 100 - len(items) * 2),
+                'position_score': max(0, 100 - len(items) * 0.5),
                 'rank_score': 0,
                 'rank': 0,
                 'likes': post.get('upvoteCount', 0) or 0,
@@ -596,7 +596,7 @@ class TrendCrawler:
                     views = view_counts[item_pos] if item_pos < len(view_counts) else 0
 
                 # 위치 점수 (1위 = 100, 아래로 갈수록 감소)
-                position_score = max(0, 100 - item_pos * 3)
+                position_score = max(0, 100 - item_pos * 1.5)
 
                 if not anchor_has_all:
                     if date_per_anchor:
@@ -835,21 +835,26 @@ class TrendCrawler:
         # 3개월 초과 제거
         posts = [p for p in posts if self._age_decay(p.get('date', '')) > 0.0]
 
-        max_views = max((p['views'] for p in posts if p['views'] > 0), default=1)
-        # 소스별로 조회수 데이터가 있는지 파악
+        # 소스별 최대 조회수 + 조회수 유무 파악
+        src_max_views = {}
         src_has_views = {}
         for p in posts:
             src = p['source']
             if src not in src_has_views:
                 src_has_views[src] = False
+                src_max_views[src] = 1
             if p['views'] > 0:
                 src_has_views[src] = True
+                src_max_views[src] = max(src_max_views[src], p['views'])
 
         for p in posts:
             v = p['views']
-            # view_score: 0~100 정규화 (조회수 있는 사이트와 없는 사이트 동일 스케일)
-            view_score = (math.log1p(v) / math.log1p(max_views)) * 100 if v > 0 else 0
-            if src_has_views.get(p['source']):
+            src = p['source']
+            # view_score: 소스별 최대 조회수 기준으로 정규화 (0~100)
+            # → 조회수 규모가 다른 커뮤니티들이 공평하게 경쟁
+            src_max = src_max_views.get(src, 1)
+            view_score = (math.log1p(v) / math.log1p(src_max)) * 100 if v > 0 else 0
+            if src_has_views.get(src):
                 # 조회수 있는 사이트: 위치(50%) + 조회수(50%), 최대 100점
                 base_score = p['position_score'] * 0.5 + view_score * 0.5
             else:
