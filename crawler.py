@@ -880,10 +880,10 @@ class TrendCrawler:
             else:
                 base_score  = p['position_score']
 
-            # 반감기 21일 감쇠 — 새 글에 유리하되 이슈글이 급락하지 않게
-            # 오늘=100%, 3일=87%, 1주=72%, 2주=51%, 1달=26%
+            # 반감기 90일 — 30일 이내에서는 조회수가 날짜보다 우선
+            # 오늘=100%, 3일=97%, 1주=93%, 21일=79%, 30일=72%, 90일=37%
             age_days = self._age_days(p.get('date', ''))
-            decay = math.exp(-age_days / 21) if age_days >= 0 else 1.0
+            decay = math.exp(-age_days / 90) if age_days >= 0 else 1.0
             p['rank_score'] = round(base_score * decay, 1)
             p['age_decay']  = round(decay, 2)
 
