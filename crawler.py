@@ -879,16 +879,27 @@ class TrendCrawler:
                 seen_src.add(p['source'])
         sorted_posts = sorted(sorted_posts, key=lambda x: x['rank_score'], reverse=True)
 
-        # ── Step 4: 다양성 점감 패널티 (DAMPEN=0.80) ─────────────────────────
-        # 같은 소스 2번째 글 80%, 3번째 64% ... → 특정 커뮤니티 독점 방지
-        DAMPEN = 0.80
+        # ── Step 4: 다양성 점감 패널티 (DAMPEN=0.65) ─────────────────────────
+        # 같은 소스 2번째 글 65%, 3번째 42%, 5번째 18%, 7번째 8% (사실상 바닥)
+        # → 특정 커뮤니티 독점 방지 + MAX_PER_SOURCE 하드 캡으로 뒤쪽 잡글 제거
+        DAMPEN = 0.65
+        MAX_PER_SOURCE = 15
         src_counts: dict = {}
         for p in sorted_posts:
             n = src_counts.get(p['source'], 0)
             p['diversity_score'] = p['rank_score'] * (DAMPEN ** n)
             src_counts[p['source']] = n + 1
 
-        final = sorted(sorted_posts, key=lambda x: x['diversity_score'], reverse=True)
+        # 소스당 최대 15개만 포함
+        src_included: dict = {}
+        capped: list = []
+        for p in sorted(sorted_posts, key=lambda x: x['diversity_score'], reverse=True):
+            cnt = src_included.get(p['source'], 0)
+            if cnt < MAX_PER_SOURCE:
+                capped.append(p)
+                src_included[p['source']] = cnt + 1
+
+        final = sorted(capped, key=lambda x: x['diversity_score'], reverse=True)
         for i, p in enumerate(final):
             p['rank'] = i + 1
         return final
