@@ -548,11 +548,12 @@ class TrendCrawler:
 
         try:
             url = (
-                'https://generativelanguage.googleapis.com/v1/models/'
-                f'gemini-1.5-flash:generateContent?key={api_key}'
+                'https://generativelanguage.googleapis.com/v1beta/models/'
+                'gemini-1.5-flash:generateContent'
             )
             payload = {'contents': [{'parts': [{'text': prompt}]}]}
-            r = requests.post(url, json=payload, timeout=30)
+            r = requests.post(url, json=payload,
+                              headers={'x-goog-api-key': api_key}, timeout=30)
             r.raise_for_status()
             text = r.json()['candidates'][0]['content']['parts'][0]['text']
             print('[Gemini] 요약 생성 완료')
