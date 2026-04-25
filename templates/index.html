@@ -626,8 +626,8 @@
       <button class="src-chip" data-src="bobaedream" data-color="#fdcb6e" onclick="switchSrc('bobaedream',this)">
         🚗 보배드림 <span class="chip-count" id="chip-count-bobaedream">0</span>
       </button>
-      <button class="src-chip" data-src="miznet" data-color="#a29bfe" onclick="switchSrc('miznet',this)">
-        👩 미즈넷 <span class="chip-count" id="chip-count-miznet">0</span>
+      <button class="src-chip" data-src="natekorea" data-color="#e17055" onclick="switchSrc('natekorea',this)">
+        💁 네이트판 <span class="chip-count" id="chip-count-natekorea">0</span>
       </button>
       <button class="src-chip" data-src="humoruniv" data-color="#f9ca24" onclick="switchSrc('humoruniv',this)">
         🤣 웃긴대학 <span class="chip-count" id="chip-count-humoruniv">0</span>
@@ -689,7 +689,7 @@ async function loadCounts() {
       mlbpark:    fetch('/api/trends?source=mlbpark').then(r=>r.json()),
       instiz:     fetch('/api/trends?source=instiz').then(r=>r.json()),
       bobaedream: fetch('/api/trends?source=bobaedream').then(r=>r.json()),
-      miznet:     fetch('/api/trends?source=miznet').then(r=>r.json()),
+      natekorea:  fetch('/api/trends?source=natekorea').then(r=>r.json()),
       humoruniv:  fetch('/api/trends?source=humoruniv').then(r=>r.json()),
       arcalive:   fetch('/api/trends?source=arcalive').then(r=>r.json()),
       instagram:  fetch('/api/trends?source=instagram').then(r=>r.json()),

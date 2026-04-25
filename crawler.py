@@ -15,11 +15,25 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
 
-HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept-Language': 'ko-KR,ko;q=0.9',
-    'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
-}
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15',
+]
+
+def _random_headers(extra=None):
+    h = {
+        'User-Agent': random.choice(USER_AGENTS),
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+    }
+    if extra:
+        h.update(extra)
+    return h
+
+HEADERS = _random_headers()
 
 # ── 커뮤니티 소스 정의 ────────────────────────────────────────────────────────
 
@@ -138,18 +152,17 @@ COMMUNITY_SOURCES = [
         'emoji': '🚗',
     },
     {
-        'id': 'miznet',
-        'label': '미즈넷',
+        'id': 'natekorea',
+        'label': '네이트판',
         'pages': [
-            'https://www.miznet.net/bbs/board.php?bo_table=free',
-            'https://www.miznet.net/bbs/board.php?bo_table=free&page=2',
+            'https://pann.nate.com/talk/ranking/d',
         ],
-        'title_sel': 'td.td_subject a[href*="wr_id"]',
-        'view_sel': None,
-        'date_sel': 'td.td_datetime',
-        'base_url': 'https://www.miznet.net',
-        'color': '#a29bfe',
-        'emoji': '👩',
+        'title_sel': 'dl dt h2 a[href^="/talk/"]',
+        'view_sel': 'dd.info span.count',
+        'date_sel': None,
+        'base_url': 'https://pann.nate.com',
+        'color': '#e17055',
+        'emoji': '💁',
     },
     {
         'id': 'humoruniv',
@@ -392,9 +405,10 @@ class TrendCrawler:
     # ── community scraper ─────────────────────────────────────────────────────
 
     def _scrape_community(self, src: dict, url: str) -> list:
+        time.sleep(random.uniform(0.5, 1.5))
         for attempt in range(2):
           try:
-            headers = {**HEADERS, 'Referer': src['base_url'] + '/'}
+            headers = _random_headers({'Referer': src['base_url'] + '/'})
             r = requests.get(url, headers=headers, timeout=12)
             r.raise_for_status()
             break
