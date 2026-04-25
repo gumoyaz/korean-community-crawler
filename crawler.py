@@ -515,6 +515,7 @@ class TrendCrawler:
     def _generate_ai_summary(self, posts: list) -> str:
         """소스별 대표 글 제목으로 오늘의 커뮤니티 요약 생성 (Gemini API)."""
         api_key = os.environ.get('GOOGLE_API_KEY', '')
+        print(f'[Gemini] API 키 확인: {"있음 (" + api_key[:6] + "...)" if api_key else "없음 — GOOGLE_API_KEY 미설정"}')
         if not api_key:
             return ''
 
