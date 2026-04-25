@@ -160,6 +160,7 @@ COMMUNITY_SOURCES = [
         'title_sel': 'dl dt h2 a[href^="/talk/"]',
         'view_sel': 'dd.info span.count',
         'date_sel': None,
+        'default_date': 'today',
         'base_url': 'https://pann.nate.com',
         'color': '#e17055',
         'emoji': '💁',
@@ -500,6 +501,8 @@ class TrendCrawler:
                         date_val = date_per_anchor.get(id(a), '')
                     else:
                         date_val = dates[item_pos] if item_pos < len(dates) else ''
+                if not date_val and src.get('default_date') == 'today':
+                    date_val = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
                 text = title
                 item_pos += 1
