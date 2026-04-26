@@ -82,6 +82,16 @@
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
   }
+  .nav-link {
+    font-size: 13px; color: var(--text-dim);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 8px;
+    text-decoration: none;
+    transition: color .15s, border-color .15s;
+  }
+  .nav-link:hover { color: var(--text); border-color: var(--accent); }
+
   .refresh-btn {
     background: var(--accent);
     color: #fff;
@@ -527,6 +537,7 @@
       </div>
     </div>
     <div class="header-right">
+      <a href="/daily" class="nav-link">📰 데일리 리포트</a>
       <div class="status-badge">
         <div class="status-dot" id="status-dot"></div>
         <span id="status-text">로딩 중…</span>

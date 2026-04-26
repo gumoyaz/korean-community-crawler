@@ -6,3 +6,4 @@ feedparser>=6.0.0
 gunicorn>=21.0.0
 # google-genai는 requests로 직접 REST 호출로 대체
 python-dotenv>=1.0.0
+markdown>=3.6

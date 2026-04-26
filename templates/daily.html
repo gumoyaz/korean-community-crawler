@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>커트 — 데일리 리포트{% if view == 'detail' and summary %} · {{ summary.date_kr }}{% endif %}</title>
+<style>
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a24;
+    --surface2: #22222f;
+    --border: #2e2e40;
+    --text: #e8e8f0;
+    --text-dim: #8888aa;
+    --accent: #7c6cff;
+    --accent2: #ff6c9d;
+    --insta-grad: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+    --radius: 14px;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, #1a0a3a 0%, #0a1a3a 50%, #0f0f13 100%);
+    border-bottom: 1px solid var(--border);
+    padding: 20px 24px 16px;
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .header-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--insta-grad);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo h1 { font-size: 18px; font-weight: 700; }
+  .logo span { color: var(--text-dim); font-size: 13px; }
+
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .nav-link {
+    font-size: 13px; color: var(--text-dim);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 8px;
+    transition: color .15s, border-color .15s;
+  }
+  .nav-link:hover { color: var(--text); border-color: var(--accent); }
+  .nav-link.active { color: var(--accent); border-color: var(--accent); }
+
+  /* ── Main ── */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 32px 16px 80px;
+  }
+
+  /* ── Page title ── */
+  .page-header {
+    margin-bottom: 32px;
+  }
+  .page-header .label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--accent); text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .page-header h2 {
+    font-size: 28px; font-weight: 800;
+    line-height: 1.2;
+  }
+  .page-header p {
+    color: var(--text-dim); font-size: 14px;
+    margin-top: 8px; line-height: 1.6;
+  }
+
+  /* ── Summary list ── */
+  .summary-grid {
+    display: grid;
+    gap: 12px;
+  }
+  .summary-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    transition: border-color .15s, background .15s;
+    cursor: pointer;
+  }
+  .summary-card:hover {
+    border-color: var(--accent);
+    background: var(--surface2);
+  }
+  .summary-card .date-badge {
+    min-width: 90px;
+    text-align: center;
+  }
+  .date-badge .day {
+    font-size: 28px; font-weight: 800; line-height: 1;
+    color: var(--accent);
+  }
+  .date-badge .month {
+    font-size: 12px; color: var(--text-dim); margin-top: 2px;
+  }
+  .summary-card .card-body { flex: 1; }
+  .card-body .card-title {
+    font-size: 15px; font-weight: 600; margin-bottom: 4px;
+  }
+  .card-body .card-meta {
+    font-size: 12px; color: var(--text-dim);
+    display: flex; gap: 12px; align-items: center;
+  }
+  .card-body .card-meta .chip {
+    background: rgba(124,108,255,0.12);
+    border: 1px solid rgba(124,108,255,0.2);
+    color: var(--accent);
+    font-size: 11px; padding: 2px 8px; border-radius: 20px;
+  }
+  .arrow-icon { color: var(--text-dim); font-size: 18px; }
+
+  /* ── Today badge ── */
+  .today-badge {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 10px;
+    letter-spacing: 0.05em;
+    vertical-align: middle;
+    margin-left: 6px;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center;
+    padding: 64px 16px;
+    color: var(--text-dim);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+  .empty-state h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+  .empty-state p { font-size: 14px; line-height: 1.6; }
+
+  /* ── Pending state ── */
+  .pending-state {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 48px 32px;
+    text-align: center;
+  }
+  .pending-state .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 20px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .pending-state h3 { font-size: 18px; margin-bottom: 8px; }
+  .pending-state p { color: var(--text-dim); font-size: 14px; line-height: 1.6; }
+
+  /* ── Detail: navigation ── */
+  .date-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .date-nav-btn {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 13px; padding: 8px 14px; border-radius: 10px;
+    transition: color .15s, border-color .15s;
+  }
+  .date-nav-btn:hover { color: var(--text); border-color: var(--accent); }
+  .date-nav-btn.disabled { opacity: 0.35; pointer-events: none; }
+  .date-nav-center {
+    font-size: 15px; font-weight: 700; color: var(--text);
+  }
+
+  /* ── Detail: meta strip ── */
+  .meta-strip {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+    font-size: 13px; color: var(--text-dim);
+  }
+  .meta-strip .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--border); }
+
+  /* ── Detail: summary body ── */
+  .summary-body {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 36px;
+    margin-bottom: 40px;
+    line-height: 1.85;
+    font-size: 15.5px;
+  }
+
+  /* Markdown typography inside .summary-body */
+  .summary-body h2 {
+    font-size: 18px; font-weight: 700;
+    color: var(--text);
+    margin: 28px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .summary-body h2:first-child { margin-top: 0; }
+  .summary-body h3 {
+    font-size: 15px; font-weight: 600;
+    color: var(--accent);
+    margin: 20px 0 8px;
+  }
+  .summary-body p { margin-bottom: 14px; color: var(--text); }
+  .summary-body p:last-child { margin-bottom: 0; }
+  .summary-body strong { color: #fff; font-weight: 700; }
+  .summary-body em { color: var(--accent2); font-style: normal; }
+  .summary-body ul, .summary-body ol {
+    padding-left: 20px; margin-bottom: 14px;
+  }
+  .summary-body li { margin-bottom: 6px; }
+  .summary-body blockquote {
+    border-left: 3px solid var(--accent);
+    padding: 4px 0 4px 16px;
+    margin: 16px 0;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+  @media (max-width: 600px) {
+    .summary-body { padding: 20px 18px; font-size: 14.5px; }
+  }
+
+  /* ── Top posts section ── */
+  .section-title {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--text-dim); text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-title::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  .post-list { display: grid; gap: 10px; }
+  .post-item {
+    display: flex; align-items: flex-start; gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color .15s;
+  }
+  .post-item:hover { border-color: rgba(124,108,255,0.4); }
+  .post-rank {
+    min-width: 28px; height: 28px;
+    background: var(--surface2);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: var(--text-dim);
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .post-rank.gold   { background: rgba(251,191,36,.15); color: #fbbf24; }
+  .post-rank.silver { background: rgba(156,163,175,.15); color: #9ca3af; }
+  .post-rank.bronze { background: rgba(234,88,12,.15);  color: #ea580c; }
+  .post-content { flex: 1; min-width: 0; }
+  .post-title {
+    font-size: 14px; font-weight: 600; margin-bottom: 5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .post-title a:hover { color: var(--accent); }
+  .post-meta {
+    font-size: 12px; color: var(--text-dim);
+    display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  }
+  .source-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; padding: 2px 7px; border-radius: 6px;
+    font-weight: 600;
+    background: rgba(255,255,255,0.06);
+  }
+
+  /* ── Generate button ── */
+  .generate-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--accent);
+    color: #fff; border: none; cursor: pointer;
+    padding: 10px 20px; border-radius: 10px;
+    font-size: 14px; font-weight: 600;
+    margin-top: 20px;
+    transition: opacity .2s;
+  }
+  .generate-btn:hover { opacity: .85; }
+  .generate-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ── Back link ── */
+  .back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--text-dim);
+    margin-bottom: 24px;
+    transition: color .15s;
+  }
+  .back-link:hover { color: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="/" class="logo">
+      <div class="logo-icon">✂️</div>
+      <div>
+        <h1>커트</h1>
+        <span>커뮤니티 트렌드</span>
+      </div>
+    </a>
+    <div class="header-right">
+      <a href="/" class="nav-link">실시간 트렌드</a>
+      <a href="/daily" class="nav-link {% if view in ('list','pending','detail') %}active{% endif %}">데일리 리포트</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+{# ──────────────────── LIST VIEW ──────────────────── #}
+{% if view == 'list' %}
+
+  <div class="page-header">
+    <div class="label">📰 Daily Report</div>
+    <h2>데일리 리포트</h2>
+    <p>매일 한국 주요 커뮤니티 상위 게시글을 Gemini AI로 깊게 요약합니다.<br>
+       요약만 읽어도 오늘 인터넷에서 무슨 일이 있었는지 파악할 수 있습니다.</p>
+  </div>
+
+  {% if summaries %}
+    <div class="summary-grid">
+      {% for s in summaries %}
+        {% set parts = s.date.split('-') %}
+        <a href="/daily/{{ s.date }}" class="summary-card">
+          <div class="date-badge">
+            <div class="day">{{ parts[2] }}</div>
+            <div class="month">{{ parts[0] }}.{{ parts[1] }}</div>
+          </div>
+          <div class="card-body">
+            <div class="card-title">
+              {{ s.date_kr }}
+              {% if s.date == today %}<span class="today-badge">TODAY</span>{% endif %}
+            </div>
+            <div class="card-meta">
+              <span class="chip">📝 {{ s.post_count }}개 게시글</span>
+              <span>{{ s.generated_at[:16].replace('T', ' ') }} 생성</span>
+            </div>
+          </div>
+          <div class="arrow-icon">›</div>
+        </a>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="icon">📭</div>
+      <h3>아직 생성된 리포트가 없습니다</h3>
+      <p>서버가 크롤링을 완료하면 자동으로 오늘의 리포트가 생성됩니다.<br>
+         조금 뒤에 다시 확인해 주세요.</p>
+    </div>
+  {% endif %}
+
+{# ──────────────────── PENDING VIEW ──────────────────── #}
+{% elif view == 'pending' %}
+
+  <a href="/daily" class="back-link">← 목록으로</a>
+
+  <div class="page-header">
+    <div class="label">📰 Daily Report</div>
+    <h2>{{ date_kr }}</h2>
+  </div>
+
+  <div class="pending-state">
+    <div class="spinner"></div>
+    <h3>오늘의 리포트를 준비 중입니다</h3>
+    <p>크롤링이 충분히 쌓이면 자동으로 Gemini가 깊은 요약을 생성합니다.<br>
+       지금 바로 생성하려면 아래 버튼을 눌러주세요.</p>
+    <button class="generate-btn" id="genBtn" onclick="triggerGenerate('{{ date }}')">
+      ✨ 지금 생성하기
+    </button>
+    <p id="genMsg" style="margin-top:14px;font-size:13px;color:var(--text-dim);display:none;"></p>
+  </div>
+
+  <script>
+    async function triggerGenerate(date) {
+      const btn = document.getElementById('genBtn');
+      const msg = document.getElementById('genMsg');
+      btn.disabled = true;
+      btn.textContent = '생성 중…';
+      msg.style.display = 'block';
+      msg.textContent = 'Gemini AI가 요약을 생성하고 있습니다. 1~2분 후 페이지를 새로고침해 주세요.';
+      try {
+        await fetch('/api/daily/generate', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({date}),
+        });
+        setTimeout(() => location.reload(), 90000);
+      } catch(e) {
+        msg.textContent = '오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
+        btn.disabled = false;
+        btn.textContent = '✨ 지금 생성하기';
+      }
+    }
+  </script>
+
+{# ──────────────────── DETAIL VIEW ──────────────────── #}
+{% elif view == 'detail' and summary %}
+
+  <a href="/daily" class="back-link">← 목록으로</a>
+
+  <div class="page-header">
+    <div class="label">📰 Daily Report</div>
+    <h2>{{ summary.date_kr }}</h2>
+  </div>
+
+  {# Date navigation #}
+  <div class="date-nav">
+    {% if prev_date %}
+      <a href="/daily/{{ prev_date }}" class="date-nav-btn">‹ {{ prev_date }}</a>
+    {% else %}
+      <span class="date-nav-btn disabled">‹ 이전</span>
+    {% endif %}
+
+    <span class="date-nav-center">{{ summary.date }}</span>
+
+    {% if next_date %}
+      <a href="/daily/{{ next_date }}" class="date-nav-btn">{{ next_date }} ›</a>
+    {% else %}
+      <span class="date-nav-btn disabled">다음 ›</span>
+    {% endif %}
+  </div>
+
+  {# Meta strip #}
+  <div class="meta-strip">
+    <span>📝 {{ summary.post_count }}개 게시글 분석</span>
+    <span class="dot"></span>
+    <span>🤖 Gemini 2.5 Flash</span>
+    <span class="dot"></span>
+    <span>{{ summary.generated_at[:16].replace('T', ' ') }} 생성</span>
+    <span class="dot"></span>
+    <button onclick="triggerRegenerate('{{ summary.date }}')"
+            id="regenBtn"
+            style="background:none;border:1px solid var(--border);color:var(--text-dim);
+                   font-size:12px;padding:3px 10px;border-radius:6px;cursor:pointer;
+                   transition:color .15s,border-color .15s;"
+            onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--accent)'"
+            onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">
+      ↻ 재생성
+    </button>
+  </div>
+
+  {# Deep summary #}
+  <div class="summary-body">
+    {{ summary.summary_html | safe }}
+  </div>
+
+  {# Top posts #}
+  {% if summary.posts %}
+    <div class="section-title">이 날의 상위 게시글</div>
+    <div class="post-list">
+      {% for p in summary.posts[:30] %}
+        <div class="post-item">
+          <div class="post-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
+            {{ loop.index }}
+          </div>
+          <div class="post-content">
+            <div class="post-title">
+              <a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.title }}</a>
+            </div>
+            <div class="post-meta">
+              <span class="source-badge" style="color: {{ p.source_color or '#aaa' }};">
+                {{ p.source_emoji or '' }} {{ p.source_label or p.source }}
+              </span>
+              {% if p.views %}<span>👁 {{ '{:,}'.format(p.views) }}</span>{% endif %}
+              {% if p.likes %}<span>👍 {{ p.likes }}</span>{% endif %}
+              {% if p.comments %}<span>💬 {{ p.comments }}</span>{% endif %}
+              {% if p.date %}<span>{{ p.date[:10] }}</span>{% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <script>
+    async function triggerRegenerate(date) {
+      const btn = document.getElementById('regenBtn');
+      btn.disabled = true;
+      btn.textContent = '재생성 중…';
+      try {
+        await fetch('/api/daily/generate', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({date}),
+        });
+        btn.textContent = '생성 시작됨 (1~2분 후 새로고침)';
+        setTimeout(() => location.reload(), 90000);
+      } catch(e) {
+        btn.textContent = '오류';
+        btn.disabled = false;
+      }
+    }
+  </script>
+
+{% endif %}
+
+</main>
+</body>
+</html>
