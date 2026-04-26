@@ -9,6 +9,8 @@ from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 load_dotenv()
 
+KST = timezone(timedelta(hours=9))
+
 app = Flask(__name__)
 crawler = TrendCrawler()
 
@@ -19,14 +21,14 @@ _daily_lock = threading.Lock()
 _daily_generating = False
 
 
-def _try_generate_daily(posts: list):
-    """Generate today's deep summary if missing. Runs in a background thread."""
+def _try_generate_daily(posts: list, force: bool = False):
+    """Generate today's deep summary. force=True regenerates even if exists."""
     global _daily_generating
     with _daily_lock:
         if _daily_generating:
             return
         today = daily_module.kst_today()
-        if daily_module.has_summary(today):
+        if not force and daily_module.has_summary(today):
             return
         if len(posts) < 20:
             return
@@ -40,6 +42,23 @@ def _try_generate_daily(posts: list):
     finally:
         with _daily_lock:
             _daily_generating = False
+
+
+def _midnight_scheduler():
+    """매일 KST 자정에 전날 데일리 요약을 생성한다."""
+    while True:
+        now = datetime.now(KST)
+        tomorrow = (now + timedelta(days=1)).replace(
+            hour=0, minute=0, second=5, microsecond=0
+        )
+        sleep_secs = (tomorrow - now).total_seconds()
+        print(f'[Daily Scheduler] 다음 생성: {tomorrow.strftime("%Y-%m-%d %H:%M")} KST '
+              f'({sleep_secs / 3600:.1f}시간 후)')
+        time.sleep(sleep_secs)
+        posts = crawler.get_data().get('posts', [])
+        threading.Thread(
+            target=_try_generate_daily, args=(posts, True), daemon=True
+        ).start()
 
 
 def _background_loop():
@@ -70,6 +89,7 @@ def _startup():
 
 
 threading.Thread(target=_startup, daemon=True).start()
+threading.Thread(target=_midnight_scheduler, daemon=True).start()
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
