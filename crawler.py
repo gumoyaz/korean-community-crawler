@@ -357,7 +357,8 @@ class TrendCrawler:
     def __init__(self):
         self._lock = threading.Lock()
         self._posts: list = []
-        self._history: list = []
+        self._history: list = []          # keyword counter history
+        self._post_score_history: list = []  # [{url: rank_score}, ...] per round
         self._trends: dict = {}
         self._last_updated = None
         self._status = 'idle'
@@ -511,6 +512,12 @@ class TrendCrawler:
         # 전체 랭킹 점수 계산 (조회수 로그 정규화 + 위치 점수)
         unique = self._assign_ranks(unique)
 
+        # 포스트별 velocity 계산 (이전 라운드 대비 rank_score 변화량)
+        with self._lock:
+            prev_post_history = list(self._post_score_history)
+        self._compute_post_velocity(unique, prev_post_history)
+        curr_scores = {p['url']: p.get('rank_score', 0.0) for p in unique}
+
         # 상위 포스트 본문 요약 병렬 수집 (커뮤니티만, fmkorea 제외)
         to_summarize = [p for p in unique[:SUMMARY_MAX_POSTS]
                         if p['source'] in SUMMARY_SELECTORS and not p['summary']]
@@ -533,6 +540,9 @@ class TrendCrawler:
             self._history.append(counter)
             if len(self._history) > HISTORY_SIZE:
                 self._history.pop(0)
+            self._post_score_history.append(curr_scores)
+            if len(self._post_score_history) > HISTORY_SIZE:
+                self._post_score_history.pop(0)
             self._trends = self._score_trends(unique, self._history)
             self._last_updated = now.isoformat()
             self._crawl_count += 1
@@ -540,6 +550,34 @@ class TrendCrawler:
             if new_summary:
                 self._ai_summary = new_summary
                 self._ai_summary_updated = now
+
+    # ── Post velocity ────────────────────────────────────────────────────────
+
+    def _compute_post_velocity(self, posts: list, history: list) -> None:
+        """Add post_velocity to each post: current rank_score minus historical average.
+
+        A brand-new post (never seen before) gets velocity == its current score,
+        so genuinely viral newcomers always surface.
+        """
+        if not history:
+            for p in posts:
+                p['post_velocity'] = 0.0
+            return
+
+        # Average rank_score across all stored rounds for each URL
+        url_avg: dict = {}
+        for round_scores in history:
+            for url, score in round_scores.items():
+                entry = url_avg.setdefault(url, [0.0, 0])
+                entry[0] += score
+                entry[1] += 1
+        avg_prev = {url: v[0] / v[1] for url, v in url_avg.items()}
+
+        for p in posts:
+            curr = p.get('rank_score', 0.0)
+            prev = avg_prev.get(p['url'])
+            # New post: treat previous score as 0 so velocity = curr
+            p['post_velocity'] = curr - (prev if prev is not None else 0.0)
 
     # ── AI 요약 ───────────────────────────────────────────────────────────────
 

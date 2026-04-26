@@ -110,6 +110,36 @@ DAILY_TOP_N = 50
 BODY_MAX_CHARS = 400
 
 
+VELOCITY_THRESHOLD = 20.0  # rank_score 급등 기준 (0~100 스케일)
+
+
+def _select_posts(posts: list, date: str) -> list:
+    """오늘/어제 날짜 글 + 갑자기 급상승한 글을 선별해 반환."""
+    try:
+        target = datetime.strptime(date, '%Y-%m-%d').replace(tzinfo=KST)
+        yesterday = (target - timedelta(days=1)).strftime('%Y-%m-%d')
+    except ValueError:
+        yesterday = ''
+
+    selected = []
+    for p in sorted(posts, key=lambda p: p.get('rank', 9999)):
+        post_date = (p.get('date') or '')[:10]
+        is_recent = post_date in (date, yesterday)
+        is_viral  = p.get('post_velocity', 0.0) >= VELOCITY_THRESHOLD
+        if is_recent or is_viral:
+            p = dict(p)
+            p['_viral'] = is_viral and not is_recent  # 오래된 글인데 급등
+            selected.append(p)
+
+    # 날짜 정보가 없는 환경(파싱 실패 등)이면 전체 상위 글로 fallback
+    if len(selected) < 10:
+        selected = [dict(p) for p in sorted(posts, key=lambda p: p.get('rank', 9999))]
+        for p in selected:
+            p['_viral'] = False
+
+    return selected[:DAILY_TOP_N]
+
+
 def _format_posts_for_prompt(posts: list) -> str:
     lines = []
     for i, p in enumerate(posts[:DAILY_TOP_N], 1):
@@ -129,7 +159,8 @@ def _format_posts_for_prompt(posts: list) -> str:
         if cmts:   stat_parts.append(f'댓글 {cmts:,}')
         stats = ' · '.join(stat_parts)
 
-        lines.append(f'### [{i}위] {title}  ({source})')
+        viral_tag = ' 🔥급상승' if p.get('_viral') else ''
+        lines.append(f'### [{i}위] {title}  ({source}){viral_tag}')
         if stats:
             lines.append(stats)
         if body:
@@ -151,7 +182,10 @@ def generate_deep_summary(posts: list, date: str | None = None) -> str:
     if not date:
         date = kst_today()
 
-    ranked = sorted(posts, key=lambda p: p.get('rank', 9999))
+    if not posts:
+        return ''
+
+    ranked = _select_posts(posts, date)
     if not ranked:
         return ''
 
@@ -171,6 +205,7 @@ def generate_deep_summary(posts: list, date: str | None = None) -> str:
 5. **사실 기반**: 제공된 정보 이외의 내용은 추측하거나 추가하지 마세요.
 6. **형식**: `## 섹션 제목` 으로 주제별 구분, 각 섹션은 3-5문장 이상.
 7. 커뮤니티 이름은 나열하지 말고 내용 위주로 서술하세요.
+8. 🔥급상승 표시된 글은 오늘 갑자기 화제가 된 글입니다. 해당 섹션 제목에 "🔥 급상승" 태그를 달아주세요.
 
 ## 오늘의 주요 게시글 ({count}개)
 
