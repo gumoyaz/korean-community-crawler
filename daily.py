@@ -104,32 +104,24 @@ def has_summary(date: str) -> bool:
 
 # ── Gemini deep summary ───────────────────────────────────────────────────────
 
-DAILY_BASE_N   = 10    # 기본 포함 글 수
-DAILY_MAX_N    = 20    # 최대 포함 글 수
-BODY_MAX_CHARS = 400   # 본문 최대 길이
+DAILY_BASE_N       = 10    # 기본 포함 글 수
+DAILY_MAX_N        = 20    # 최대 포함 글 수
+BODY_MAX_CHARS     = 400   # 본문 최대 길이
 VELOCITY_THRESHOLD = 20.0  # rank_score 급등 기준
 
-# 카테고리 플래그 목록 (다양성 판단에 사용)
-_CATEGORY_FLAGS = ['is_food', 'is_beauty', 'is_fashion', 'is_game',
-                   'is_celeb', 'is_humor', 'is_car']
 
-
-def _covered_categories(posts: list) -> set:
-    cats = set()
-    for p in posts:
-        for flag in _CATEGORY_FLAGS:
-            if p.get(flag):
-                cats.add(flag)
-        if not any(p.get(f) for f in _CATEGORY_FLAGS):
-            cats.add('general')
-    return cats
+def _engagement_score(p: dict) -> float:
+    """조회수·추천수·댓글 수를 하나의 점수로 합산 (단위 통일을 위해 가중치 적용)."""
+    return (p.get('views', 0) * 1.0
+            + p.get('likes', 0) * 10.0
+            + p.get('comments', 0) * 5.0)
 
 
 def _select_posts(posts: list, date: str) -> list:
     """
     1. 오늘/어제 날짜 글 + velocity 급등 글을 후보로 추린다.
-    2. 상위 DAILY_BASE_N개를 먼저 선택한다.
-    3. 새로운 카테고리를 커버하는 글이 있으면 DAILY_MAX_N까지 추가한다.
+    2. 상위 DAILY_BASE_N개를 랭킹 순으로 먼저 선택한다.
+    3. 나머지 후보 중 조회수·추천수 합산이 높은 글을 DAILY_MAX_N까지 추가한다.
     4. 후보가 10개 미만이면 전체 상위 글로 fallback.
     """
     try:
@@ -140,9 +132,9 @@ def _select_posts(posts: list, date: str) -> list:
 
     candidates = []
     for p in sorted(posts, key=lambda p: p.get('rank', 9999)):
-        post_date  = (p.get('date') or '')[:10]
-        is_recent  = post_date in (date, yesterday)
-        is_viral   = p.get('post_velocity', 0.0) >= VELOCITY_THRESHOLD
+        post_date = (p.get('date') or '')[:10]
+        is_recent = post_date in (date, yesterday)
+        is_viral  = p.get('post_velocity', 0.0) >= VELOCITY_THRESHOLD
         if is_recent or is_viral:
             p = dict(p)
             p['_viral'] = is_viral and not is_recent
@@ -153,18 +145,16 @@ def _select_posts(posts: list, date: str) -> list:
         for p in candidates:
             p['_viral'] = False
 
-    # 기본 N개 선택
+    # 기본 N개 (랭킹 순)
     selected = candidates[:DAILY_BASE_N]
-    covered  = _covered_categories(selected)
 
-    # 새 카테고리 커버하는 글 추가 (최대 DAILY_MAX_N까지)
-    for p in candidates[DAILY_BASE_N:]:
+    # 나머지를 조회수·추천수 합산 내림차순으로 정렬해 추가
+    rest = sorted(candidates[DAILY_BASE_N:],
+                  key=_engagement_score, reverse=True)
+    for p in rest:
         if len(selected) >= DAILY_MAX_N:
             break
-        new_cats = _covered_categories([p])
-        if not new_cats.issubset(covered):
-            selected.append(p)
-            covered |= new_cats
+        selected.append(p)
 
     return selected
 
