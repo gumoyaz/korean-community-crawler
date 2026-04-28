@@ -209,7 +209,7 @@ def generate_deep_summary(posts: list, date: str | None = None) -> str:
         return ''
 
     posts_text = _format_posts_for_prompt(ranked)
-    count = min(len(ranked), DAILY_TOP_N)
+    count = len(ranked)
 
     prompt = f"""당신은 한국 인터넷 커뮤니티 전문 기자입니다.
 오늘({date}) 12개 이상의 한국 커뮤니티에서 가장 많이 조회되고 공유된 게시글들을 분석하여,
