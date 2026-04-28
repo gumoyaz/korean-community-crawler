@@ -21,31 +21,31 @@ _daily_lock = threading.Lock()
 _daily_generating = False
 
 
-def _try_generate_daily(posts: list, force: bool = False):
-    """Generate today's deep summary. force=True regenerates even if exists."""
+def _try_generate_daily(posts: list, force: bool = False, target_date: str = None):
+    """Generate a daily summary. target_date defaults to today (KST)."""
     global _daily_generating
     with _daily_lock:
         if _daily_generating:
             return
-        today = daily_module.kst_today()
-        if not force and daily_module.has_summary(today):
+        date = target_date or daily_module.kst_today()
+        if not force and daily_module.has_summary(date):
             return
         if len(posts) < 20:
             return
         _daily_generating = True
 
     try:
-        print(f'[Daily] {today} 요약 생성 시작')
-        md = daily_module.generate_deep_summary(posts, today)
+        print(f'[Daily] {date} 요약 생성 시작')
+        md = daily_module.generate_deep_summary(posts, date)
         if md:
-            daily_module.save_summary(today, md, posts[:50])
+            daily_module.save_summary(date, md, posts[:50])
     finally:
         with _daily_lock:
             _daily_generating = False
 
 
 def _midnight_scheduler():
-    """매일 KST 자정에 전날 데일리 요약을 생성한다."""
+    """매일 KST 자정에 하루가 끝난 날(어제) 데일리 요약을 생성한다."""
     while True:
         now = datetime.now(KST)
         tomorrow = (now + timedelta(days=1)).replace(
@@ -55,9 +55,11 @@ def _midnight_scheduler():
         print(f'[Daily Scheduler] 다음 생성: {tomorrow.strftime("%Y-%m-%d %H:%M")} KST '
               f'({sleep_secs / 3600:.1f}시간 후)')
         time.sleep(sleep_secs)
+        # 자정이 됐을 때 하루가 막 끝난 날 = 어제
+        yesterday = (datetime.now(KST) - timedelta(days=1)).strftime('%Y-%m-%d')
         posts = crawler.get_data().get('posts', [])
         threading.Thread(
-            target=_try_generate_daily, args=(posts, True), daemon=True
+            target=_try_generate_daily, args=(posts, True, yesterday), daemon=True
         ).start()
 
 
