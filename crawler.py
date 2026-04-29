@@ -490,13 +490,18 @@ class TrendCrawler:
 
         posts = []
 
-        for src in COMMUNITY_SOURCES:
-            for url in src['pages']:
-                items = self._scrape_community(src, url)
-                posts.extend(items)
-                time.sleep(0.5)
-
-        posts.extend(self._fetch_todaybeststory())
+        api_posts = self._fetch_todaybeststory()
+        if len(api_posts) >= 50:
+            print(f'[Refresh] TodayBestStory {len(api_posts)}개 — 직접 스크래핑 생략')
+            posts.extend(api_posts)
+        else:
+            print(f'[Refresh] TodayBestStory {len(api_posts)}개 부족 — 직접 스크래핑 fallback')
+            posts.extend(api_posts)
+            for src in COMMUNITY_SOURCES:
+                for url in src['pages']:
+                    items = self._scrape_community(src, url)
+                    posts.extend(items)
+                    time.sleep(0.5)
 
         for tag in INSTAGRAM_HASHTAGS:
             posts.extend(self._fetch_instagram(tag))
