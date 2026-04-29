@@ -703,9 +703,9 @@ class TrendCrawler:
                     title = title_el.get_text().strip() if title_el else ''
                 elif src.get('title_inner_sel'):
                     inner = a.select_one(src['title_inner_sel'])
-                    title = inner.get_text().strip() if inner else re.sub(r'\d+$', '', a.get_text().strip()).strip()
+                    title = inner.get_text().strip() if inner else re.sub(r'(?<!\s)\d+$', '', a.get_text().strip()).strip()
                 else:
-                    title = re.sub(r'\d+$', '', a.get_text().strip()).strip()
+                    title = re.sub(r'(?<!\s)\d+$', '', a.get_text().strip()).strip()
                 if len(title) < 4:
                     continue
                 href = a.get('href', '')
@@ -730,7 +730,8 @@ class TrendCrawler:
                             raw = date_el.get(src['date_attr']) if src.get('date_attr') else date_el.get_text().strip()
                             date_val = self._parse_date(raw) if raw else ''
                 else:
-                    views = view_counts[item_pos] if item_pos < len(view_counts) else 0
+                    # pos: anchor 전체 순서 (스킵된 행 포함) → view/date 배열과 1:1 대응
+                    views = view_counts[pos] if pos < len(view_counts) else 0
 
                 # 위치 점수 (1위 = 100, 아래로 갈수록 감소)
                 position_score = max(0, 100 - item_pos * 1.5)
@@ -739,7 +740,7 @@ class TrendCrawler:
                     if date_per_anchor:
                         date_val = date_per_anchor.get(id(a), '')
                     else:
-                        date_val = dates[item_pos] if item_pos < len(dates) else ''
+                        date_val = dates[pos] if pos < len(dates) else ''
                 if not date_val and src.get('default_date') == 'today':
                     date_val = datetime.now(timezone.utc).strftime('%Y-%m-%d')
 
