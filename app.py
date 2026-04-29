@@ -44,22 +44,21 @@ def _try_generate_daily(posts: list, force: bool = False, target_date: str = Non
             _daily_generating = False
 
 
-def _midnight_scheduler():
-    """매일 KST 자정에 하루가 끝난 날(어제) 데일리 요약을 생성한다."""
+def _noon_scheduler():
+    """매일 KST 낮 12시에 당일 데일리 요약을 생성한다."""
     while True:
         now = datetime.now(KST)
-        tomorrow = (now + timedelta(days=1)).replace(
-            hour=0, minute=0, second=5, microsecond=0
-        )
-        sleep_secs = (tomorrow - now).total_seconds()
-        print(f'[Daily Scheduler] 다음 생성: {tomorrow.strftime("%Y-%m-%d %H:%M")} KST '
+        next_noon = now.replace(hour=12, minute=0, second=5, microsecond=0)
+        if now >= next_noon:
+            next_noon += timedelta(days=1)
+        sleep_secs = (next_noon - now).total_seconds()
+        print(f'[Daily Scheduler] 다음 생성: {next_noon.strftime("%Y-%m-%d %H:%M")} KST '
               f'({sleep_secs / 3600:.1f}시간 후)')
         time.sleep(sleep_secs)
-        # 자정이 됐을 때 하루가 막 끝난 날 = 어제
-        yesterday = (datetime.now(KST) - timedelta(days=1)).strftime('%Y-%m-%d')
+        today = datetime.now(KST).strftime('%Y-%m-%d')
         posts = crawler.get_data().get('posts', [])
         threading.Thread(
-            target=_try_generate_daily, args=(posts, True, yesterday), daemon=True
+            target=_try_generate_daily, args=(posts, True, today), daemon=True
         ).start()
 
 
@@ -91,7 +90,7 @@ def _startup():
 
 
 threading.Thread(target=_startup, daemon=True).start()
-threading.Thread(target=_midnight_scheduler, daemon=True).start()
+threading.Thread(target=_noon_scheduler, daemon=True).start()
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
