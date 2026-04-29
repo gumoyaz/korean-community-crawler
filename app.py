@@ -82,7 +82,13 @@ def _startup():
     try:
         crawler.refresh()
         posts = crawler.get_data().get('posts', [])
-        threading.Thread(target=_try_generate_daily, args=(posts,), daemon=True).start()
+        # 낮 12시 이후 시작 시 오늘 리포트가 없으면 즉시 생성
+        now_kst = datetime.now(KST)
+        if now_kst.hour >= 12 and not daily_module.has_summary(daily_module.kst_today()):
+            print('[Startup] 낮 12시 이후 — 오늘 리포트 즉시 생성')
+            threading.Thread(target=_try_generate_daily, args=(posts, True), daemon=True).start()
+        else:
+            threading.Thread(target=_try_generate_daily, args=(posts,), daemon=True).start()
         print('[Startup] 완료')
     except Exception as e:
         print(f'[Startup] 오류: {e}')
