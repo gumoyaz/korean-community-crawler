@@ -603,7 +603,9 @@
   const synth   = window.speechSynthesis;
   let ttsSpeed  = 1.0;
   let ttsPaused = false;
-  let ttsChunks = [];   // 섹션별 텍스트 배열
+  let ttsChunks        = [];   // 분할된 청크 배열
+  let ttsChunkSections = [];   // 청크 index → H2 섹션 index
+  let ttsSectionStarts = [];   // 섹션 index → 첫 청크 index
   let ttsIdx    = 0;
   let ttsUtter  = null;
   let ttsVoice  = null;
@@ -652,36 +654,53 @@
   function buildChunks() {
     const body = document.querySelector('.summary-body');
     if (!body) return [];
-    const sections = [];
+    const allChunks = [];
+    ttsChunkSections = [];
+    ttsSectionStarts = [];
+    let sectionIdx = -1;
     let cur = [];
+
+    const flushSection = () => {
+      if (!cur.length) return;
+      const sub = splitLong(cur.join(' '));
+      ttsSectionStarts.push(allChunks.length);
+      for (const c of sub) {
+        allChunks.push(c);
+        ttsChunkSections.push(sectionIdx);
+      }
+      cur = [];
+    };
+
     for (const node of body.childNodes) {
       if (node.nodeName === 'H2') {
-        if (cur.length) sections.push(cur.join(' '));
+        flushSection();
+        sectionIdx++;
         cur = [node.textContent.replace(/🔥\s*/g, '').trim()];
       } else {
         const t = node.textContent?.trim();
         if (t) cur.push(t);
       }
     }
-    if (cur.length) sections.push(cur.join(' '));
-    // 섹션별로 길면 분할
-    return sections.flatMap(s => splitLong(s));
+    flushSection();
+    return allChunks;
   }
 
   function ttsSpeak(idx) {
     if (idx >= ttsChunks.length) { ttsFinish(); return; }
     ttsIdx = idx;
 
-    // 섹션 하이라이트 (분할된 청크도 h2 기준으로 매핑)
+    // H2 섹션 하이라이트 (청크가 분할돼도 섹션 기준으로)
+    const sec = ttsChunkSections[idx] ?? -1;
     document.querySelectorAll('.summary-body h2').forEach((h, i) => {
-      h.classList.toggle('tts-active', i === idx);
+      h.classList.toggle('tts-active', i === sec);
     });
 
-    // 진행바
+    // 진행바 (섹션 기준)
+    const totalSec = ttsSectionStarts.length || 1;
     document.getElementById('ttsBar').style.width =
-      ((idx + 1) / ttsChunks.length * 100) + '%';
+      ((sec + 1) / totalSec * 100) + '%';
     document.getElementById('ttsLabel').textContent =
-      `${idx + 1} / ${ttsChunks.length} 읽는 중…`;
+      `${sec + 1} / ${totalSec} 섹션 읽는 중…`;
 
     ttsUtter = new SpeechSynthesisUtterance(ttsChunks[idx]);
     ttsUtter.lang  = 'ko-KR';
@@ -699,18 +718,20 @@
   }
 
   function ttsSetNavBtns(playing) {
-    document.getElementById('ttsPrevBtn').disabled = !playing || ttsIdx <= 0;
-    document.getElementById('ttsNextBtn').disabled = !playing || ttsIdx >= ttsChunks.length - 1;
+    const sec = ttsChunkSections[ttsIdx] ?? 0;
+    document.getElementById('ttsPrevBtn').disabled = !playing || sec <= 0;
+    document.getElementById('ttsNextBtn').disabled = !playing || sec >= ttsSectionStarts.length - 1;
     document.getElementById('ttsStopBtn').disabled = !playing;
   }
 
   function ttsSkip(dir) {
-    const next = ttsIdx + dir;
-    if (next < 0 || next >= ttsChunks.length) return;
+    const sec = ttsChunkSections[ttsIdx] ?? 0;
+    const targetSec = sec + dir;
+    if (targetSec < 0 || targetSec >= ttsSectionStarts.length) return;
     synth.cancel();
     ttsPaused = false;
     document.getElementById('ttsPlayBtn').textContent = '⏸';
-    ttsSpeak(next);
+    ttsSpeak(ttsSectionStarts[targetSec]);
   }
 
   function ttsToggle() {
