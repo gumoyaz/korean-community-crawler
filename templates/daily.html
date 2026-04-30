@@ -529,8 +529,10 @@
 
   {# TTS Player #}
   <div class="tts-player" id="ttsPlayer">
+    <button class="tts-btn stop" id="ttsPrevBtn" onclick="ttsSkip(-1)" disabled title="이전">⏮</button>
     <button class="tts-btn play" id="ttsPlayBtn" onclick="ttsToggle()" title="읽기 시작">▶</button>
     <button class="tts-btn stop" id="ttsStopBtn" onclick="ttsStop()" disabled title="정지">■</button>
+    <button class="tts-btn stop" id="ttsNextBtn" onclick="ttsSkip(1)" disabled title="다음">⏭</button>
     <div class="tts-info">
       <div class="tts-label" id="ttsLabel">재생 버튼을 눌러 요약을 들어보세요</div>
       <div class="tts-progress"><div class="tts-progress-bar" id="ttsBar"></div></div>
@@ -686,22 +688,37 @@
     ttsUtter.rate  = ttsSpeed;
     ttsUtter.pitch = 1.05;
     if (ttsVoice) ttsUtter.voice = ttsVoice;
+    ttsSetNavBtns(true);
     ttsUtter.onend   = () => ttsSpeak(idx + 1);
     ttsUtter.onerror = (e) => {
       console.warn('TTS 오류 (청크', idx, '):', e.error);
-      ttsSpeak(idx + 1);  // 에러난 청크 건너뛰고 다음으로
+      ttsSpeak(idx + 1);
     };
     synth.speak(ttsUtter);
   }
 
+  function ttsSetNavBtns(playing) {
+    document.getElementById('ttsPrevBtn').disabled = !playing || ttsIdx <= 0;
+    document.getElementById('ttsNextBtn').disabled = !playing || ttsIdx >= ttsChunks.length - 1;
+    document.getElementById('ttsStopBtn').disabled = !playing;
+  }
+
+  function ttsSkip(dir) {
+    const next = ttsIdx + dir;
+    if (next < 0 || next >= ttsChunks.length) return;
+    synth.cancel();
+    ttsPaused = false;
+    document.getElementById('ttsPlayBtn').textContent = '⏸';
+    ttsSpeak(next);
+  }
+
   function ttsToggle() {
     if (!synth.speaking && !ttsPaused) {
-      // 처음 시작
       ttsChunks = buildChunks();
       if (!ttsVoice) ttsVoice = pickVoice();
       ttsPaused = false;
       document.getElementById('ttsPlayBtn').textContent = '⏸';
-      document.getElementById('ttsStopBtn').disabled = false;
+      ttsSetNavBtns(true);
       ttsSpeak(0);
     } else if (synth.speaking && !ttsPaused) {
       synth.pause();
@@ -723,10 +740,10 @@
 
   function ttsFinish() {
     document.getElementById('ttsPlayBtn').textContent = '▶';
-    document.getElementById('ttsStopBtn').disabled = true;
     document.getElementById('ttsBar').style.width = '0%';
     document.getElementById('ttsLabel').textContent = '재생 버튼을 눌러 요약을 들어보세요';
     document.querySelectorAll('.summary-body h2').forEach(h => h.classList.remove('tts-active'));
+    ttsSetNavBtns(false);
   }
 
   function ttsSetSpeed(s) {
