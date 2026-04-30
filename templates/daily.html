@@ -657,31 +657,30 @@
     const allChunks = [];
     ttsChunkSections = [];
     ttsSectionStarts = [];
-    let sectionIdx = -1;
+    let secIdx = 0;
     let cur = [];
 
-    const flushSection = () => {
+    const flush = () => {
       if (!cur.length) return;
-      const sub = splitLong(cur.join(' '));
       ttsSectionStarts.push(allChunks.length);
-      for (const c of sub) {
+      for (const c of splitLong(cur.join(' '))) {
         allChunks.push(c);
-        ttsChunkSections.push(sectionIdx);
+        ttsChunkSections.push(secIdx);
       }
       cur = [];
+      secIdx++;
     };
 
     for (const node of body.childNodes) {
       if (node.nodeName === 'H2') {
-        flushSection();
-        sectionIdx++;
+        flush();
         cur = [node.textContent.replace(/🔥\s*/g, '').trim()];
       } else {
         const t = node.textContent?.trim();
         if (t) cur.push(t);
       }
     }
-    flushSection();
+    flush();
     return allChunks;
   }
 
@@ -689,8 +688,8 @@
     if (idx >= ttsChunks.length) { ttsFinish(); return; }
     ttsIdx = idx;
 
-    // H2 섹션 하이라이트 (청크가 분할돼도 섹션 기준으로)
-    const sec = ttsChunkSections[idx] ?? -1;
+    // H2 섹션 하이라이트
+    const sec = ttsChunkSections[idx] ?? 0;
     document.querySelectorAll('.summary-body h2').forEach((h, i) => {
       h.classList.toggle('tts-active', i === sec);
     });
