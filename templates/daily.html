@@ -691,6 +691,7 @@
     ttsSetNavBtns(true);
     ttsUtter.onend   = () => ttsSpeak(idx + 1);
     ttsUtter.onerror = (e) => {
+      if (e.error === 'interrupted' || e.error === 'canceled') return;
       console.warn('TTS 오류 (청크', idx, '):', e.error);
       ttsSpeak(idx + 1);
     };
