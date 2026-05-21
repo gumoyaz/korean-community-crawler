@@ -1113,6 +1113,9 @@ class TrendCrawler:
                     continue
                 if stem in STOP_WORDS or w in STOP_WORDS:
                     continue
+                # '의/은/는/이/가/을/를/도' 조사 붙은 채로 매칭 안 되는 경우 추가 체크
+                if len(stem) > 2 and stem[-1] in '의은는을를도와과' and stem[:-1] in STOP_WORDS:
+                    continue
                 c[stem] += 1
         return c
 
