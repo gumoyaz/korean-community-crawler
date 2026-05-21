@@ -1,10 +1,11 @@
-from flask import Flask, jsonify, render_template, request, redirect, url_for, abort
+from flask import Flask, jsonify, render_template, request, redirect, url_for, abort, Response
 from crawler import TrendCrawler
 import daily as daily_module
 import threading
 import time
 import markdown
 import re
+import os
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 load_dotenv()
@@ -13,6 +14,13 @@ KST = timezone(timedelta(hours=9))
 
 app = Flask(__name__)
 crawler = TrendCrawler()
+
+SITE_URL = os.environ.get('SITE_URL', '').rstrip('/')
+
+
+@app.context_processor
+def inject_globals():
+    return {'site_url': SITE_URL}
 
 REFRESH_INTERVAL = 600  # 10분
 
@@ -257,7 +265,51 @@ def api_daily_generate():
     return jsonify({'status': 'started', 'date': date})
 
 
+# ── SEO ───────────────────────────────────────────────────────────────────────
+
+@app.route('/robots.txt')
+def robots_txt():
+    base = SITE_URL or request.host_url.rstrip('/')
+    content = f"""User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: {base}/sitemap.xml
+"""
+    return Response(content, mimetype='text/plain')
+
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    base = SITE_URL or request.host_url.rstrip('/')
+    now = datetime.now(KST).strftime('%Y-%m-%d')
+    summaries = daily_module.list_summaries(60)
+
+    urls = [
+        {'loc': f'{base}/', 'changefreq': 'always', 'priority': '1.0', 'lastmod': now},
+        {'loc': f'{base}/daily', 'changefreq': 'daily', 'priority': '0.8', 'lastmod': now},
+    ]
+    for s in summaries:
+        urls.append({
+            'loc': f"{base}/daily/{s['date']}",
+            'changefreq': 'monthly',
+            'priority': '0.6',
+            'lastmod': s['date'],
+        })
+
+    parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in urls:
+        parts.append(
+            f"  <url><loc>{u['loc']}</loc>"
+            f"<lastmod>{u['lastmod']}</lastmod>"
+            f"<changefreq>{u['changefreq']}</changefreq>"
+            f"<priority>{u['priority']}</priority></url>"
+        )
+    parts.append('</urlset>')
+    return Response('\n'.join(parts), mimetype='application/xml')
+
+
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
