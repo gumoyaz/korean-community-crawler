@@ -115,7 +115,6 @@
     border-bottom: 1px solid rgba(255,71,87,0.1);
     padding: 8px 24px;
     display: flex; align-items: center; gap: 12px;
-    overflow: hidden;
   }
   .ticker-label {
     font-size: 11px; font-weight: 700;
@@ -538,7 +537,6 @@
 
   @media (max-width: 640px) {
     .ticker-wrap { display: none; }
-    .header-right .status-badge { display: none; }
     main { padding: 16px 12px; }
     .src-chips {
       flex-wrap: nowrap;
@@ -561,10 +559,6 @@
     </a>
     <div class="header-right">
       <a href="/daily" class="nav-link-outline">📰 데일리 리포트</a>
-      <div class="status-badge">
-        <div class="status-dot" id="status-dot"></div>
-        <span id="status-text">로딩 중…</span>
-      </div>
       <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">새로고침</button>
     </div>
   </div>
@@ -577,6 +571,10 @@
     <div class="ticker-scroll" id="ticker">
       <span class="ticker-item"><span class="arrow">▲</span> 로딩 중...</span>
     </div>
+  </div>
+  <div class="status-badge">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">로딩 중…</span>
   </div>
 </div>
 
