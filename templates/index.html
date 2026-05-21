@@ -55,6 +55,8 @@
     text-decoration: none;
   }
   .logo img { height: 44px; width: auto; display: block; }
+  .logo-tagline { color: var(--text-dim); font-size: 13px; font-weight: 400; margin-left: 10px; }
+  @media (max-width: 480px) { .logo-tagline { display: none; } }
 
   .header-right {
     display: flex; align-items: center; gap: 10px;
@@ -546,6 +548,7 @@
   <div class="header-inner">
     <a href="/" class="logo">
       <img src="/static/logo.png" alt="커트">
+      <span class="logo-tagline">커뮤니티 트렌드 실시간 포착</span>
     </a>
     <div class="header-right">
       <a href="/daily" class="nav-link">📰 데일리 리포트</a>

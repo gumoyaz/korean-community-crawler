@@ -49,6 +49,8 @@
   }
   .logo { display: flex; align-items: center; text-decoration: none; }
   .logo img { height: 44px; width: auto; display: block; }
+  .logo-tagline { color: var(--text-dim); font-size: 13px; font-weight: 400; margin-left: 10px; }
+  @media (max-width: 480px) { .logo-tagline { display: none; } }
 
   .header-right { display: flex; align-items: center; gap: 10px; }
   .nav-link {
@@ -409,6 +411,7 @@
   <div class="header-inner">
     <a href="/" class="logo">
       <img src="/static/logo.png" alt="커트">
+      <span class="logo-tagline">커뮤니티 트렌드</span>
     </a>
     <div class="header-right">
       <a href="/" class="nav-link">실시간 트렌드</a>
