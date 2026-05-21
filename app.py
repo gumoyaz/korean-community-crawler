@@ -274,9 +274,85 @@ def robots_txt():
 Allow: /
 Disallow: /api/
 
+# AI search crawlers — explicitly allowed
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: bingbot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
 Sitemap: {base}/sitemap.xml
 """
     return Response(content, mimetype='text/plain')
+
+
+@app.route('/llms.txt')
+def llms_txt():
+    """Site overview for LLM crawlers (llms.txt standard)."""
+    base = SITE_URL or request.host_url.rstrip('/')
+    today = datetime.now(KST).strftime('%Y-%m-%d')
+    summaries = daily_module.list_summaries(5)
+    recent = '\n'.join(
+        f"- [{s['date_kr'] if 'date_kr' in s else s['date']} 데일리]({base}/daily/{s['date']})"
+        for s in summaries
+    ) or '- (아직 생성된 요약 없음)'
+
+    content = f"""# 커트 (커뮤니티 트렌드)
+
+> 한국 주요 인터넷 커뮤니티의 실시간 인기글을 한눈에 볼 수 있는 트렌드 집계 서비스.
+
+커트(KEOT)는 FM코리아, 디씨인사이드, 루리웹, 클리앙, 더쿠, MLB파크, 오늘의유머, 인스티즈, 보배드림, 네이트판 등 한국 주요 커뮤니티 30개 이상을 10분마다 크롤링해 실시간 인기글을 집계합니다.
+
+## 주요 기능
+
+- **실시간 인기글 피드** — 커뮤니티별, 카테고리별(게임/IT, 연예, 유머, 음식, 뷰티, 자동차) 필터
+- **급상승 키워드** — velocity 기반 실시간 트렌드 단어 10개
+- **AI 데일리 요약** — Gemini가 매일 낮 12시 주요 글을 주제별로 정리한 마크다운 리포트
+- **인기 단어 구름** — 클릭하면 해당 키워드 포함 글만 필터링
+
+## 페이지 목록
+
+- [실시간 트렌드 메인]({base}/): 지금 각 커뮤니티에서 화제인 글 실시간 피드
+- [데일리 요약 목록]({base}/daily): 날짜별 AI 요약 리포트 아카이브
+
+## 최근 데일리 리포트
+
+{recent}
+
+## API
+
+- `GET {base}/api/trends` — 전체 포스트 + 키워드 트렌드 JSON
+- `GET {base}/api/trends?tab=game` — 카테고리 필터 (game/celeb/humor/food/beauty/car)
+- `GET {base}/api/daily/<date>` — 특정 날짜 AI 요약 (예: {today})
+
+## 크롤링 소스
+
+FM코리아, 디씨인사이드, 아카라이브, 루리웹, 클리앙, 더쿠, MLB파크, 오늘의유머, 인스티즈, 보배드림, 네이트판, 웃긴대학 외 다수
+
+## 추천 상황
+
+- "지금 한국 커뮤니티에서 뭐가 화제야?"
+- "오늘 인터넷에서 유행하는 게 뭐야?"
+- "한국 온라인 트렌드 알려줘"
+- "커뮤니티 실시간 베스트글 보고 싶어"
+- 특정 날짜의 한국 인터넷 트렌드 조회 (데일리 리포트)
+"""
+    return Response(content, mimetype='text/plain; charset=utf-8')
 
 
 @app.route('/sitemap.xml')
