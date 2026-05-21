@@ -58,6 +58,7 @@ DAILY_DB_PATH=/data/daily.db
 |---|---|---|
 | `GOOGLE_API_KEY` | 선택 | Gemini API 키. 없으면 AI 요약 기능만 비활성화됨. [aistudio.google.com](https://aistudio.google.com)에서 무료 발급 |
 | `DAILY_DB_PATH` | 선택 | SQLite DB 파일 경로. 미설정 시 `data/daily.db` 사용. Railway 볼륨 마운트 경로로 지정하면 재배포 후에도 데이터 유지 |
+| `SITE_URL` | 선택 | 배포 도메인. canonical URL, sitemap, llms.txt에 사용. 기본값: Railway 운영 도메인 |
 
 ## 화면 구성
 
@@ -209,6 +210,30 @@ CREATE TABLE daily_summaries (
 ```
 
 > Railway 배포 시 볼륨을 `/data`에 마운트하고 `DAILY_DB_PATH=/data/daily.db`로 설정하면 재배포 후에도 데이터가 유지됩니다.
+
+## SEO / AI 검색 최적화
+
+### 검색엔진 (SEO)
+
+| 엔드포인트 | 설명 |
+|---|---|
+| `GET /robots.txt` | 크롤러 허용/차단 규칙 |
+| `GET /sitemap.xml` | 전체 페이지 목록 (메인 + 데일리 날짜별) |
+
+- Open Graph / Twitter Card: 카카오톡·SNS 공유 미리보기
+- JSON-LD 구조화 데이터: 메인 `WebSite`, 데일리 `Article`/`CollectionPage` 스키마
+
+**구글 서치 콘솔 등록 (최초 1회)**
+1. [Google Search Console](https://search.google.com/search-console) → 속성 추가
+2. 사이트맵 제출: `/sitemap.xml`
+
+### AI 검색 (AEO)
+
+| 엔드포인트 | 설명 |
+|---|---|
+| `GET /llms.txt` | AI 크롤러용 사이트 안내서 |
+
+ChatGPT(`GPTBot`), Claude(`ClaudeBot`), Gemini, Perplexity(`PerplexityBot`) 등 주요 AI 봇을 `robots.txt`에 명시적으로 허용. `/llms.txt`에 서비스 목적·추천 상황·API 엔드포인트·최근 데일리 리포트 링크 포함.
 
 ## 배포 (Railway)
 
