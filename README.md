@@ -51,10 +51,13 @@ python app.py
 
 ```
 GOOGLE_API_KEY=your_gemini_api_key_here
+DAILY_DB_PATH=/data/daily.db
 ```
 
-Gemini API 키는 [aistudio.google.com](https://aistudio.google.com)에서 무료 발급.  
-키가 없으면 AI 요약 기능만 비활성화되고 나머지는 정상 동작합니다.
+| 변수 | 필수 | 설명 |
+|---|---|---|
+| `GOOGLE_API_KEY` | 선택 | Gemini API 키. 없으면 AI 요약 기능만 비활성화됨. [aistudio.google.com](https://aistudio.google.com)에서 무료 발급 |
+| `DAILY_DB_PATH` | 선택 | SQLite DB 파일 경로. 미설정 시 `data/daily.db` 사용. Railway 볼륨 마운트 경로로 지정하면 재배포 후에도 데이터 유지 |
 
 ## 화면 구성
 
@@ -166,6 +169,8 @@ Gemini 2.5 Flash REST API를 활용해 소스별 1위 글 제목을 주제별로
 
 ## API 엔드포인트
 
+### 트렌드
+
 | 엔드포인트 | 설명 |
 |---|---|
 | `GET /api/trends` | 전체 포스트 + 트렌드 + AI 요약 데이터 |
@@ -178,6 +183,32 @@ Gemini 2.5 Flash REST API를 활용해 소스별 1위 글 제목을 주제별로
 | `GET /api/trends?tab=car` | 자동차 카테고리 |
 | `POST /api/refresh` | 즉시 크롤링 시작 |
 | `GET /api/status` | 크롤링 상태 확인 |
+
+### 데일리 요약
+
+| 엔드포인트 | 설명 |
+|---|---|
+| `GET /daily` | 일별 요약 목록 페이지 (최근 60일) |
+| `GET /daily/<date>` | 특정 날짜 요약 페이지 (예: `/daily/2025-05-01`) |
+| `GET /api/daily` | 최근 60일 요약 목록 (JSON) |
+| `GET /api/daily/<date>` | 특정 날짜 요약 상세 (JSON) |
+| `POST /api/daily/generate` | 오늘 또는 지정 날짜 요약 강제 생성. body: `{"date": "2025-05-01"}` (생략 시 오늘) |
+
+## 데이터 저장소
+
+SQLite 파일 하나(`data/daily.db`)에 일별 요약이 영구 저장됩니다.
+
+```sql
+CREATE TABLE daily_summaries (
+    date         TEXT PRIMARY KEY,  -- YYYY-MM-DD (KST)
+    summary_md   TEXT NOT NULL,     -- Gemini가 생성한 마크다운 리포트
+    posts_json   TEXT NOT NULL,     -- 요약에 사용된 게시글 목록 (JSON 배열)
+    post_count   INTEGER NOT NULL,  -- 게시글 수
+    generated_at TEXT NOT NULL      -- 생성 시각 (ISO 8601, KST)
+);
+```
+
+> Railway 배포 시 볼륨을 `/data`에 마운트하고 `DAILY_DB_PATH=/data/daily.db`로 설정하면 재배포 후에도 데이터가 유지됩니다.
 
 ## 배포 (Railway)
 
