@@ -54,7 +54,7 @@
     display: flex; align-items: center;
     text-decoration: none;
   }
-  .logo img { height: 44px; width: auto; display: block; }
+  .logo img { height: 35px; width: auto; display: block; }
   .logo-tagline { color: var(--text); font-size: 16px; font-weight: 600; margin-left: 12px; }
   @media (max-width: 480px) { .logo-tagline { display: none; } }
 
@@ -87,6 +87,15 @@
     transition: color .15s, border-color .15s, background .15s;
   }
   .nav-link:hover { color: var(--accent); border-color: var(--accent); background: #fff5f5; }
+  .nav-link-outline {
+    font-size: 13px; color: var(--accent);
+    background: transparent;
+    border: 1.5px solid var(--accent);
+    padding: 6px 14px; border-radius: 8px;
+    text-decoration: none; font-weight: 600;
+    transition: color .15s, background .15s;
+  }
+  .nav-link-outline:hover { background: var(--accent); color: #fff; }
 
   .refresh-btn {
     background: var(--accent);
@@ -551,7 +560,7 @@
       <span class="logo-tagline">커뮤니티 트렌드 실시간 포착</span>
     </a>
     <div class="header-right">
-      <a href="/daily" class="nav-link">📰 데일리 리포트</a>
+      <a href="/daily" class="nav-link-outline">📰 데일리 리포트</a>
       <div class="status-badge">
         <div class="status-dot" id="status-dot"></div>
         <span id="status-text">로딩 중…</span>

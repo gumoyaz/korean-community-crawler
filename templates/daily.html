@@ -48,21 +48,20 @@
     flex-wrap: wrap;
   }
   .logo { display: flex; align-items: center; text-decoration: none; }
-  .logo img { height: 44px; width: auto; display: block; }
+  .logo img { height: 35px; width: auto; display: block; }
   .logo-tagline { color: var(--text-dim); font-size: 13px; font-weight: 400; margin-left: 10px; }
   @media (max-width: 480px) { .logo-tagline { display: none; } }
 
   .header-right { display: flex; align-items: center; gap: 10px; }
-  .nav-link {
-    font-size: 13px; color: var(--text-dim);
-    background: var(--surface2);
-    border: 1px solid var(--border);
+  .nav-link-outline {
+    font-size: 13px; color: var(--accent);
+    background: transparent;
+    border: 1.5px solid var(--accent);
     padding: 6px 14px; border-radius: 8px;
-    font-weight: 500;
-    transition: color .15s, border-color .15s, background .15s;
+    font-weight: 600; text-decoration: none;
+    transition: color .15s, background .15s;
   }
-  .nav-link:hover { color: var(--accent); border-color: var(--accent); background: #fff5f5; }
-  .nav-link.active { color: var(--accent); border-color: var(--accent); background: rgba(255,71,87,0.05); }
+  .nav-link-outline:hover { background: var(--accent); color: #fff; }
 
   /* ── Main ── */
   main {
@@ -414,8 +413,7 @@
       <span class="logo-tagline">커뮤니티 트렌드</span>
     </a>
     <div class="header-right">
-      <a href="/" class="nav-link">실시간 트렌드</a>
-      <a href="/daily" class="nav-link {% if view in ('list','pending','detail') %}active{% endif %}">데일리 리포트</a>
+      <a href="/" class="nav-link-outline">실시간 트렌드</a>
     </div>
   </div>
 </header>
@@ -427,7 +425,7 @@
 
   <div class="page-header">
     <div class="label">📰 Daily Report</div>
-    <h2>데일리 리포트</h2>
+    <h2>커뮤니티 트렌드 데일리</h2>
     <p>매일 한국 주요 커뮤니티 상위 게시글을 Gemini AI로 깊게 요약합니다.<br>
        요약만 읽어도 오늘 인터넷에서 무슨 일이 있었는지 파악할 수 있습니다.</p>
   </div>
