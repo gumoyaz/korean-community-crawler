@@ -15,7 +15,7 @@ KST = timezone(timedelta(hours=9))
 app = Flask(__name__)
 crawler = TrendCrawler()
 
-SITE_URL = os.environ.get('SITE_URL', '').rstrip('/')
+SITE_URL = os.environ.get('SITE_URL', 'https://korean-community-crawler-production.up.railway.app').rstrip('/')
 
 
 @app.context_processor
