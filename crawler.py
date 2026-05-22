@@ -47,7 +47,7 @@ COMMUNITY_SOURCES = [
             'https://www.fmkorea.com/index.php?mid=best&listStyle=list&page=2',
         ],
         'title_sel': 'td.title a',
-        'view_sel': None,
+        'view_sel': None,          # rate-limit으로 접근 불안정 → 위치 점수만 사용
         'base_url': 'https://www.fmkorea.com',
         'color': '#ff6b35',
         'emoji': '🔥',
@@ -262,12 +262,15 @@ CAR_WORDS = {
 }
 
 STOP_WORDS = {
+    # 대명사/지시어
     '이', '그', '저', '것', '수', '이것', '그것', '저것', '이게', '그게', '저게',
     '이거', '그거', '저거', '여기', '거기', '저기', '이쪽', '그쪽', '저쪽',
     '우리', '저희', '나', '너', '자기', '본인', '누구', '아무', '모두',
+    # 형용사/관형어
     '같은', '다른', '새로운', '좋은', '나쁜', '많은', '적은', '큰', '작은',
     '높은', '낮은', '빠른', '느린', '넓은', '좁은', '오래된', '다양한', '이런',
     '저런', '그런', '어떤', '무슨', '어느', '모든', '각각', '일부', '전체',
+    # 부사
     '정말', '진짜', '너무', '매우', '완전', '엄청', '굉장', '되게', '엄청나',
     '조금', '약간', '살짝', '아주', '더', '덜', '가장', '제일', '그냥',
     '요즘', '이제', '이미', '아직', '계속', '다시', '또', '또한', '먼저',
@@ -275,18 +278,22 @@ STOP_WORDS = {
     '바로', '갑자기', '드디어', '역시', '원래', '사실', '당연', '물론',
     '오히려', '한편', '분명', '확실', '아마', '혹시', '결국', '여전히',
     '마침내', '겨우', '벌써', '이미', '먼저', '다시', '혼자', '함께',
+    # 접속사/담화표지
     '그리고', '하지만', '근데', '그래서', '그러나', '그래도', '그러면',
     '따라서', '게다가', '다만', '단지', '즉', '또는', '혹은', '반면',
     '그러므로', '왜냐면', '이처럼', '이렇게', '저렇게', '어쨌든',
+    # 동사/형용사 어간 (어미 제거 후 남는 것들)
     '있는', '없는', '하는', '되는', '되어', '이다', '한다', '됐다',
     '있네', '없네', '좋네', '했네', '왔네', '봤네', '같네', '됐네',
     '하게', '되게', '이게', '없이', '있어', '없어', '좋아', '싫어',
     '않는', '않고', '않아', '못하', '못해',
     '나온', '보인', '받은', '된다', '한다', '간다', '온다', '본다',
     '알고', '알아', '알지', '알면', '알던', '몰랐', '몰라', '모름',
+    # 시간 표현
     '오늘', '어제', '내일', '지금', '이번', '지난', '다음', '이후', '현재',
     '최근', '요즘', '하루', '이틀', '일주일', '한달', '올해', '작년', '내년',
     '오전', '오후', '저녁', '시간', '날짜', '당시', '올초', '연초', '연말',
+    # 일반명사 (트렌드 가치 없음)
     '것', '수', '때', '곳', '점', '듯', '뿐', '채', '중', '후', '전',
     '때문', '위해', '통해', '관련', '대한', '위한', '인해', '따른',
     '경우', '정도', '생각', '이유', '방법', '결과', '내용', '부분',
@@ -299,9 +306,11 @@ STOP_WORDS = {
     '남자', '여자', '남성', '여성', '남편', '아내', '부인', '와이프',
     '엄마', '아빠', '어머니', '아버지', '부모', '자녀', '아이', '아들', '딸',
     '집', '방', '직장', '회사', '학교', '나라', '세상', '사회', '현실',
+    # 게시판/운영 용어
     '공지', '안내', '필독', '운영', '이용', '규칙', '게시판', '갤러리',
     '댓글', '답글', '글쓴이', '작성자', '조회수', '추천수', '비추천',
     '로그인', '회원가입', '신고',
+    # 커뮤니티 카테고리/메뉴 단어
     '이슈', '베스트', '인기자료', '실시간', '카테고리', '게시글',
     '자유게시판', '유머게시판', '정보게시판', '기타게시판',
     '최고조회', '베스트글', '인기글', '핫게시물', '급상승',
@@ -309,33 +318,41 @@ STOP_WORDS = {
     '인기', '추천글', '명예글', '베오베', '베스트오브베스트',
     '라이브', '화제글', '실시간인기', '추천인기글', '라이브화제',
     '기사', '뉴스기사', '인기기사', '오늘기사', '최신기사',
+    # FMKorea/커뮤니티 게시판명
     '포텐', '터짐', '포텐터짐', '힛갤', '개념글', '핫딜', '딜', '익게',
     '싱갤', '에펨', '에펨코리아', '클리앙', '루리웹', '더쿠', '인스티즈',
     '불펜', '모공', '명예의전당', '명예전당', '명예의', '전당', '화제톡', '톡커', '톡커들',
     '자게', '익명', '썸네일', '프사', '닉네임', '아이디', '계정',
     '디시', '디씨', '디시인사이드', '보배드림', '보배', '에펨',
     '아카라이브', '아카', '도그드립', '뽐뿌', '가생이', '이토랜드',
+    # 뉴스 클리셰
     '밝혔다', '종합', '기자', '연합뉴스', '뉴스', '속보', '단독',
     '주장', '발언', '발표', '보도', '취재', '입장', '해명', '논란',
     '충격', '경악', '황당', '황당함', '어이없', '충격적', '화제',
+    # SNS/인스타 상투어
     '일상', '추천', '공유', '소통', '팔로우', '좋아요', '해시태그',
     '스타그램', '맞팔', '데일리', '일상글', '소통해요', '팔로잉',
     '선팔', '맞팔환영', '인친', '핫플', '핫하', '핫해',
+    # 커뮤니티 상투어
     'ㅋㅋㅋ', 'ㅎㅎㅎ', '레알', '개웃', '개쩐', '레전드', '역대급',
     '인정', '공감', '동의', '맞아요', '맞음', '틀림', '아님',
     '진행', '완료', '시작', '마무리', '정리', '업데이트', '확인',
     '출처', '펌', '퍼온', '짤', '움짤', '사진', '영상', '동영상',
     '글쓰', '글올', '올려', '올림', '질문있', '도와주',
+    # 막연한 감탄/평가어
     '대박', '쩔어', '미쳤다', '실화냐', '레알', '헐', '와우',
     '좋았', '최고', '최악', '별로', '그냥저냥', '그저그래',
     '궁금', '신기', '흥미', '재미', '웃긴', '슬픈',
     '대단', '놀랍', '신선', '어메이징', '굿', '쩐다',
+    # 동사 어근 (어미 제거 후 의미없는 것들)
     '가봤', '해봤', '먹었', '봤어', '했어', '왔어', '갔어',
     '핫하', '맛있', '귀엽', '예쁜', '멋진', '이쁜',
     '잘했', '못했', '해서', '하면서', '하니까', '하더니',
+    # 의문/감탄 표현
     '다들', '어떻게', '왜이렇', '어디서', '뭐하', '뭔데',
     '어디가', '언제부터', '얼마나', '어디까지', '어디에',
     '어떡해', '어떡하', '어쩌라', '어쩌지', '어쩌면',
+    # 구어체 반응어
     '그러게', '그렇구나', '그렇지', '맞지', '맞죠', '그쵸',
     '아니지', '아니죠', '아닌가', '모르겠', '모르지',
     '뭐야', '뭔가요', '뭔지', '뭔데', '뭔일', '웬일',
@@ -344,6 +361,7 @@ STOP_WORDS = {
 
 HISTORY_SIZE = 6
 
+# 포스트 본문 요약용 CSS 셀렉터 (사이트별)
 SUMMARY_SELECTORS = {
     'todayhumor': '.viewContent p, .memo_content p',
     'ruliweb':    '.rd_body p, .article_box p',
@@ -352,7 +370,7 @@ SUMMARY_SELECTORS = {
     'mlbpark':    '.view_content p, .bd_body p',
 }
 
-SUMMARY_MAX_POSTS = 25
+SUMMARY_MAX_POSTS = 25  # 상위 N개만 요약 수집
 
 
 # ── Crawler ──────────────────────────────────────────────────────────────────
@@ -361,8 +379,8 @@ class TrendCrawler:
     def __init__(self):
         self._lock = threading.Lock()
         self._posts: list = []
-        self._history: list = []
-        self._post_score_history: list = []
+        self._history: list = []          # keyword counter history
+        self._post_score_history: list = []  # [{url: rank_score}, ...] per round
         self._trends: dict = {}
         self._last_updated = None
         self._status = 'idle'
@@ -390,7 +408,7 @@ class TrendCrawler:
         api_url = 'https://todaybeststory.com/api/v2/communities/posts/range'
         raw_posts = []
         try:
-            for page in range(1, 11):
+            for page in range(1, 11):  # 최대 10페이지 = 300개
                 headers = _random_headers({'Referer': 'https://todaybeststory.com/communities'})
                 r = requests.get(api_url, headers=headers,
                     params={'startDate': today, 'endDate': today, 'page': page, 'limit': 30},
@@ -430,6 +448,7 @@ class TrendCrawler:
             'YGO': ('ygosu', '와고수', '🎲', '#8e44ad'),
             '82C': ('cook82', '82쿡', '👩‍🍳', '#e74c3c'),
         }
+
 
         items = []
         for post in raw_posts:
@@ -493,7 +512,16 @@ class TrendCrawler:
 
         posts = []
 
-        api_posts = self._fetch_todaybeststory()
+        # TodayBestStory API — 90초 hard timeout (DNS/TCP hang 방지)
+        api_posts = []
+        _tbs_ex = ThreadPoolExecutor(max_workers=1)
+        try:
+            api_posts = _tbs_ex.submit(self._fetch_todaybeststory).result(timeout=90)
+        except Exception as e:
+            print(f'[Refresh] TodayBestStory hard timeout: {e}')
+        finally:
+            _tbs_ex.shutdown(wait=False, cancel_futures=True)
+
         if len(api_posts) >= 50:
             print(f'[Refresh] TodayBestStory {len(api_posts)}개 — 직접 스크래핑 생략')
             posts.extend(api_posts)
@@ -514,14 +542,17 @@ class TrendCrawler:
                 seen.add(key)
                 unique.append(p)
 
+        # 전체 랭킹 점수 계산 (조회수 로그 정규화 + 위치 점수)
         unique = self._assign_ranks(unique)
 
+        # 포스트별 velocity 계산 (이전 라운드 대비 rank_score 변화량)
         with self._lock:
             prev_post_history = list(self._post_score_history)
         self._compute_post_velocity(unique, prev_post_history)
         curr_scores = {p['url']: p.get('rank_score', 0.0) for p in unique}
 
-        # 본문 요약 병렬 수집 — 25초 hard timeout (TCP hang 방지)
+        # 상위 포스트 본문 요약 병렬 수집 (커뮤니티만, fmkorea 제외)
+        # 25초 hard timeout: 네트워크 hang으로 refresh()가 멈추는 것 방지
         to_summarize = [p for p in unique[:SUMMARY_MAX_POSTS]
                         if p['source'] in SUMMARY_SELECTORS and not p['summary']]
         if to_summarize:
@@ -535,7 +566,7 @@ class TrendCrawler:
 
         counter = self._word_counter(unique)
 
-        # AI 요약 갱신 — 35초 hard timeout (Gemini TCP hang 방지)
+        # AI 요약 갱신 (1시간 간격, GOOGLE_API_KEY 설정 시)
         now = datetime.now(timezone.utc)
         needs_summary = (last_sum is None or
                          (now - last_sum).total_seconds() > self.AI_SUMMARY_INTERVAL)
@@ -562,11 +593,17 @@ class TrendCrawler:
     # ── Post velocity ────────────────────────────────────────────────────────
 
     def _compute_post_velocity(self, posts: list, history: list) -> None:
+        """Add post_velocity to each post: current rank_score minus historical average.
+
+        A brand-new post (never seen before) gets velocity == its current score,
+        so genuinely viral newcomers always surface.
+        """
         if not history:
             for p in posts:
                 p['post_velocity'] = 0.0
             return
 
+        # Average rank_score across all stored rounds for each URL
         url_avg: dict = {}
         for round_scores in history:
             for url, score in round_scores.items():
@@ -578,6 +615,7 @@ class TrendCrawler:
         for p in posts:
             curr = p.get('rank_score', 0.0)
             prev = avg_prev.get(p['url'])
+            # New post: treat previous score as 0 so velocity = curr
             p['post_velocity'] = curr - (prev if prev is not None else 0.0)
 
     # ── AI 요약 ───────────────────────────────────────────────────────────────
@@ -585,9 +623,11 @@ class TrendCrawler:
     def _generate_ai_summary(self, posts: list) -> str:
         """소스별 대표 글 제목으로 오늘의 커뮤니티 요약 생성 (Gemini API)."""
         api_key = os.environ.get('GOOGLE_API_KEY', '')
+
         if not api_key:
             return ''
 
+        # 소스별 1위 글만 추출 (최대 20개)
         seen_src: set = set()
         top_posts: list = []
         for p in posts:
@@ -660,16 +700,20 @@ class TrendCrawler:
             time.sleep(2)
         try:
             soup = BeautifulSoup(r.content, 'html.parser')
+
             anchors = soup.select(src['title_sel'])
 
+            # 조회수 파싱
             view_counts = []
             if src.get('view_sel'):
                 for el in soup.select(src['view_sel']):
                     view_counts.append(self._parse_count(el.get_text().strip()))
 
+            # 날짜 파싱
             dates = []
-            date_per_anchor = {}
+            date_per_anchor = {}  # per-row 방식 (인스티즈 등)
             if src.get('date_sibling'):
+                # 각 title anchor의 부모 td에서 next sibling td로 날짜 추출
                 sib_cls = src['date_sibling']
                 for a in anchors:
                     parent_td = a.find_parent('td')
@@ -689,9 +733,11 @@ class TrendCrawler:
                     print(f'[{src["label"]}] date_sel="{src["date_sel"]}" 결과 없음')
                 dates = [self._parse_date(d) for d in raw_dates]
 
+            # 아카라이브처럼 anchor 자체에서 title/views/date를 모두 추출하는 경우
             anchor_has_all = bool(src.get('title_text_sel'))
+
             items = []
-            item_pos = 0
+            item_pos = 0  # 실제로 추가된 아이템 수 (빈 제목 제외)
             for pos, a in enumerate(anchors):
                 if anchor_has_all:
                     title_el = a.select_one(src['title_text_sel'])
@@ -714,8 +760,10 @@ class TrendCrawler:
                     full_url = src['base_url'] + '/' + href
 
                 if anchor_has_all:
+                    # views from within anchor
                     view_el = a.select_one(src['view_sel']) if src.get('view_sel') else None
                     views = self._parse_count(view_el.get_text().strip()) if view_el else 0
+                    # date from within anchor
                     date_val = ''
                     if src.get('date_sel'):
                         date_el = a.select_one(src['date_sel'])
@@ -723,8 +771,10 @@ class TrendCrawler:
                             raw = date_el.get(src['date_attr']) if src.get('date_attr') else date_el.get_text().strip()
                             date_val = self._parse_date(raw) if raw else ''
                 else:
+                    # pos: anchor 전체 순서 (스킵된 행 포함) → view/date 배열과 1:1 대응
                     views = view_counts[pos] if pos < len(view_counts) else 0
 
+                # 위치 점수 (1위 = 100, 아래로 갈수록 감소)
                 position_score = max(0, 100 - item_pos * 1.5)
 
                 if not anchor_has_all:
@@ -759,7 +809,7 @@ class TrendCrawler:
                     'is_car':     self._matches(text, CAR_WORDS),
                     'views': views,
                     'position_score': position_score,
-                    'rank_score': 0,
+                    'rank_score': 0,   # refresh()에서 정규화 후 채움
                     'rank': 0,
                     'likes': 0,
                     'comments': 0,
@@ -771,41 +821,54 @@ class TrendCrawler:
             return []
 
     def _parse_date(self, text: str) -> str:
+        """다양한 날짜 포맷을 'YYYY-MM-DD HH:MM' 형식으로 변환."""
         now = datetime.now(timezone.utc)
         text = text.strip()
+        # 인스티즈 등: "HH:MM l 조회 N" 형태에서 날짜 부분만 추출
         text = re.sub(r'\s*[lL│|ㅣ]\s*조회.*$', '', text).strip()
         if not text:
             return ''
         try:
+            # "N분 전"
             m = re.match(r'(\d+)분\s*전', text)
             if m:
                 return (now - timedelta(minutes=int(m.group(1)))).strftime('%Y-%m-%d %H:%M')
+            # "N시간 전"
             m = re.match(r'(\d+)시간\s*전', text)
             if m:
                 return (now - timedelta(hours=int(m.group(1)))).strftime('%Y-%m-%d %H:%M')
+            # "N일 전"
             m = re.match(r'(\d+)일\s*전', text)
             if m:
                 return (now - timedelta(days=int(m.group(1)))).strftime('%Y-%m-%d %H:%M')
+            # "어제"
             if text.strip() == '어제':
                 return (now - timedelta(days=1)).strftime('%Y-%m-%d')
+            # "HH:MM" (오늘)
             m = re.match(r'^(\d{1,2}):(\d{2})$', text)
             if m:
                 return now.strftime('%Y-%m-%d') + f" {m.group(1).zfill(2)}:{m.group(2)}"
+            # "MM.DD HH:MM" (인스티즈 등)
             m = re.match(r'^(\d{1,2})[.](\d{1,2})\s+(\d{1,2}):(\d{2})$', text)
             if m:
                 return f"{now.year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)} {m.group(3).zfill(2)}:{m.group(4)}"
+            # "MM.DD", "MM/DD", "MM-DD"
             m = re.match(r'^(\d{1,2})[./-](\d{1,2})$', text)
             if m:
                 return f"{now.year}-{m.group(1).zfill(2)}-{m.group(2).zfill(2)}"
+            # "YY/MM/DD HH:MM" (오늘의유머)
             m = re.match(r'^(\d{2})/(\d{2})/(\d{2})\s+(\d{1,2}):(\d{2})$', text)
             if m:
                 return f"20{m.group(1)}-{m.group(2)}-{m.group(3)} {m.group(4).zfill(2)}:{m.group(5)}"
+            # "YY/MM/DD"
             m = re.match(r'^(\d{2})/(\d{2})/(\d{2})$', text)
             if m:
                 return f"20{m.group(1)}-{m.group(2)}-{m.group(3)}"
+            # "YY.MM.DD" (더쿠 오래된 글: "24.12.06")
             m = re.match(r'^(\d{2})[.](\d{2})[.](\d{2})$', text)
             if m:
                 return f"20{m.group(1)}-{m.group(2)}-{m.group(3)}"
+            # "YYYY.MM.DD" 또는 "YYYY-MM-DD" (선택적 시간 포함)
             m = re.match(r'(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})', text)
             if m:
                 base = f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
@@ -861,25 +924,32 @@ class TrendCrawler:
                 shortcode = node.get('shortcode', '')
                 text = hashtag + ' ' + caption
                 items.append({
-                    'source': 'instagram', 'source_label': '인스타그램',
-                    'source_emoji': '📸', 'source_color': '#e040fb',
-                    'title': f'#{hashtag}', 'summary': caption[:150],
+                    'source': 'instagram',
+                    'source_label': '인스타그램',
+                    'source_emoji': '📸',
+                    'source_color': '#e040fb',
+                    'title': f'#{hashtag}',
+                    'summary': caption[:150],
                     'url': f'https://www.instagram.com/p/{shortcode}/',
-                    'image': node.get('thumbnail_src', ''), 'author': '',
+                    'image': node.get('thumbnail_src', ''),
+                    'author': '',
                     'date': datetime.fromtimestamp(node.get('taken_at_timestamp', time.time()), tz=timezone.utc).strftime('%Y-%m-%d %H:%M'),
                     'keyword': self._main_category(text),
-                    'is_food': self._matches(text, FOOD_WORDS),
+                    'is_food':   self._matches(text, FOOD_WORDS),
                     'is_beauty': self._matches(text, BEAUTY_WORDS),
-                    'is_fashion': self._matches(text, FASHION_WORDS),
+                    'is_fashion':self._matches(text, FASHION_WORDS),
                     'is_travel': self._matches(text, TRAVEL_WORDS),
-                    'is_game': self._matches(text, GAME_WORDS),
-                    'is_celeb': self._matches(text, CELEB_WORDS),
-                    'is_humor': self._matches(text, HUMOR_WORDS),
-                    'is_car': self._matches(text, CAR_WORDS),
+                    'is_game':   self._matches(text, GAME_WORDS),
+                    'is_celeb':  self._matches(text, CELEB_WORDS),
+                    'is_humor':  self._matches(text, HUMOR_WORDS),
+                    'is_car':    self._matches(text, CAR_WORDS),
                     'views': node.get('edge_liked_by', {}).get('count', 0),
                     'likes': node.get('edge_liked_by', {}).get('count', 0),
                     'comments': node.get('edge_media_to_comment', {}).get('count', 0),
-                    'position_score': 0, 'rank_score': 0, 'rank': 0, 'is_sample': False,
+                    'position_score': 0,
+                    'rank_score': 0,
+                    'rank': 0,
+                    'is_sample': False,
                 })
             return items
         except Exception:
@@ -892,32 +962,41 @@ class TrendCrawler:
         ]
         text = hashtag
         return [{
-            'source': 'instagram', 'source_label': '인스타그램 (샘플)',
-            'source_emoji': '📸', 'source_color': '#e040fb',
-            'title': f'#{hashtag}', 'summary': templates[i % 2],
+            'source': 'instagram',
+            'source_label': '인스타그램 (샘플)',
+            'source_emoji': '📸',
+            'source_color': '#e040fb',
+            'title': f'#{hashtag}',
+            'summary': templates[i % 2],
             'url': f'https://www.instagram.com/explore/tags/{hashtag}/',
-            'image': '', 'author': f'user_{random.randint(1000,9999)}',
+            'image': '',
+            'author': f'user_{random.randint(1000,9999)}',
             'date': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M'),
             'keyword': self._main_category(text),
-            'is_food': self._matches(text, FOOD_WORDS),
+            'is_food':   self._matches(text, FOOD_WORDS),
             'is_beauty': self._matches(text, BEAUTY_WORDS),
-            'is_fashion': self._matches(text, FASHION_WORDS),
+            'is_fashion':self._matches(text, FASHION_WORDS),
             'is_travel': self._matches(text, TRAVEL_WORDS),
-            'is_game': self._matches(text, GAME_WORDS),
-            'is_celeb': self._matches(text, CELEB_WORDS),
-            'is_humor': self._matches(text, HUMOR_WORDS),
-            'is_car': self._matches(text, CAR_WORDS),
-            'views': 0, 'likes': random.randint(300, 9000),
+            'is_game':   self._matches(text, GAME_WORDS),
+            'is_celeb':  self._matches(text, CELEB_WORDS),
+            'is_humor':  self._matches(text, HUMOR_WORDS),
+            'is_car':    self._matches(text, CAR_WORDS),
+            'views': 0,
+            'likes': random.randint(300, 9000),
             'comments': random.randint(10, 400),
-            'position_score': 0, 'rank_score': 0, 'rank': 0, 'is_sample': True,
+            'position_score': 0,
+            'rank_score': 0,
+            'rank': 0,
+            'is_sample': True,
         } for i in range(2)]
 
     # ── trend scoring ─────────────────────────────────────────────────────────
 
-    MAX_AGE_DAYS = 90
-    DECAY_HALF   = 30
+    MAX_AGE_DAYS = 90   # 3개월 초과 글 제외
+    DECAY_HALF   = 30   # 30일마다 점수 절반 (e^(-age/30))
 
     def _age_days(self, date_str: str) -> float:
+        """날짜 문자열로부터 경과 일수 반환. 날짜 없으면 0."""
         if not date_str:
             return 0.0
         try:
@@ -927,20 +1006,24 @@ class TrendCrawler:
             return 0.0
 
     def _age_decay(self, date_str: str) -> float:
+        """3개월 초과 필터용 (0.0 = 제외). _assign_ranks의 decay는 별도 계산."""
         if not date_str:
             return 1.0
         try:
-            if self._age_days(date_str) > self.MAX_AGE_DAYS:
+            age_days = self._age_days(date_str)
+            if age_days > self.MAX_AGE_DAYS:
                 return 0.0
-            return 1.0
+            return 1.0   # 필터 통과 여부만 판단, 실제 decay는 _assign_ranks에서
         except Exception:
             return 1.0
 
     def _assign_ranks(self, posts: list) -> list:
         import math
+        # 3개월 초과 제거
         posts = [p for p in posts if self._age_decay(p.get('date', '')) > 0.0]
 
-        src_max = {}
+        # ── Step 1: 소스별 engagement 최대값 파악 ────────────────────────────
+        src_max = {}   # {src: {'views':1, 'likes':1, 'comments':1}}
         src_has_views = {}
         for p in posts:
             src = p['source']
@@ -955,6 +1038,10 @@ class TrendCrawler:
             if p.get('comments', 0) > 0:
                 src_max[src]['comments'] = max(src_max[src]['comments'], p['comments'])
 
+        # ── Step 2: 종합 engagement 점수 계산 ────────────────────────────────
+        # 조회수 60% + 추천수 25% + 댓글수 15% (소스별 로그 정규화)
+        # → "꼭 봐야 할 글"을 engagement 합산으로 판단
+        # 반감기 14일(기존 30일→단축)로 최신 글에 유리하게
         for p in posts:
             src = p['source']
             mx  = src_max[src]
@@ -962,16 +1049,18 @@ class TrendCrawler:
             def norm(val, mx_val):
                 return (math.log1p(val) / math.log1p(mx_val)) * 100 if val > 0 else 0
 
-            view_score    = norm(p['views'],            mx['views'])
-            like_score    = norm(p.get('likes', 0),    mx['likes'])
-            comment_score = norm(p.get('comments', 0), mx['comments'])
+            view_score    = norm(p['views'],              mx['views'])
+            like_score    = norm(p.get('likes', 0),      mx['likes'])
+            comment_score = norm(p.get('comments', 0),   mx['comments'])
 
             if src_has_views.get(src):
-                engagement = view_score * 0.60 + like_score * 0.25 + comment_score * 0.15
-                base_score = p['position_score'] * 0.35 + engagement * 0.65
+                engagement  = view_score * 0.60 + like_score * 0.25 + comment_score * 0.15
+                base_score  = p['position_score'] * 0.35 + engagement * 0.65
             else:
-                base_score = p['position_score']
+                base_score  = p['position_score']
 
+            # 반감기 90일 — 30일 이내에서는 조회수가 날짜보다 우선
+            # 오늘=100%, 3일=97%, 1주=93%, 21일=79%, 30일=72%, 90일=37%
             age_days = self._age_days(p.get('date', ''))
             decay = math.exp(-age_days / 90) if age_days >= 0 else 1.0
             p['rank_score'] = round(base_score * decay, 1)
@@ -979,6 +1068,9 @@ class TrendCrawler:
 
         sorted_posts = sorted(posts, key=lambda x: x['rank_score'], reverse=True)
 
+        # ── Step 3: 채널 대표글 가산점 (+10%) ────────────────────────────────
+        # 각 채널에서 가장 높은 점수를 받은 1개 글에 보너스
+        # → 조회수 없는 채널도 대표글은 상위에 노출될 기회 확보
         seen_src: set = set()
         for p in sorted_posts:
             if p['source'] not in seen_src:
@@ -986,6 +1078,9 @@ class TrendCrawler:
                 seen_src.add(p['source'])
         sorted_posts = sorted(sorted_posts, key=lambda x: x['rank_score'], reverse=True)
 
+        # ── Step 4: 다양성 점감 패널티 (DAMPEN=0.65) ─────────────────────────
+        # 같은 소스 2번째 글 65%, 3번째 42%, 5번째 18%, 7번째 8% (사실상 바닥)
+        # → 특정 커뮤니티 독점 방지 + MAX_PER_SOURCE 하드 캡으로 뒤쪽 잡글 제거
         DAMPEN = 0.65
         MAX_PER_SOURCE = 25
         src_counts: dict = {}
@@ -994,6 +1089,7 @@ class TrendCrawler:
             p['diversity_score'] = p['rank_score'] * (DAMPEN ** n)
             src_counts[p['source']] = n + 1
 
+        # 소스당 최대 15개만 포함
         src_included: dict = {}
         capped: list = []
         for p in sorted(sorted_posts, key=lambda x: x['diversity_score'], reverse=True):
@@ -1007,6 +1103,7 @@ class TrendCrawler:
             p['rank'] = i + 1
         return final
 
+    # 동사/형용사 어미 패턴 (긴 것부터 순서대로)
     _SUFFIX_RE = re.compile(
         r'(하더라구요|더라구요|더라고요|가보셨어요|셨어요|았어요|었어요'
         r'|겠어요|겠습니다|합니다|습니다|됩니다|입니다'
@@ -1028,6 +1125,7 @@ class TrendCrawler:
             text = p.get('title', '') + ' ' + p.get('summary', '')
             words = re.findall(r'[가-힣]{2,8}', text)
             for w in words:
+                # 6음절 이상은 거의 모두 동사구 → 제외
                 if len(w) > 5:
                     continue
                 stem = self._SUFFIX_RE.sub('', w)
@@ -1035,6 +1133,7 @@ class TrendCrawler:
                     continue
                 if stem in STOP_WORDS or w in STOP_WORDS:
                     continue
+                # '의/은/는/이/가/을/를/도' 조사 붙은 채로 매칭 안 되는 경우 추가 체크
                 if len(stem) > 2 and stem[-1] in '의은는을를도와과' and stem[:-1] in STOP_WORDS:
                     continue
                 c[stem] += 1
@@ -1052,33 +1151,38 @@ class TrendCrawler:
         total = sum(current.values()) or 1
         scored = []
         for word, cnt in current.most_common(80):
-            if cnt < 3:
+            if cnt < 3:  # 3개 미만 포스트에서 나온 단어는 노이즈로 제외
                 continue
             base  = (cnt / total) * 100 * 10
             vel   = (cnt - prev.get(word, 0)) * 2 + (cnt - older.get(word, 0))
             score = min(100, base + max(0, vel) * 3)
             scored.append({
-                'word': word, 'count': cnt, 'score': round(score, 1),
+                'word': word,
+                'count': cnt,
+                'score': round(score, 1),
                 'velocity': vel if has_history else 0,
                 'is_rising': has_history and vel > 0 and cnt >= 2,
             })
 
-        rising = sorted([s for s in scored if s['is_rising']],
-                        key=lambda x: x['velocity'], reverse=True)[:15]
+        rising = sorted(
+            [s for s in scored if s['is_rising']],
+            key=lambda x: x['velocity'], reverse=True
+        )[:15]
         top = sorted(scored, key=lambda x: x['score'], reverse=True)[:20]
 
         src_counts = Counter(p.get('source', '') for p in posts)
         keywords = [{'keyword': k, 'count': c} for k, c in src_counts.most_common()]
 
         categories = {
-            '음식/카페':   sum(1 for p in posts if p.get('is_food')),
-            '뷰티/패션':   sum(1 for p in posts if p.get('is_beauty') or p.get('is_fashion')),
-            '여행':        sum(1 for p in posts if p.get('is_travel')),
-            '게임/IT':     sum(1 for p in posts if p.get('is_game')),
-            '연예/아이돌':  sum(1 for p in posts if p.get('is_celeb')),
-            '유머':        sum(1 for p in posts if p.get('is_humor')),
-            '자동차':      sum(1 for p in posts if p.get('is_car')),
+            '음식/카페':  sum(1 for p in posts if p.get('is_food')),
+            '뷰티/패션':  sum(1 for p in posts if p.get('is_beauty') or p.get('is_fashion')),
+            '여행':       sum(1 for p in posts if p.get('is_travel')),
+            '게임/IT':    sum(1 for p in posts if p.get('is_game')),
+            '연예/아이돌': sum(1 for p in posts if p.get('is_celeb')),
+            '유머':       sum(1 for p in posts if p.get('is_humor')),
+            '자동차':     sum(1 for p in posts if p.get('is_car')),
         }
+
         return {'rising': rising, 'top': top, 'keywords': keywords, 'categories': categories}
 
     # ── helpers ───────────────────────────────────────────────────────────────
@@ -1112,6 +1216,7 @@ class TrendCrawler:
             for el in soup.select(sel):
                 text = el.get_text(' ', strip=True)
                 text = re.sub(r'\s+', ' ', text).strip()
+                # 너무 짧거나 광고성 텍스트 제외
                 if len(text) >= 15 and not any(w in text for w in ['광고', '제휴', 'AD']):
                     post['summary'] = text[:130] + ('…' if len(text) > 130 else '')
                     return
