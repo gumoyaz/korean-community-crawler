@@ -543,11 +543,17 @@ class TrendCrawler:
         curr_scores = {p['url']: p.get('rank_score', 0.0) for p in unique}
 
         # 상위 포스트 본문 요약 병렬 수집 (커뮤니티만, fmkorea 제외)
+        # 25초 hard timeout: 네트워크 hang으로 refresh()가 멈추는 것 방지
         to_summarize = [p for p in unique[:SUMMARY_MAX_POSTS]
                         if p['source'] in SUMMARY_SELECTORS and not p['summary']]
         if to_summarize:
-            with ThreadPoolExecutor(max_workers=8) as ex:
-                ex.map(self._fetch_summary, to_summarize)
+            ex = ThreadPoolExecutor(max_workers=4)
+            try:
+                list(ex.map(self._fetch_summary, to_summarize, timeout=25))
+            except Exception:
+                pass
+            finally:
+                ex.shutdown(wait=False, cancel_futures=True)
 
         counter = self._word_counter(unique)
 
@@ -1018,8 +1024,6 @@ class TrendCrawler:
 
         # ── Step 2: 종합 engagement 점수 계산 ────────────────────────────────
         # 조회수 60% + 추천수 25% + 댓글수 15% (소스별 로그 정규화)
-        # → "꼭 봐야 할 글"을 engagement 합산으로 판단
-        # 반감기 14일(기존 30일→단축)로 최신 글에 유리하게
         for p in posts:
             src = p['source']
             mx  = src_max[src]
@@ -1037,8 +1041,6 @@ class TrendCrawler:
             else:
                 base_score  = p['position_score']
 
-            # 반감기 90일 — 30일 이내에서는 조회수가 날짜보다 우선
-            # 오늘=100%, 3일=97%, 1주=93%, 21일=79%, 30일=72%, 90일=37%
             age_days = self._age_days(p.get('date', ''))
             decay = math.exp(-age_days / 90) if age_days >= 0 else 1.0
             p['rank_score'] = round(base_score * decay, 1)
@@ -1047,8 +1049,6 @@ class TrendCrawler:
         sorted_posts = sorted(posts, key=lambda x: x['rank_score'], reverse=True)
 
         # ── Step 3: 채널 대표글 가산점 (+10%) ────────────────────────────────
-        # 각 채널에서 가장 높은 점수를 받은 1개 글에 보너스
-        # → 조회수 없는 채널도 대표글은 상위에 노출될 기회 확보
         seen_src: set = set()
         for p in sorted_posts:
             if p['source'] not in seen_src:
@@ -1057,8 +1057,6 @@ class TrendCrawler:
         sorted_posts = sorted(sorted_posts, key=lambda x: x['rank_score'], reverse=True)
 
         # ── Step 4: 다양성 점감 패널티 (DAMPEN=0.65) ─────────────────────────
-        # 같은 소스 2번째 글 65%, 3번째 42%, 5번째 18%, 7번째 8% (사실상 바닥)
-        # → 특정 커뮤니티 독점 방지 + MAX_PER_SOURCE 하드 캡으로 뒤쪽 잡글 제거
         DAMPEN = 0.65
         MAX_PER_SOURCE = 25
         src_counts: dict = {}
@@ -1067,7 +1065,6 @@ class TrendCrawler:
             p['diversity_score'] = p['rank_score'] * (DAMPEN ** n)
             src_counts[p['source']] = n + 1
 
-        # 소스당 최대 15개만 포함
         src_included: dict = {}
         capped: list = []
         for p in sorted(sorted_posts, key=lambda x: x['diversity_score'], reverse=True):
@@ -1103,7 +1100,6 @@ class TrendCrawler:
             text = p.get('title', '') + ' ' + p.get('summary', '')
             words = re.findall(r'[가-힣]{2,8}', text)
             for w in words:
-                # 6음절 이상은 거의 모두 동사구 → 제외
                 if len(w) > 5:
                     continue
                 stem = self._SUFFIX_RE.sub('', w)
@@ -1111,7 +1107,6 @@ class TrendCrawler:
                     continue
                 if stem in STOP_WORDS or w in STOP_WORDS:
                     continue
-                # '의/은/는/이/가/을/를/도' 조사 붙은 채로 매칭 안 되는 경우 추가 체크
                 if len(stem) > 2 and stem[-1] in '의은는을를도와과' and stem[:-1] in STOP_WORDS:
                     continue
                 c[stem] += 1
@@ -1129,7 +1124,7 @@ class TrendCrawler:
         total = sum(current.values()) or 1
         scored = []
         for word, cnt in current.most_common(80):
-            if cnt < 3:  # 3개 미만 포스트에서 나온 단어는 노이즈로 제외
+            if cnt < 3:
                 continue
             base  = (cnt / total) * 100 * 10
             vel   = (cnt - prev.get(word, 0)) * 2 + (cnt - older.get(word, 0))
@@ -1194,7 +1189,6 @@ class TrendCrawler:
             for el in soup.select(sel):
                 text = el.get_text(' ', strip=True)
                 text = re.sub(r'\s+', ' ', text).strip()
-                # 너무 짧거나 광고성 텍스트 제외
                 if len(text) >= 15 and not any(w in text for w in ['광고', '제휴', 'AD']):
                     post['summary'] = text[:130] + ('…' if len(text) > 130 else '')
                     return
