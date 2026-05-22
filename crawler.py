@@ -489,7 +489,7 @@ class TrendCrawler:
         except Exception as e:
             print(f'[Refresh] TodayBestStory inner timeout: {e}')
         finally:
-            _tbs_ex.shutdown(wait=False, cancel_futures=True)
+            _tbs_ex.shutdown(wait=False)
 
         if len(api_posts) >= 50:
             print(f'[Refresh] TodayBestStory {len(api_posts)}개 — 직접 스크래핑 생략')
@@ -517,7 +517,7 @@ class TrendCrawler:
         except Exception as e:
             print(f'[Refresh] 포스트 수집 master timeout: {e}')
         finally:
-            _collect_ex.shutdown(wait=False, cancel_futures=True)
+            _collect_ex.shutdown(wait=False)
 
         # 공지/중복 필터
         seen, unique = set(), []
@@ -544,7 +544,7 @@ class TrendCrawler:
             except Exception:
                 pass
             finally:
-                ex.shutdown(wait=False, cancel_futures=True)
+                ex.shutdown(wait=False)
 
         counter = self._word_counter(unique)
 
@@ -649,7 +649,7 @@ class TrendCrawler:
             print(f'[Gemini] 요약 생성 오류: {e}')
             return ''
         finally:
-            ex.shutdown(wait=False, cancel_futures=True)
+            ex.shutdown(wait=False)
 
     def _scrape_community(self, src: dict, url: str) -> list:
         time.sleep(random.uniform(0.5, 1.5))
