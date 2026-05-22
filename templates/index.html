@@ -757,6 +757,7 @@
 const REFRESH_MS = {{ refresh_interval }} * 1000;
 let currentTab = 'all';
 let allData = null;
+let fullData = null;   // 전체(필터 없는) 데이터 캐시 — 칩 카운트 계산용
 let nextRefresh = Date.now() + REFRESH_MS;
 let timerInterval = null;
 
@@ -770,6 +771,8 @@ async function loadData(tab = currentTab, src = currentSrc) {
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
     allData = data;
+    // 전체 데이터(필터 없음)일 때만 fullData 갱신
+    if (tab === 'all' && !src) fullData = data;
     renderAll(data);
     updateStatus(data);
   } catch (e) {
@@ -778,46 +781,67 @@ async function loadData(tab = currentTab, src = currentSrc) {
   }
 }
 
-async function loadCounts() {
-  try {
-    const fetches = {
-      all:        fetch('/api/trends?tab=all').then(r=>r.json()),
-      fmkorea:    fetch('/api/trends?source=fmkorea').then(r=>r.json()),
-      todayhumor: fetch('/api/trends?source=todayhumor').then(r=>r.json()),
-      ruliweb:    fetch('/api/trends?source=ruliweb').then(r=>r.json()),
-      clien:      fetch('/api/trends?source=clien').then(r=>r.json()),
-      theqoo:     fetch('/api/trends?source=theqoo').then(r=>r.json()),
-      mlbpark:    fetch('/api/trends?source=mlbpark').then(r=>r.json()),
-      instiz:     fetch('/api/trends?source=instiz').then(r=>r.json()),
-      bobaedream: fetch('/api/trends?source=bobaedream').then(r=>r.json()),
-      natekorea:  fetch('/api/trends?source=natekorea').then(r=>r.json()),
-      humoruniv:  fetch('/api/trends?source=humoruniv').then(r=>r.json()),
-      arcalive:   fetch('/api/trends?source=arcalive').then(r=>r.json()),
-      dcinside:   fetch('/api/trends?source=dcinside').then(r=>r.json()),
-      dogdrip:    fetch('/api/trends?source=dogdrip').then(r=>r.json()),
-      inven:      fetch('/api/trends?source=inven').then(r=>r.json()),
-      ppomppu:    fetch('/api/trends?source=ppomppu').then(r=>r.json()),
-      ddanzi:     fetch('/api/trends?source=ddanzi').then(r=>r.json()),
-      instagram:  fetch('/api/trends?source=instagram').then(r=>r.json()),
-      food:       fetch('/api/trends?tab=food').then(r=>r.json()),
-      beauty:     fetch('/api/trends?tab=beauty').then(r=>r.json()),
-      game:       fetch('/api/trends?tab=game').then(r=>r.json()),
-      celeb:      fetch('/api/trends?tab=celeb').then(r=>r.json()),
-      humor:      fetch('/api/trends?tab=humor').then(r=>r.json()),
-      car:        fetch('/api/trends?tab=car').then(r=>r.json()),
-    };
-    const results = Object.fromEntries(
-      await Promise.all(Object.entries(fetches).map(async ([k,p]) => [k, await p]))
-    );
-    for (const [key, data] of Object.entries(results)) {
-      // category tab counts
-      const el = document.getElementById(`count-${key}`);
-      if (el) el.textContent = data.total || 0;
-      // chip counts
-      const chip = document.getElementById(`chip-count-${key}`);
-      if (chip) chip.textContent = data.total || 0;
+function loadCounts() {
+  // fullData(전체 포스트)에서 로컬 계산 — API 중복 호출 없음
+  const base = fullData || allData;
+  if (!base) return;
+  const posts = base.posts || [];
+
+  // ── 소스별 카운트 ──
+  const srcCounts = {};
+  const srcMeta   = {};   // {srcId: {label, emoji, color}}
+  for (const p of posts) {
+    srcCounts[p.source] = (srcCounts[p.source] || 0) + 1;
+    if (!srcMeta[p.source]) {
+      srcMeta[p.source] = { label: p.source_label || p.source, emoji: p.source_emoji || '📝', color: p.source_color || '#7c6cff' };
     }
-  } catch(e) {}
+  }
+
+  // ── 카테고리 탭 카운트 ──
+  const catCounts = {
+    all:    posts.length,
+    food:   posts.filter(p => p.is_food).length,
+    beauty: posts.filter(p => p.is_beauty || p.is_fashion).length,
+    game:   posts.filter(p => p.is_game).length,
+    celeb:  posts.filter(p => p.is_celeb).length,
+    humor:  posts.filter(p => p.is_humor).length,
+    car:    posts.filter(p => p.is_car).length,
+  };
+  for (const [key, cnt] of Object.entries(catCounts)) {
+    const el = document.getElementById(`count-${key}`);
+    if (el) el.textContent = cnt;
+  }
+
+  // ── 기존 칩 카운트 갱신 + 0개 칩 숨김 ──
+  const container = document.getElementById('src-chips');
+  const knownSrcs = new Set();
+  container.querySelectorAll('.src-chip[data-src]').forEach(btn => {
+    const src = btn.dataset.src;
+    if (!src) { // "전체" 버튼
+      const cc = btn.querySelector('.chip-count');
+      if (cc) cc.textContent = posts.length;
+      btn.style.display = '';
+      return;
+    }
+    const cnt = srcCounts[src] || 0;
+    const cc = btn.querySelector('.chip-count');
+    if (cc) cc.textContent = cnt;
+    btn.style.display = cnt > 0 ? '' : 'none';
+    knownSrcs.add(src);
+  });
+
+  // ── 데이터에 있지만 칩 없는 소스 자동 추가 ──
+  for (const [src, meta] of Object.entries(srcMeta)) {
+    if (knownSrcs.has(src)) continue;
+    const btn = document.createElement('button');
+    btn.className = 'src-chip';
+    btn.dataset.src   = src;
+    btn.dataset.color = meta.color;
+    btn.onclick = () => switchSrc(src, btn);
+    btn.innerHTML = `${meta.emoji} ${meta.label} <span class="chip-count" id="chip-count-${src}">${srcCounts[src]}</span>`;
+    container.appendChild(btn);
+    knownSrcs.add(src);
+  }
 }
 
 // ── 렌더링 ───────────────────────────────────────────────────────────────────
@@ -830,7 +854,8 @@ function renderAll(data) {
     renderTicker(data.trends.rising || []);
   }
   renderAiSummary(data);
-  loadCounts();
+  // 칩 카운트는 fullData 기준 — 전체 데이터가 갱신될 때만 재계산
+  if (currentTab === 'all' && !currentSrc) loadCounts();
 }
 
 function renderAiSummary(data) {
