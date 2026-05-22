@@ -227,16 +227,32 @@ def api_status():
 @app.route('/api/debug')
 def api_debug():
     import requests as _req
+    from datetime import datetime, timezone
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36'
     tests = {
-        'todaybeststory': 'https://todaybeststory.com/api/v2/communities/posts/range',
-        'fmkorea': 'https://www.fmkorea.com/index.php?mid=best&listStyle=list&page=1',
-        'ruliweb': 'https://bbs.ruliweb.com/community/board/300143',
+        'todaybeststory_api': {
+            'url': 'https://todaybeststory.com/api/v2/communities/posts/range',
+            'params': {'startDate': today, 'endDate': today, 'page': 1, 'limit': 10},
+            'headers': {'User-Agent': ua, 'Referer': 'https://todaybeststory.com/communities'},
+        },
+        'fmkorea': {
+            'url': 'https://www.fmkorea.com/index.php?mid=best&listStyle=list&page=1',
+            'params': None,
+            'headers': {'User-Agent': ua, 'Referer': 'https://www.fmkorea.com/'},
+        },
+        'ruliweb': {
+            'url': 'https://bbs.ruliweb.com/community/board/300143',
+            'params': None,
+            'headers': {'User-Agent': ua, 'Referer': 'https://bbs.ruliweb.com/'},
+        },
     }
     results = {}
-    for name, url in tests.items():
+    for name, cfg in tests.items():
         try:
-            r = _req.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-            results[name] = {'status': r.status_code, 'ok': r.ok, 'size': len(r.content)}
+            r = _req.get(cfg['url'], params=cfg['params'], headers=cfg['headers'], timeout=10)
+            body_preview = r.text[:200] if r.text else ''
+            results[name] = {'status': r.status_code, 'ok': r.ok, 'size': len(r.content), 'preview': body_preview}
         except Exception as e:
             results[name] = {'status': None, 'ok': False, 'error': str(e)}
     return jsonify(results)
