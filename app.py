@@ -258,7 +258,14 @@ def api_debug():
     except Exception as e:
         crawler_result = {'error': str(e)}
 
-    return jsonify({'today_utc': today_utc, 'api': api_result, 'crawler': crawler_result})
+    import sys
+    return jsonify({
+        'today_utc': today_utc,
+        'python_version': sys.version,
+        'api': api_result,
+        'crawler': crawler_result,
+        'crawler_status': crawler.get_data()['status'],
+    })
 
 
 @app.route('/api/daily')

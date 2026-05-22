@@ -508,6 +508,19 @@ class TrendCrawler:
         with self._lock:
             self._status = 'crawling'
             last_sum = self._ai_summary_updated
+        try:
+            self._refresh_body(last_sum)
+        except Exception as e:
+            print(f'[Refresh] 예외: {e}')
+        finally:
+            with self._lock:
+                if self._status == 'crawling':
+                    self._crawl_count += 1
+                    self._last_updated = datetime.now(timezone.utc).isoformat()
+                    self._status = 'ok'
+                    print('[Refresh] 안전망: status 강제 ok 복구')
+
+    def _refresh_body(self, last_sum):
 
         # 전체 포스트 수집 — 180초 master hard timeout (DNS/TCP hang 완전 차단)
         posts = []
