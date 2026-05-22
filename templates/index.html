@@ -764,10 +764,15 @@ let timerInterval = null;
 // ── 데이터 로드 ──────────────────────────────────────────────────────────────
 
 let currentSrc = '';
+let _loadAbort = null;  // 진행 중인 fetch 취소용
 
 async function loadData(tab = currentTab, src = currentSrc) {
+  // 이전 요청 취소 (칩 빠르게 전환 시 stale 응답 덮어쓰기 방지)
+  if (_loadAbort) { _loadAbort.abort(); }
+  _loadAbort = new AbortController();
+  const signal = _loadAbort.signal;
   try {
-    const res = await fetch(`/api/trends?tab=${tab}&source=${src}`);
+    const res = await fetch(`/api/trends?tab=${tab}&source=${src}`, { signal });
     if (!res.ok) throw new Error(res.status);
     const data = await res.json();
     allData = data;
@@ -776,6 +781,7 @@ async function loadData(tab = currentTab, src = currentSrc) {
     renderAll(data);
     updateStatus(data);
   } catch (e) {
+    if (e.name === 'AbortError') return;  // 취소된 요청은 무시
     console.error('로드 오류:', e);
     showToast('데이터 로드 실패. 재시도 중…');
   }
