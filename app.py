@@ -227,35 +227,38 @@ def api_status():
 @app.route('/api/debug')
 def api_debug():
     import requests as _req
-    from datetime import datetime, timezone
-    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    # todaybeststory API 직접 테스트 (실제 크롤러와 동일한 파라미터)
+    today_utc = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    api_url = 'https://todaybeststory.com/api/v2/communities/posts/range'
     ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36'
-    tests = {
-        'todaybeststory_api': {
-            'url': 'https://todaybeststory.com/api/v2/communities/posts/range',
-            'params': {'startDate': today, 'endDate': today, 'page': 1, 'limit': 10},
-            'headers': {'User-Agent': ua, 'Referer': 'https://todaybeststory.com/communities'},
-        },
-        'fmkorea': {
-            'url': 'https://www.fmkorea.com/index.php?mid=best&listStyle=list&page=1',
-            'params': None,
-            'headers': {'User-Agent': ua, 'Referer': 'https://www.fmkorea.com/'},
-        },
-        'ruliweb': {
-            'url': 'https://bbs.ruliweb.com/community/board/300143',
-            'params': None,
-            'headers': {'User-Agent': ua, 'Referer': 'https://bbs.ruliweb.com/'},
-        },
-    }
-    results = {}
-    for name, cfg in tests.items():
-        try:
-            r = _req.get(cfg['url'], params=cfg['params'], headers=cfg['headers'], timeout=10)
-            body_preview = r.text[:200] if r.text else ''
-            results[name] = {'status': r.status_code, 'ok': r.ok, 'size': len(r.content), 'preview': body_preview}
-        except Exception as e:
-            results[name] = {'status': None, 'ok': False, 'error': str(e)}
-    return jsonify(results)
+    try:
+        r = _req.get(api_url,
+                     params={'startDate': today_utc, 'endDate': today_utc, 'page': 1, 'limit': 100},
+                     headers={'User-Agent': ua, 'Referer': 'https://todaybeststory.com/communities',
+                              'Accept-Language': 'ko-KR,ko;q=0.9'},
+                     timeout=15)
+        raw_json = r.json() if r.ok else {}
+        raw_items = raw_json.get('items', [])
+        sample = raw_items[:2] if raw_items else []
+        api_result = {
+            'status': r.status_code,
+            'raw_count': len(raw_items),
+            'has_next': raw_json.get('hasNext'),
+            'sample_keys': list(sample[0].keys()) if sample else [],
+            'sample_communityId': [s.get('communityId') for s in sample],
+            'sample_postUrl': [s.get('postUrl', '') for s in sample],
+        }
+    except Exception as e:
+        api_result = {'error': str(e)}
+
+    # 크롤러 직접 호출 결과
+    try:
+        parsed = crawler._fetch_todaybeststory()
+        crawler_result = {'parsed_count': len(parsed)}
+    except Exception as e:
+        crawler_result = {'error': str(e)}
+
+    return jsonify({'today_utc': today_utc, 'api': api_result, 'crawler': crawler_result})
 
 
 @app.route('/api/daily')
