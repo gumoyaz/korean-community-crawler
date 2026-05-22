@@ -224,6 +224,24 @@ def api_status():
     })
 
 
+@app.route('/api/debug')
+def api_debug():
+    import requests as _req
+    tests = {
+        'todaybeststory': 'https://todaybeststory.com/api/v2/communities/posts/range',
+        'fmkorea': 'https://www.fmkorea.com/index.php?mid=best&listStyle=list&page=1',
+        'ruliweb': 'https://bbs.ruliweb.com/community/board/300143',
+    }
+    results = {}
+    for name, url in tests.items():
+        try:
+            r = _req.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+            results[name] = {'status': r.status_code, 'ok': r.ok, 'size': len(r.content)}
+        except Exception as e:
+            results[name] = {'status': None, 'ok': False, 'error': str(e)}
+    return jsonify(results)
+
+
 @app.route('/api/daily')
 def api_daily_list():
     return jsonify(daily_module.list_summaries(60))
@@ -316,7 +334,7 @@ def llms_txt():
 
 > 한국 주요 인터넷 커뮤니티의 실시간 인기글을 한눈에 볼 수 있는 트렌드 집계 서비스.
 
-커트(KEOT)는 FM코리아, 디씨인사이드, 루리웹, 클리앙, 더쿠, MLB파크, 오늘의유머, 인스티즈, 보배드림, 네이트판 등 한국 주요 커뮤니티 30개 이상을 10분마다 크롤링해 실시간 인기글을 집계합니다.
+커트(KEOT)는 FM코리아, 디씨인사이드, 아카라이브, 루리웹, 클리앙, 더쿠, MLB파크, 오늘의유머, 인스티즈, 보배드림, 네이트판, 웃긴대학 외 다수 한국 주요 커뮤니티 30개 이상을 10분마다 크롤링해 실시간 인기글을 집계합니다.
 
 ## 주요 기능
 
