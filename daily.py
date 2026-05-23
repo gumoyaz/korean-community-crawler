@@ -238,8 +238,8 @@ def generate_deep_summary(posts: list, date: str | None = None) -> str:
             'generationConfig': {
                 'temperature': 0.4,
                 'maxOutputTokens': 4096,
+                'thinkingConfig': {'thinkingBudget': 0},
             },
-            'thinkingConfig': {'thinkingBudget': 0},
         }
         r = requests.post(
             url, json=payload,

@@ -648,7 +648,9 @@ class TrendCrawler:
             )
             _payload = {
                 'contents': [{'parts': [{'text': prompt}]}],
-                'thinkingConfig': {'thinkingBudget': 0},
+                'generationConfig': {
+                    'thinkingConfig': {'thinkingBudget': 0},
+                },
             }
             _r = requests.post(_url, json=_payload,
                                headers={'x-goog-api-key': api_key}, timeout=30)
