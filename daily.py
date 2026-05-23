@@ -237,7 +237,7 @@ def generate_deep_summary(posts: list, date: str | None = None) -> str:
             'contents': [{'parts': [{'text': prompt}]}],
             'generationConfig': {
                 'temperature': 0.4,
-                'maxOutputTokens': 2048,
+                'maxOutputTokens': 4096,
             },
         }
         r = requests.post(
