@@ -646,7 +646,10 @@ class TrendCrawler:
                 'https://generativelanguage.googleapis.com/v1beta/models/'
                 'gemini-2.5-flash:generateContent'
             )
-            _payload = {'contents': [{'parts': [{'text': prompt}]}]}
+            _payload = {
+                'contents': [{'parts': [{'text': prompt}]}],
+                'thinkingConfig': {'thinkingBudget': 0},
+            }
             _r = requests.post(_url, json=_payload,
                                headers={'x-goog-api-key': api_key}, timeout=30)
             _r.raise_for_status()
