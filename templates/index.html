@@ -1083,6 +1083,20 @@ function updateStatus(data) {
 
 // ── 탭/칩 전환 ────────────────────────────────────────────────────────────────
 
+// fullData가 있으면 클라이언트에서 즉시 필터링 (서버 API 호출 없음)
+function filterAndRender(tab, src) {
+  if (!fullData) { loadData(tab, src); return; }
+  let posts = fullData.posts || [];
+  if (src)              posts = posts.filter(p => p.source === src);
+  if (tab === 'food')   posts = posts.filter(p => p.is_food);
+  else if (tab === 'beauty') posts = posts.filter(p => p.is_beauty || p.is_fashion);
+  else if (tab === 'game')   posts = posts.filter(p => p.is_game);
+  else if (tab === 'celeb')  posts = posts.filter(p => p.is_celeb);
+  else if (tab === 'humor')  posts = posts.filter(p => p.is_humor);
+  else if (tab === 'car')    posts = posts.filter(p => p.is_car);
+  renderCards(posts);
+}
+
 function switchCat(tab, src, btn) {
   currentTab = tab;
   currentSrc = '';
@@ -1096,13 +1110,16 @@ function switchCat(tab, src, btn) {
 
   document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  loadData(tab, src);
+  if (tab === 'all') {
+    if (fullData) renderCards(fullData.posts || []);
+    else loadData(tab, src);
+  } else {
+    filterAndRender(tab, src);
+  }
 }
 
 function switchSrc(src, btn) {
   currentSrc = src;
-  // For community chips, use tab=all but filter by source
-  // instagram is a source, not a tab
   const tab = 'all';
   currentTab = tab;
 
@@ -1117,7 +1134,7 @@ function switchSrc(src, btn) {
   btn.classList.add('active');
   btn.style.background = btn.dataset.color || '#7c6cff';
 
-  loadData(tab, src);
+  filterAndRender(tab, src);
 }
 
 
