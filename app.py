@@ -77,7 +77,9 @@ def _background_loop():
         try:
             crawler.refresh()
             posts = crawler.get_data().get('posts', [])
-            threading.Thread(target=_try_generate_daily, args=(posts,), daemon=True).start()
+            # 낮 12시 이후에만 데일리 생성 시도 (자정 직후 리포트 방지)
+            if datetime.now(KST).hour >= 12:
+                threading.Thread(target=_try_generate_daily, args=(posts,), daemon=True).start()
             print('[Auto] 완료')
         except Exception as e:
             print(f'[Auto] 오류: {e}')
