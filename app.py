@@ -92,11 +92,12 @@ def _startup():
     try:
         crawler.refresh()
         posts = crawler.get_data().get('posts', [])
-        # 낮 12시 이후 시작 시 오늘 리포트 강제 재생성 (새벽 자정본 덮어씀)
+        # 낮 12시 이후 시작 시 오늘 리포트 생성 시도
+        # force=False: 이미 생성된 경우 건너뜀 (재배포 반복 시 중복 생성 방지)
         now_kst = datetime.now(KST)
         if now_kst.hour >= 12:
-            print('[Startup] 낮 12시 이후 — 오늘 리포트 강제 생성')
-            threading.Thread(target=_try_generate_daily, args=(posts, True), daemon=True).start()
+            print('[Startup] 낮 12시 이후 — 오늘 리포트 생성 시도 (미생성 시에만)')
+            threading.Thread(target=_try_generate_daily, args=(posts, False), daemon=True).start()
         else:
             threading.Thread(target=_try_generate_daily, args=(posts,), daemon=True).start()
         print('[Startup] 완료')
