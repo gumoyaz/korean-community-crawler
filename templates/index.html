@@ -11,8 +11,10 @@
 {% if gsc_verification %}<meta name="google-site-verification" content="{{ gsc_verification }}">
 {% endif %}
 <link rel="canonical" href="{{ site_url }}/">
-<link rel="icon" type="image/png" href="{{ base }}/static/logo.png">
-<link rel="apple-touch-icon" href="{{ base }}/static/logo.png">
+<link rel="icon" href="{{ base }}/static/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ base }}/static/favicon-32x32.png">
+<link rel="apple-touch-icon" href="{{ base }}/static/apple-touch-icon.png">
+<link rel="manifest" href="{{ base }}/static/site.webmanifest">
 <!-- AI crawler hints -->
 <link rel="alternate" type="text/plain" href="{{ base }}/llms.txt" title="LLM site overview">
 <!-- Open Graph -->

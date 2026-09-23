@@ -32,8 +32,10 @@
 <meta property="og:url" content="{{ page_url }}">
 {% if gsc_verification %}<meta name="google-site-verification" content="{{ gsc_verification }}">
 {% endif %}
-<link rel="icon" type="image/png" href="{{ base }}/static/logo.png">
-<link rel="apple-touch-icon" href="{{ base }}/static/logo.png">
+<link rel="icon" href="{{ base }}/static/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ base }}/static/favicon-32x32.png">
+<link rel="apple-touch-icon" href="{{ base }}/static/apple-touch-icon.png">
+<link rel="manifest" href="{{ base }}/static/site.webmanifest">
 <meta name="author" content="커트">
 <meta property="og:type" content="{% if is_detail %}article{% else %}website{% endif %}">
 <meta property="og:site_name" content="커트">
