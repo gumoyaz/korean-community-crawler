@@ -11,12 +11,13 @@
 | `build.py` | 진입점. 상태 복원 → 간격 가드 → 크롤 → 데일리 생성 → `_site/` 렌더링 (sitemap·robots·llms.txt·404 포함) |
 | `crawler.py` | `TrendCrawler`: todaybeststory API 전량 수집 + 직접 스크래핑 예비 경로, 랭킹, 키워드 트렌드, `export_state`/`import_state` |
 | `daily.py` | 데일리 리포트 선정·프롬프트·저장 (`data/daily/YYYY-MM-DD.json`) |
-| `gemini.py` | Gemini REST 호출. 모델 세대별 thinking 설정, 5xx 백오프, 예비 모델 |
+| `gemini.py` | Gemini REST 호출. 모델 세대별 thinking 설정, 5xx 백오프, 예비 모델 체인(`GEMINI_FALLBACK_MODEL`, 쉼표 구분) |
 | `templates/index.html` | 메인. JS가 `{base}/data/trends.json`을 읽어 렌더링 |
 | `templates/daily.html` | 데일리 목록·상세·대기 페이지 (빌드 시 서버 렌더링) |
 | `.github/workflows/pages.yml` | 빌드·배포 워크플로 |
 | `tools/import_daily_db.py` | 옛 SQLite `daily.db` → JSON 변환 |
 | `data/daily/` | **커밋되는** 데일리 리포트 아카이브 (Actions 봇이 커밋) |
+| `docs/worklog.md` | 작업 일지. 의미 있는 변경·결정·장애 대응 후 날짜별 항목을 추가한다 |
 
 ## 실행 흐름 (pages.yml)
 
