@@ -1,0 +1,625 @@
+"""
+커트 정적 사이트 빌더 — GitHub Actions가 약 10분마다 한 번 실행한다.
+
+1. 이전 상태 복원(Actions 캐시 → --state-file, 없으면 STATE_URL) → 간격 가드
+2. 크롤링 1회 + 데일리 리포트 생성 (KST 12시 이후 오늘 정오본, 다음 날 00:10~02시 전날 최종본)
+3. _site/ 에 정적 사이트 렌더링 (index, daily, trends.json, state.json, sitemap, robots, llms.txt, 404)
+
+로컬 미리보기:
+    python build.py --base "" --out _site --no-crawl   # 운영 state.json으로 렌더링만 (부작용 없음)
+    python build.py --base "" --out _site --force      # 직접 크롤까지 (12시 이후면 data/daily에 리포트가 생길 수 있음)
+    python -m http.server -d _site 8000
+"""
+import argparse
+import json
+import os
+import re
+import shutil
+import sys
+import time
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from urllib.parse import urlsplit
+from xml.sax.saxutils import escape as xml_escape
+
+ROOT = Path(__file__).resolve().parent
+KST = timezone(timedelta(hours=9))
+
+# Actions의 ${{ vars.X }}는 미설정이면 ''로 들어온다 → 빈 문자열은 미설정으로 취급.
+# crawler/daily/gemini가 import 시점에 환경변수를 읽으므로 import 전에 정리한다.
+_ENV_KEYS = ('SITE_URL', 'BASE', 'STATE_URL', 'GSC_VERIFICATION', 'MIN_INTERVAL_MIN',
+             'GOOGLE_API_KEY', 'GEMINI_MODEL', 'GEMINI_FALLBACK_MODEL', 'DAILY_DIR')
+
+
+def _drop_empty_env():
+    for k in _ENV_KEYS:
+        if k in os.environ and not os.environ[k].strip():
+            del os.environ[k]
+
+
+_drop_empty_env()  # 빈 값이 남아 있으면 load_dotenv가 .env 값으로 채우지 않는다
+try:
+    from dotenv import load_dotenv
+    load_dotenv(ROOT / '.env')
+except ImportError:
+    pass
+_drop_empty_env()
+
+import markdown  # noqa: E402
+import nh3  # noqa: E402
+import requests  # noqa: E402
+from jinja2 import Environment, FileSystemLoader, select_autoescape  # noqa: E402
+
+import daily  # noqa: E402
+import gemini  # noqa: E402
+from crawler import TrendCrawler  # noqa: E402
+
+DEFAULT_SITE_URL = 'https://gumoyaz.github.io/korean-community-crawler'
+REFRESH_INTERVAL = 600      # 프론트가 trends.json을 다시 읽는 주기(초)
+DEFAULT_MIN_INTERVAL = 7    # 분. cron-job.org(10분) + schedule(15분) 중복 실행 방지
+MIN_POSTS_FOR_DAILY = 20
+MIN_SOURCES_FOR_DAILY = 10  # 커뮤니티가 이보다 적은 목록(TBS 부분 실패·fallback)으로는 리포트를 만들지 않는다
+DAILY_HOUR_KST = 12         # 이 시각 이전에는 오늘 리포트를 만들지 않는다(새벽 임시본 방지)
+# 정오본은 그날 오전까지의 인기글만 본다. 다음 날 00:10~01:59(크롤러가 전날 목록을 같이 받는 시간)에
+# 전날 리포트를 하루 전체 목록으로 다시 만든다(없으면 백필). generated_at 날짜가 리포트 날짜보다 뒤면 최종본.
+DAILY_FINAL_START = (0, 10)   # (시, 분) KST
+DAILY_FINAL_END_HOUR = 2      # crawler._fetch_todaybeststory가 전날 목록을 같이 받는 마지막 시각
+# 데일리 생성이 실패하면 이 간격(분)을 두고 재시도한다. 매 실행(10분)마다 재시도하면 같은 입력으로
+# 계속 실패할 때(SAFETY 차단 등) 크롤러 AI 요약과 같이 쓰는 무료 일일 한도(RPD)를 몇 시간 만에 다 쓴다.
+DAILY_RETRY_MIN = 30
+
+# trends.json에 내보내는 키 — get_data()에서 프론트가 쓰는 것만
+TREND_KEYS = ('posts', 'trends', 'last_updated', 'status', 'total', 'crawl_count',
+              'sources', 'ai_summary', 'ai_summary_updated')
+POST_FIELDS = ('title', 'url', 'source', 'source_label', 'source_emoji', 'source_color',
+               'views', 'likes', 'comments', 'date', 'summary', 'author', 'rank',
+               'rank_score', 'post_velocity', 'is_food', 'is_beauty', 'is_fashion',
+               'is_travel', 'is_game', 'is_celeb', 'is_humor', 'is_car')
+
+# robots.txt에서 명시적으로 허용을 선언하는 AI 크롤러 ('*'와 같은 그룹)
+AI_BOTS = ('GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot',
+           'Claude-User', 'anthropic-ai', 'PerplexityBot', 'Google-Extended')
+
+# 데일리 마크다운 → HTML 정화 규칙 (LLM 출력에 섞인 raw HTML·javascript: 링크 제거)
+_ALLOWED_TAGS = {'h1', 'h2', 'h3', 'h4', 'p', 'ul', 'ol', 'li', 'strong', 'em',
+                 'blockquote', 'a', 'br', 'code', 'pre', 'hr'}
+_HTTP_URL = re.compile(r'https?://', re.I)
+
+
+# ── helpers ───────────────────────────────────────────────────────────────────
+
+def _log(msg: str):
+    print(msg, flush=True)
+
+
+def _keep_http_href(tag: str, attr: str, value: str):
+    """a[href]는 http/https 절대 URL만 남긴다(상대경로·//host·기타 스킴 제거)."""
+    if tag == 'a' and attr == 'href':
+        return value if _HTTP_URL.match(value.strip()) else None
+    return value
+
+
+def _md_to_html(text: str) -> str:
+    """마크다운 → 정화된 HTML. 템플릿에서 |safe로 출력해도 되는 결과만 돌려준다."""
+    raw = markdown.markdown(text or '', extensions=['nl2br', 'sane_lists', 'fenced_code'])
+    return nh3.clean(
+        raw,
+        tags=_ALLOWED_TAGS,
+        attributes={'a': {'href'}},
+        url_schemes={'http', 'https'},
+        attribute_filter=_keep_http_href,
+        link_rel='noopener',
+    )
+
+
+def _format_date_kr(date_str: str) -> str:
+    """'2025-04-26'  →  '2025년 4월 26일'"""
+    try:
+        dt = datetime.strptime(date_str, '%Y-%m-%d')
+        return f'{dt.year}년 {dt.month}월 {dt.day}일'
+    except (TypeError, ValueError):
+        return date_str
+
+
+def _parse_iso(value) -> datetime | None:
+    """오프셋 포함 ISO 8601 → aware datetime. 오프셋이 없으면 KST로 본다."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        dt = datetime.fromisoformat(value.strip().replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=KST)
+
+
+def _iso(dt: datetime) -> str:
+    return dt.isoformat(timespec='seconds')
+
+
+def _gh_output(**values):
+    """GitHub Actions 스텝 출력(GITHUB_OUTPUT)에 key=value를 기록. 로컬에서는 무시."""
+    path = os.environ.get('GITHUB_OUTPUT')
+    if not path:
+        return
+    with open(path, 'a', encoding='utf-8') as f:
+        for k, v in values.items():
+            f.write(f'{k}={v}\n')
+
+
+def _write(path: Path, text: str):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'w', encoding='utf-8', newline='\n') as f:
+        f.write(text)
+
+
+def _write_json(path: Path, obj):
+    _write(path, json.dumps(obj, ensure_ascii=False, separators=(',', ':')))
+
+
+# ── 설정 · 상태 ──────────────────────────────────────────────────────────────
+
+def _parse_args(argv):
+    p = argparse.ArgumentParser(description='커트 정적 사이트 빌드')
+    p.add_argument('--out', default=str(ROOT / '_site'), help='출력 폴더 (기본: <repo>/_site)')
+    p.add_argument('--base', default=None,
+                   help="내부 링크 접두 경로. 기본은 SITE_URL의 path. 루트 배포/로컬 미리보기는 --base ''")
+    p.add_argument('--no-crawl', action='store_true',
+                   help='크롤링·데일리 생성 없이 복원한 상태로 렌더링만 (간격 가드 미적용)')
+    p.add_argument('--force', action='store_true', help='간격 가드 무시')
+    p.add_argument('--state-file', help='상태를 이 JSON 파일에서 먼저 읽는다 (없거나 깨졌으면 STATE_URL)')
+    p.add_argument('--templates', default=str(ROOT / 'templates'), help='템플릿 폴더')
+    p.add_argument('--now', help='현재 시각 ISO 8601 (테스트용, 오프셋 없으면 KST)')
+    return p.parse_args(argv)
+
+
+def _settings(args) -> dict:
+    site_url = os.environ.get('SITE_URL', DEFAULT_SITE_URL).strip().rstrip('/')
+    if not _HTTP_URL.match(site_url):
+        raise SystemExit(f'SITE_URL은 http(s)://로 시작해야 합니다: {site_url!r}')
+
+    base = args.base if args.base is not None else os.environ.get('BASE', urlsplit(site_url).path)
+    base = base.strip().strip('/')
+    base = f'/{base}' if base else ''
+
+    try:
+        min_interval = float(os.environ.get('MIN_INTERVAL_MIN', DEFAULT_MIN_INTERVAL))
+    except ValueError:
+        min_interval = DEFAULT_MIN_INTERVAL
+
+    return {
+        'site_url': site_url,
+        'base': base,
+        'state_url': os.environ.get('STATE_URL', f'{site_url}/data/state.json').strip(),
+        'gsc_verification': os.environ.get('GSC_VERIFICATION', '').strip(),
+        'min_interval': min_interval,
+    }
+
+
+def _now(arg: str | None) -> datetime:
+    if not arg:
+        return datetime.now(KST)
+    dt = _parse_iso(arg)
+    if dt is None:
+        raise SystemExit(f'--now 형식이 잘못됐습니다: {arg!r}')
+    return dt.astimezone(KST)
+
+
+STATE_FETCH_TRIES = 3
+
+
+def _load_state(state_file: str | None, state_url: str) -> dict:
+    """이전 실행 상태.
+    - --state-file(Actions가 actions/cache로 넘긴 직전 state, 또는 로컬 지정)을 먼저 읽는다.
+      없거나 깨졌으면 STATE_URL로 넘어간다(캐시가 비었거나 만료된 경우).
+    - STATE_URL이 404면 첫 배포로 보고 빈 dict (크롤은 빈 이력으로 시작).
+    - 그 밖의 실패(연결 오류·5xx·깨진 JSON)는 몇 번 재시도한 뒤 SystemExit(1) — 빈 상태로 배포하면
+      사이트가 비고 이력·AI 요약·재시도 기록이 지워지므로, 배포를 막아 기존 사이트와 state를 지킨다.
+    """
+    state = None
+    if state_file:
+        try:
+            with open(state_file, encoding='utf-8') as f:
+                state = json.load(f)
+            src = state_file
+        except (OSError, ValueError) as e:
+            _log(f'[State] {state_file} 읽기 실패 ({type(e).__name__}) — {state_url} 에서 받는다')
+    if state is None:
+        # Pages CDN은 쿼리스트링을 캐시 키에 넣지 않아 ?t=로는 캐시(max-age=600)를 피할 수 없다(2026-09 실측).
+        # 그래서 Actions는 직전 state를 actions/cache로 넘기고, 이 경로는 캐시가 없을 때만 쓴다.
+        for attempt in range(1, STATE_FETCH_TRIES + 1):
+            try:
+                r = requests.get(state_url, headers={'Cache-Control': 'no-cache'}, timeout=10)
+                if r.status_code == 404:
+                    _log(f'[State] {state_url} → HTTP 404 (첫 배포) — 빈 상태로 시작')
+                    return {}
+                r.raise_for_status()
+                state = r.json()
+                break
+            except (ValueError, requests.RequestException) as e:
+                _log(f'[State] 복원 실패 {attempt}/{STATE_FETCH_TRIES} ({type(e).__name__}: {e})')
+                if attempt < STATE_FETCH_TRIES:
+                    time.sleep(3 * attempt)
+        if state is None:
+            raise SystemExit('[State] 이전 상태를 받지 못함 — 빈 상태로 배포하지 않도록 중단 (기존 사이트 유지)')
+        src = state_url
+    if not isinstance(state, dict) or state.get('version') != 1:
+        _log('[State] 형식·버전 불일치 — 빈 상태로 시작')
+        return {}
+    _log(f'[State] 복원: {src} (last_run={state.get("last_run")})')
+    return state
+
+
+# ── 크롤 · 데일리 ────────────────────────────────────────────────────────────
+
+def _crawl(state: dict, no_crawl: bool) -> TrendCrawler:
+    crawler = TrendCrawler()
+    try:
+        crawler.import_state(state.get('crawler'))
+    except Exception as e:
+        _log(f'[State] 크롤러 상태 복원 오류: {e} — 빈 상태로 크롤')
+        crawler = TrendCrawler()
+    if no_crawl:
+        _log('[Crawl] --no-crawl — 복원한 데이터로 렌더링만 한다')
+        return crawler
+    t0 = time.time()
+    try:
+        crawler.refresh()
+    except Exception as e:
+        # 크롤이 실패해도 이전 데이터로 사이트는 계속 띄운다
+        _log(f'[Crawl] 오류: {type(e).__name__}: {e} — 이전 데이터로 렌더링')
+    d = crawler.get_data()
+    _log(f'[Crawl] status={d.get("status")} posts={len(d.get("posts") or [])} '
+         f'({time.time() - t0:.1f}s)')
+    return crawler
+
+
+def _is_final(record: dict | None, date: str) -> bool:
+    """리포트 날짜가 끝난 뒤(다음 날 이후)에 만든 최종본인지 — generated_at의 KST 날짜로 판단."""
+    dt = _parse_iso((record or {}).get('generated_at'))
+    return bool(dt) and dt.astimezone(KST).strftime('%Y-%m-%d') > date
+
+
+def _maybe_generate_daily(posts: list, now: datetime,
+                          failed_at: datetime | None) -> tuple[str | None, datetime | None]:
+    """조건을 만족하면 리포트를 만든다.
+    - KST 12시 이후: 오늘 리포트가 없으면 만든다(오전까지의 인기글 기준).
+    - 다음 날 00:10~01:59: 전날 리포트가 최종본이 아니면(정오본이거나 없으면) 하루 전체 목록으로 다시 만든다.
+    반환: (만든 날짜 또는 None, 마지막 생성 실패 시각 — state.json에 남겨 재시도 간격 계산에 쓴다)"""
+    today = now.strftime('%Y-%m-%d')
+    if DAILY_FINAL_START <= (now.hour, now.minute) and now.hour < DAILY_FINAL_END_HOUR:
+        target = (now - timedelta(days=1)).strftime('%Y-%m-%d')
+        if _is_final(daily.get_summary(target), target):
+            _log(f'[Daily] {target} 최종본 이미 있음')
+            return None, failed_at
+        # 크롤러가 전날+오늘 목록을 같이 받는 시간 → 오늘 날짜 글은 뺀다
+        posts = [p for p in posts if (p.get('date') or '')[:10] != today]
+        kind = '최종본(하루 전체 목록)'
+    elif now.hour >= DAILY_HOUR_KST:
+        target = today
+        if daily.has_summary(today):
+            _log(f'[Daily] {today} 이미 있음')
+            return None, failed_at
+        kind = '정오본'
+    else:
+        _log(f'[Daily] {today} KST {DAILY_HOUR_KST}시 이전 — 생성하지 않음')
+        return None, failed_at
+
+    n_src = len({p.get('source') for p in posts})
+    if len(posts) < MIN_POSTS_FOR_DAILY or n_src < MIN_SOURCES_FOR_DAILY:
+        _log(f'[Daily] {target} skip: 게시글 {len(posts)}개/커뮤니티 {n_src}곳 '
+             f'(최소 {MIN_POSTS_FOR_DAILY}개/{MIN_SOURCES_FOR_DAILY}곳) — 다음 실행에 재시도')
+        return None, failed_at
+    if not gemini.available():
+        _log(f'[Daily] {target} skip: GOOGLE_API_KEY 없음')
+        return None, failed_at
+    if failed_at and failed_at.astimezone(KST).strftime('%Y-%m-%d') == today:
+        waited = (now - failed_at).total_seconds() / 60
+        if 0 <= waited < DAILY_RETRY_MIN:
+            _log(f'[Daily] {target} skip: {waited:.0f}분 전 생성 실패 — {DAILY_RETRY_MIN}분 간격으로 재시도')
+            return None, failed_at
+    _log(f'[Daily] {target} {kind} 생성 시작 (게시글 {len(posts)}개, 커뮤니티 {n_src}곳)')
+    try:
+        md = daily.generate_deep_summary(posts, target)
+        if not md:
+            _log(f'[Daily] {target} 생성 실패 — {DAILY_RETRY_MIN}분 뒤 재시도')
+            return None, now
+        # generated_at은 판단에 쓴 시각(now)으로 — 최종본 여부(_is_final)가 이 값의 날짜로 정해진다
+        path = daily.save_summary(target, md, posts, generated_at=_iso(now))
+    except Exception as e:
+        _log(f'[Daily] {target} 오류: {type(e).__name__}: {e} — {DAILY_RETRY_MIN}분 뒤 재시도')
+        return None, now
+    _log(f'[Daily] {target} 저장: {path}')
+    return target, None
+
+
+# ── 렌더링 ────────────────────────────────────────────────────────────────────
+
+def _prepare_out(out: Path):
+    """출력 폴더를 비운다. 이전 빌드 결과(.nojekyll 있음)나 빈 폴더만 지운다."""
+    out = out.resolve()
+    if out == ROOT or out in ROOT.parents:
+        raise SystemExit(f'--out 이 리포 루트(또는 그 상위)입니다: {out}')
+    if out.exists():
+        if any(out.iterdir()) and not (out / '.nojekyll').exists():
+            raise SystemExit(f'{out} 는 비어 있지 않고 이전 빌드 결과도 아닙니다 — 다른 --out 을 지정하세요')
+        shutil.rmtree(out)
+    out.mkdir(parents=True)
+    return out
+
+
+def _public_data(data: dict, checked_at: str | None = None) -> dict:
+    """get_data() → trends.json. 프론트가 쓰는 키·필드만, http(s) 링크 글만.
+    checked_at: 마지막 수집 실행 시각. last_updated(데이터가 바뀐 시각)는 원본 목록이 약 1시간마다
+    바뀌어서 수십 분 전이 정상이므로, 프론트는 이 값으로 수집 지연을 판단하고 다음 갱신 시각을 잡는다."""
+    posts = []
+    for p in data.get('posts') or []:
+        if not str(p.get('url') or '').lower().startswith(('http://', 'https://')):
+            continue
+        posts.append({k: p[k] for k in POST_FIELDS if k in p})
+    public = {k: data.get(k) for k in TREND_KEYS}
+    public['posts'] = posts
+    public['total'] = len(posts)
+    public['checked_at'] = checked_at
+    return public
+
+
+def _load_summaries(today: str) -> list[dict]:
+    """데일리 목록(최신순). 형식이 이상하거나 미래 날짜인 항목은 뺀다(경로·sitemap 오염 방지)."""
+    result = []
+    for s in daily.list_summaries(limit=None):
+        d = s.get('date', '')
+        if not daily.is_valid_date(d) or d > today:
+            _log(f'[Daily] 목록에서 제외: {d!r}')
+            continue
+        s = dict(s)
+        s['date_kr'] = _format_date_kr(d)
+        result.append(s)
+    return result
+
+
+def _sitemap(site_url: str, build_time: str, summaries: list) -> str:
+    def lastmod(s):
+        dt = _parse_iso(s.get('generated_at'))
+        return _iso(dt) if dt else s['date']
+
+    urls = [(f'{site_url}/', build_time),
+            (f'{site_url}/daily/', lastmod(summaries[0]) if summaries else build_time)]
+    urls += [(f"{site_url}/daily/{s['date']}/", lastmod(s)) for s in summaries]
+
+    parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for loc, mod in urls:
+        parts.append(f'  <url><loc>{xml_escape(loc)}</loc><lastmod>{xml_escape(mod)}</lastmod></url>')
+    parts.append('</urlset>')
+    return '\n'.join(parts) + '\n'
+
+
+def _robots_txt(site_url: str, base: str) -> str:
+    # 봇별 그룹을 따로 두면 그 봇은 '*' 그룹 규칙을 무시한다(RFC 9309) → 한 그룹에 모은다.
+    # 주의: 프로젝트 페이지(서브경로)에서는 크롤러가 호스트 루트의 robots.txt만 읽는다.
+    agents = '\n'.join(f'User-agent: {ua}' for ua in ('*',) + AI_BOTS)
+    return (f'# 커트 — 검색·AI 크롤러 모두 허용\n'
+            f'{agents}\n'
+            f'Allow: /\n'
+            f'Disallow: {base}/data/state.json\n'
+            f'\n'
+            f'Sitemap: {site_url}/sitemap.xml\n')
+
+
+def _llms_txt(site_url: str, summaries: list, data: dict) -> str:
+    """AI 크롤러용 사이트 안내(llms.txt). 실제로 있는 페이지·데이터만 안내한다."""
+    recent = '\n'.join(
+        f"- [{s['date_kr']} 데일리 리포트]({site_url}/daily/{s['date']}/)"
+        for s in summaries[:5]
+    ) or '- (아직 생성된 리포트 없음)'
+
+    # 소스 수를 하드코딩하지 않고 최근 수집 결과에서 센다
+    counts = Counter(p.get('source_label') or p.get('source') for p in data.get('posts') or [])
+    counts.pop(None, None)
+    counts.pop('', None)
+    if counts:
+        labels = ', '.join(label for label, _ in counts.most_common())
+        sources = f'최근 수집 기준 {len(counts)}곳: {labels}'
+    else:
+        sources = 'FM코리아, 디씨인사이드, 루리웹, 더쿠, 클리앙 등 한국 주요 커뮤니티'
+
+    ai_line = ('- **AI 트렌드 요약** — 메인 상단에 지금 화제인 주제를 Gemini가 짧게 정리\n'
+               if data.get('ai_summary') else '')
+
+    return f"""# 커트 (커뮤니티 트렌드)
+
+> 한국 주요 인터넷 커뮤니티의 인기글을 주기적으로 모아 보여 주는 트렌드 집계 사이트.
+
+커트(KEOT)는 여러 한국 커뮤니티의 베스트·인기 게시글을 주기적으로 수집해 한 화면에 보여 줍니다. 정적 사이트로 운영되며 약 10분마다 새 인기글을 확인합니다. 원본 인기글 목록이 대략 1시간 단위로 바뀌므로 실제 내용도 그 주기로 갱신됩니다.
+
+## 주요 기능
+
+- **실시간 인기글 피드** — 커뮤니티별, 카테고리별(게임, 연예, 유머, 음식, 뷰티·패션, 자동차 등) 필터
+- **급상승 키워드** — 직전 수집들과 비교해 언급이 빠르게 늘어난 키워드
+{ai_line}- **AI 데일리 리포트** — Gemini가 그날 인기글을 주제별로 정리한 리포트. KST 12시 무렵 오전까지의 인기글로 먼저 만들고, 다음 날 0시 이후 하루 전체 인기글로 다시 정리
+
+## 페이지
+
+- [실시간 트렌드 메인]({site_url}/): 지금 각 커뮤니티에서 화제인 글 피드
+- [데일리 리포트 목록]({site_url}/daily/): 날짜별 AI 리포트 아카이브
+- 날짜별 리포트: `{site_url}/daily/YYYY-MM-DD/`
+
+## 최근 데일리 리포트
+
+{recent}
+
+## 데이터
+
+- `{site_url}/data/trends.json` — 현재 인기글 목록과 키워드 트렌드(JSON, 약 10분마다 확인해 바뀌면 갱신)
+
+## 수집 커뮤니티
+
+{sources}
+
+## 추천 상황
+
+- "지금 한국 커뮤니티에서 뭐가 화제야?"
+- "오늘 인터넷에서 유행하는 게 뭐야?"
+- "한국 온라인 트렌드 알려줘"
+- 특정 날짜의 한국 인터넷 트렌드 조회 (데일리 리포트)
+"""
+
+
+def _not_found_html(base: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>페이지를 찾을 수 없습니다 — 커트</title>
+<link rel="icon" href="{base}/static/logo.png">
+<style>
+  :root {{ --bg: #f7f7f8; --fg: #1d1d1f; --muted: #6e6e73; --accent: #4f46e5; }}
+  @media (prefers-color-scheme: dark) {{
+    :root {{ --bg: #111114; --fg: #f2f2f5; --muted: #a1a1aa; --accent: #a5b4fc; }}
+  }}
+  body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg);
+         color: var(--fg); font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }}
+  main {{ padding: 32px 16px; text-align: center; }}
+  h1 {{ margin: 0 0 8px; font-size: 48px; }}
+  p {{ color: var(--muted); }}
+  a {{ color: var(--accent); font-weight: 600; text-decoration: none; margin: 0 8px; }}
+</style>
+</head>
+<body>
+<main>
+  <h1>404</h1>
+  <p>요청한 페이지를 찾을 수 없습니다.</p>
+  <p><a href="{base}/">실시간 트렌드 홈</a><a href="{base}/daily/">데일리 리포트</a></p>
+</main>
+</body>
+</html>
+"""
+
+
+def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: TrendCrawler,
+            last_run: str | None, daily_failed_at: datetime | None = None):
+    today = now.strftime('%Y-%m-%d')
+    build_time = _iso(now)
+    data = crawler.get_data()
+
+    env = Environment(loader=FileSystemLoader(str(templates)),
+                      autoescape=select_autoescape(['html', 'xml']))
+    common = {
+        'site_url': cfg['site_url'],
+        'base': cfg['base'],
+        'gsc_verification': cfg['gsc_verification'],
+        'build_time': build_time,
+    }
+
+    def render(path: str, template: str, **ctx):
+        _write(out / path, env.get_template(template).render(**common, **ctx))
+
+    # 메인 — 데이터는 JS가 {base}/data/trends.json 으로 읽는다
+    render('index.html', 'index.html', refresh_interval=REFRESH_INTERVAL)
+    _write_json(out / 'data' / 'trends.json', _public_data(data, last_run))
+    _write_json(out / 'data' / 'state.json',
+                {'version': 1, 'last_run': last_run,
+                 'daily_failed_at': _iso(daily_failed_at) if daily_failed_at else None,
+                 'crawler': crawler.export_state()})
+
+    # 데일리 — 목록, 날짜별 상세(전체), 오늘 리포트가 없으면 대기 페이지
+    summaries = _load_summaries(today)
+    dates = [s['date'] for s in summaries]
+    blank = {'summaries': [], 'summary': None, 'prev_date': None, 'next_date': None,
+             'today': today, 'date': None, 'date_kr': None}
+
+    render('daily/index.html', 'daily.html', **{**blank, 'view': 'list', 'summaries': summaries})
+
+    written = []
+    for i, d in enumerate(dates):
+        record = daily.get_summary(d)
+        if not record:
+            _log(f'[Daily] {d} 읽기 실패 — 상세 페이지 생략')
+            continue
+        record = dict(record)
+        record['summary_html'] = _md_to_html(record.get('summary_md', ''))
+        record['date_kr'] = _format_date_kr(d)
+        record['is_final'] = _is_final(record, d)
+        render(f'daily/{d}/index.html', 'daily.html', **{
+            **blank, 'view': 'detail', 'summary': record, 'date': d, 'date_kr': record['date_kr'],
+            'prev_date': dates[i + 1] if i + 1 < len(dates) else None,  # 더 이전 날짜
+            'next_date': dates[i - 1] if i > 0 else None,               # 더 최근 날짜
+        })
+        written.append(d)
+
+    if today not in dates:
+        render(f'daily/{today}/index.html', 'daily.html', **{
+            **blank, 'view': 'pending', 'date': today, 'date_kr': _format_date_kr(today),
+            'prev_date': dates[0] if dates else None})  # 가장 최근 리포트로 안내
+
+    # 정적 파일 · SEO
+    static = ROOT / 'static'
+    if static.is_dir():
+        shutil.copytree(static, out / 'static')
+    sitemap_items = [s for s in summaries if s['date'] in written]
+    _write(out / 'sitemap.xml', _sitemap(cfg['site_url'], build_time, sitemap_items))
+    _write(out / 'robots.txt', _robots_txt(cfg['site_url'], cfg['base']))
+    _write(out / 'llms.txt', _llms_txt(cfg['site_url'], sitemap_items, data))
+    _write(out / '404.html', _not_found_html(cfg['base']))
+    _write(out / '.nojekyll', '')
+
+    _log(f'[Render] {out} — 게시글 {len(data.get("posts") or [])}개, 데일리 {len(written)}개'
+         f'{"" if today in dates else f", {today} 대기 페이지"}')
+
+
+# ── main ──────────────────────────────────────────────────────────────────────
+
+def main(argv=None) -> int:
+    for stream in (sys.stdout, sys.stderr):
+        try:  # Windows에서 출력 리다이렉트 시 cp949 인코딩 오류로 크롤이 깨지지 않게
+            stream.reconfigure(encoding='utf-8', errors='replace')
+        except (AttributeError, ValueError):
+            pass
+
+    args = _parse_args(argv)
+    cfg = _settings(args)
+    now = _now(args.now)
+    _log(f'[Build] now={_iso(now)} site_url={cfg["site_url"]} base={cfg["base"]!r}')
+
+    state = _load_state(args.state_file, cfg['state_url'])
+
+    # 간격 가드 — 크롤할 때만 적용(--no-crawl은 크롤이 없으므로 제외)
+    last = _parse_iso(state.get('last_run'))
+    if last and not args.force and not args.no_crawl:
+        elapsed = (now - last).total_seconds() / 60
+        if 0 <= elapsed < cfg['min_interval']:
+            _log(f'[Guard] 마지막 실행 {elapsed:.1f}분 전 (< {cfg["min_interval"]:g}분) — '
+                 f'크롤·배포 건너뜀 (--force 로 무시 가능)')
+            _gh_output(skip='true', daily_created='false')
+            return 0
+
+    crawler = _crawl(state, args.no_crawl)
+    last_run = state.get('last_run') if args.no_crawl else _iso(now)
+
+    created = None
+    failed_at = _parse_iso(state.get('daily_failed_at'))
+    if args.no_crawl:
+        _log('[Daily] --no-crawl — 생성하지 않음')
+    else:
+        # --force면 데일리 재시도 간격도 무시한다(수동 실행으로 바로 다시 시도할 수 있게)
+        created, failed_at = _maybe_generate_daily(crawler.get_data().get('posts') or [], now,
+                                                   None if args.force else failed_at)
+
+    out = _prepare_out(Path(args.out))
+    _render(out, Path(args.templates), cfg, now, crawler, last_run, failed_at)
+
+    # 크롤 없이 렌더링했는데 복원한 글이 없으면(첫 배포 전 push 등) 빈 사이트를 배포하지 않는다.
+    # 로컬 미리보기용 _site는 그대로 만든다.
+    skip = args.no_crawl and not crawler.get_data().get('posts')
+    if skip:
+        _log('[Build] --no-crawl인데 복원한 게시글이 없음 — 배포 생략(skip=true), 다음 크롤 실행이 배포한다')
+    _gh_output(skip='true' if skip else 'false', daily_created='true' if created else 'false',
+               **({'daily_date': created} if created else {}))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

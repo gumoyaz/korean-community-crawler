@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% autoescape true %}<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
@@ -8,12 +8,13 @@
 <meta name="keywords" content="커뮤니티 트렌드, 실시간 인기글, FM코리아 베스트, 디씨인사이드, 루리웹 베스트, 클리앙 인기, 더쿠 핫, MLB파크, 오늘의유머, 인스티즈, 보배드림, 네이트판, 웃긴대학, 커뮤니티 베스트">
 <meta name="robots" content="index, follow">
 <meta name="author" content="커트">
-<meta name="google-site-verification" content="mswdgrJ0qtgEglhSk1rO81gEhpl03LqJNjbhTqOzlDg" />
+{% if gsc_verification %}<meta name="google-site-verification" content="{{ gsc_verification }}">
+{% endif %}
 <link rel="canonical" href="{{ site_url }}/">
-<link rel="icon" type="image/png" href="/static/logo.png">
-<link rel="apple-touch-icon" href="/static/logo.png">
+<link rel="icon" type="image/png" href="{{ base }}/static/logo.png">
+<link rel="apple-touch-icon" href="{{ base }}/static/logo.png">
 <!-- AI crawler hints -->
-<link rel="alternate" type="text/plain" href="{{ site_url }}/llms.txt" title="LLM site overview">
+<link rel="alternate" type="text/plain" href="{{ base }}/llms.txt" title="LLM site overview">
 <!-- Open Graph -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ site_url }}/">
@@ -35,13 +36,8 @@
   "name": "커트",
   "alternateName": "커뮤니티 트렌드",
   "description": "한국 주요 인터넷 커뮤니티 실시간 인기글 모음",
-  "url": "{{ site_url }}/",
-  "inLanguage": "ko-KR",
-  "potentialAction": {
-    "@type": "SearchAction",
-    "target": "{{ site_url }}/?q={search_term_string}",
-    "query-input": "required name=search_term_string"
-  }
+  "url": {{ ((site_url or '') ~ '/')|tojson }},
+  "inLanguage": "ko-KR"
 }
 </script>
 <style>
@@ -51,11 +47,11 @@
     --surface2: #f1f3f5;
     --border: #e9ecef;
     --text: #1a1a2e;
-    --text-dim: #6c757d;
-    --accent: #ff4757;
+    --text-dim: #5f6670;      /* surface2 위에서도 4.5:1 이상 */
+    --accent: #ff4757;        /* 배경·테두리용 브랜드색 */
+    --accent-text: #bd2a3a;   /* 글자용 강조색 (흰 배경·옅은 틴트 위 4.5:1 이상) */
     --accent2: #ff9f43;
     --naver: #03c75a;
-    --insta-grad: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
     --food: #ff9f43;
     --rising: #ff4757;
     --card-hover: #fffbfb;
@@ -71,6 +67,14 @@
     color: var(--text);
     font-family: 'Pretendard', 'Apple SD Gothic Neo', -apple-system, sans-serif;
     min-height: 100vh;
+  }
+
+  /* 키보드 포커스 표시 */
+  .cat-btn:focus-visible, .src-chip:focus-visible, .word-tag:focus-visible,
+  .refresh-btn:focus-visible, .card:focus-visible, .nav-link-outline:focus-visible,
+  .word-filter-bar button:focus-visible, .logo:focus-visible {
+    outline: 2px solid var(--accent-text);
+    outline-offset: 2px;
   }
 
   /* ── Header ── */
@@ -96,7 +100,13 @@
   }
   .logo img { height: 35px; width: auto; display: block; }
   .logo-tagline { color: var(--text); font-size: 16px; font-weight: 600; margin-left: 12px; }
-  @media (max-width: 480px) { .logo-tagline { display: none; } }
+  /* 좁은 화면에서는 눈에서만 숨기고 h1 은 보조기기·검색엔진에 남김 */
+  @media (max-width: 480px) {
+    .logo-tagline {
+      position: absolute; width: 1px; height: 1px; margin: 0;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+    }
+  }
 
   .header-right {
     display: flex; align-items: center; gap: 10px;
@@ -107,13 +117,17 @@
     background: var(--surface2);
     padding: 5px 10px; border-radius: 20px;
     border: 1px solid var(--border);
+    margin-left: auto;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
+  .status-badge.stale { color: #8a4b00; background: #fff7e6; border-color: #f5c77e; }
   .status-dot {
     width: 7px; height: 7px; border-radius: 50%;
     background: #4ade80;
     animation: pulse 2s infinite;
   }
-  .status-dot.crawling { background: #fbbf24; }
+  .status-dot.stale { background: #f59e0b; animation: none; }
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
@@ -126,9 +140,9 @@
     text-decoration: none; font-weight: 500;
     transition: color .15s, border-color .15s, background .15s;
   }
-  .nav-link:hover { color: var(--accent); border-color: var(--accent); background: #fff5f5; }
+  .nav-link:hover { color: var(--accent-text); border-color: var(--accent); background: #fff5f5; }
   .nav-link-outline {
-    font-size: 13px; color: var(--accent);
+    font-size: 13px; color: var(--accent-text);
     background: transparent;
     border: 1.5px solid var(--accent);
     padding: 6px 14px; border-radius: 8px;
@@ -143,6 +157,7 @@
     border: none; cursor: pointer;
     padding: 7px 14px; border-radius: 8px;
     font-size: 13px; font-weight: 600;
+    font-family: inherit;
     transition: opacity .2s, transform .1s;
   }
   .refresh-btn:hover { opacity: .85; }
@@ -158,17 +173,19 @@
   }
   .ticker-label {
     font-size: 11px; font-weight: 700;
-    color: var(--rising);
-    background: rgba(255,71,87,0.1);
+    color: var(--accent-text);
+    background: rgba(255,71,87,0.08);
     padding: 2px 8px; border-radius: 4px;
     white-space: nowrap;
     letter-spacing: 0.05em;
   }
+  .ticker-viewport { overflow: hidden; flex: 1; }
   .ticker-scroll {
     display: flex; gap: 20px;
     animation: ticker 30s linear infinite;
     white-space: nowrap;
   }
+  .ticker-scroll.static { animation: none; }
   @keyframes ticker {
     0% { transform: translateX(0); }
     100% { transform: translateX(-50%); }
@@ -178,7 +195,7 @@
     display: flex; align-items: center; gap: 5px;
   }
   .ticker-item .word { color: var(--text); font-weight: 600; }
-  .ticker-item .arrow { color: var(--rising); font-size: 12px; }
+  .ticker-item .arrow { color: var(--accent-text); font-size: 12px; }
 
   /* ── Main ── */
   main {
@@ -222,8 +239,9 @@
   }
   .trend-box h3 .badge {
     font-size: 10px; padding: 2px 6px; border-radius: 4px;
-    background: rgba(255,71,87,0.1); color: var(--rising);
+    background: rgba(255,71,87,0.1); color: var(--accent-text);
   }
+  .muted-note { color: var(--text-dim); font-size: 13px; }
 
   /* 급상승 리스트 */
   .rising-list { list-style: none; }
@@ -238,27 +256,30 @@
     font-size: 11px; font-weight: 700;
     color: var(--text-dim); width: 18px; text-align: center;
   }
-  .rising-rank.top3 { color: var(--rising); }
+  .rising-rank.top3 { color: var(--accent-text); }
   .rising-word { flex: 1; font-weight: 600; color: var(--text); }
   .rising-vel {
-    font-size: 11px; color: var(--rising);
+    font-size: 11px; color: var(--accent-text);
     background: rgba(255,71,87,0.1);
     padding: 2px 6px; border-radius: 4px;
   }
   .rising-count { font-size: 12px; color: var(--text-dim); }
 
-  /* 단어 구름 */
+  /* 단어 구름 (button 요소 — 키보드로도 필터 가능) */
   .word-cloud {
     display: flex; flex-wrap: wrap; gap: 8px;
   }
   .word-tag {
     padding: 5px 12px;
     border-radius: 20px;
+    font-family: inherit;
     font-size: 13px; font-weight: 600;
+    line-height: 1.3;
     cursor: pointer;
     transition: transform .15s, box-shadow .2s, opacity .15s;
     border: 1px solid transparent;
     user-select: none;
+    -webkit-appearance: none; appearance: none;
   }
   .word-tag:hover { transform: scale(1.08); opacity: 0.85; }
   .word-tag.size-3 { font-size: 17px; padding: 6px 14px; }
@@ -278,6 +299,7 @@
   }
   .word-filter-bar {
     display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
     background: rgba(255,71,87,0.05);
     border: 1px solid rgba(255,71,87,0.2);
     border-radius: 8px;
@@ -289,6 +311,8 @@
     background: none; border: 1px solid var(--border);
     color: var(--text-dim); cursor: pointer;
     padding: 3px 9px; border-radius: 5px; font-size: 12px;
+    font-family: inherit;
+    white-space: nowrap;
   }
   .word-filter-bar button:hover { color: var(--text); border-color: var(--accent); }
 
@@ -306,6 +330,7 @@
     padding: 10px 16px;
     border: none; background: none; cursor: pointer;
     color: var(--text-dim);
+    font-family: inherit;
     font-size: 14px; font-weight: 600;
     border-bottom: 2px solid transparent;
     margin-bottom: -1px;
@@ -316,14 +341,14 @@
     min-height: 44px;
   }
   .cat-btn:hover { color: var(--text); background: var(--surface2); }
-  .cat-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .cat-btn.active { color: var(--accent-text); border-bottom-color: var(--accent); }
   .cat-btn .tab-count {
     font-size: 11px;
     background: var(--surface2);
     padding: 1px 6px; border-radius: 10px;
     color: var(--text-dim);
   }
-  .cat-btn.active .tab-count { background: rgba(255,71,87,0.1); color: var(--accent); }
+  .cat-btn.active .tab-count { background: rgba(255,71,87,0.1); color: var(--accent-text); }
 
   /* ── AI 요약 ── */
   .ai-summary-box {
@@ -383,6 +408,7 @@
     border-radius: 20px;
     background: var(--surface);
     color: var(--text-dim);
+    font-family: inherit;
     font-size: 13px; font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
@@ -393,6 +419,7 @@
   }
   .src-chip:hover { color: var(--text); border-color: #ccc; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
   .src-chip.active {
+    background: var(--accent);   /* 소스 칩은 JS가 소스색 + 대비 맞는 글자색으로 덮어씀 */
     color: #fff;
     border-color: transparent;
     transform: scale(1.03);
@@ -405,17 +432,10 @@
   }
   .src-chip.active .chip-count { background: rgba(255,255,255,0.25); }
 
-  /* keep old .tab-btn/.tabs for nothing — remove */
-  .tabs, .tab-btn { display: none; }
-
   /* 소스 아이콘 */
   .src-naver {
     display: inline-block; background: var(--naver);
     width: 8px; height: 8px; border-radius: 2px;
-  }
-  .src-insta {
-    display: inline-block; width: 8px; height: 8px; border-radius: 2px;
-    background: linear-gradient(135deg, #f09433, #dc2743, #bc1888);
   }
   .src-food {
     display: inline-block; width: 8px; height: 8px; border-radius: 50%;
@@ -479,7 +499,7 @@
     flex-shrink: 0;
   }
   .keyword-tag {
-    font-size: 10px; color: var(--accent);
+    font-size: 10px; color: var(--accent-text);
     background: rgba(255,71,87,0.1);
     padding: 2px 6px; border-radius: 4px;
     white-space: nowrap;
@@ -548,6 +568,8 @@
     color: var(--text-dim);
   }
   .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state .refresh-btn { margin-top: 14px; }
+  .empty-state a { color: var(--accent-text); }
 
   /* ── Refresh timer bar ── */
   .timer-bar-wrap {
@@ -572,11 +594,14 @@
     transform: translateY(20px); opacity: 0;
     transition: all .3s;
     z-index: 300;
+    pointer-events: none;
   }
   .toast.show { transform: translateY(0); opacity: 1; }
 
   @media (max-width: 640px) {
-    .ticker-wrap { display: none; }
+    /* 모바일: 티커는 숨기고 갱신 상태 배지만 얇은 띠로 남김 */
+    .ticker-wrap { padding: 6px 12px; }
+    .ticker-label, .ticker-viewport { display: none; }
     main { padding: 16px 12px; }
     .src-chips {
       flex-wrap: nowrap;
@@ -585,6 +610,12 @@
       -webkit-overflow-scrolling: touch;
     }
     .src-chips::-webkit-scrollbar { display: none; }
+    .toast { left: 12px; right: 12px; bottom: 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ticker-scroll, .status-dot, .word-tag.rising, .skeleton { animation: none; }
+    .card:hover, .word-tag:hover { transform: none; }
   }
 </style>
 </head>
@@ -593,28 +624,28 @@
 <!-- Header -->
 <header>
   <div class="header-inner">
-    <a href="/" class="logo">
-      <img src="/static/logo.png" alt="커트">
-      <span class="logo-tagline">커뮤니티 트렌드 실시간 포착</span>
+    <a href="{{ base }}/" class="logo">
+      <img src="{{ base }}/static/logo.png" alt="커트" width="35" height="35">
+      <h1 class="logo-tagline">커뮤니티 트렌드 실시간 포착</h1>
     </a>
     <div class="header-right">
-      <a href="/daily" class="nav-link-outline">📰 데일리 리포트</a>
-      <button class="refresh-btn" id="refresh-btn" onclick="manualRefresh()">새로고침</button>
+      <a href="{{ base }}/daily/" class="nav-link-outline">📰 데일리 리포트</a>
+      <button type="button" class="refresh-btn" id="refresh-btn" title="최신 데이터 다시 불러오기">새로고침</button>
     </div>
   </div>
 </header>
 
-<!-- 급상승 티커 -->
+<!-- 급상승 티커 + 갱신 상태 -->
 <div class="ticker-wrap">
-  <span class="ticker-label">🔥 급상승</span>
-  <div style="overflow:hidden;flex:1">
-    <div class="ticker-scroll" id="ticker">
+  <span class="ticker-label" aria-hidden="true">🔥 급상승</span>
+  <div class="ticker-viewport" aria-hidden="true">
+    <div class="ticker-scroll static" id="ticker">
       <span class="ticker-item"><span class="arrow">▲</span> 로딩 중...</span>
     </div>
   </div>
-  <div class="status-badge">
-    <div class="status-dot" id="status-dot"></div>
-    <span id="status-text">로딩 중…</span>
+  <div class="status-badge" id="status-badge">
+    <span class="status-dot" id="status-dot" aria-hidden="true"></span>
+    <span id="status-text">불러오는 중…</span>
   </div>
 </div>
 
@@ -624,7 +655,7 @@
   <!-- AI 오늘의 요약 -->
   <div class="ai-summary-box" id="ai-summary-box" style="display:none">
     <div class="ai-summary-header">
-      <h3>✨ 오늘의 커뮤니티 요약</h3>
+      <h3 id="ai-summary-title">✨ 오늘의 커뮤니티 요약</h3>
       <span class="ai-badge">Gemini AI</span>
       <span class="ai-summary-updated" id="ai-summary-updated"></span>
     </div>
@@ -632,7 +663,7 @@
   </div>
 
   <!-- 트렌드 분석 -->
-  <div class="section-title">트렌드 분석</div>
+  <h2 class="section-title">트렌드 분석</h2>
   <div class="trend-grid">
 
     <!-- 급상승 키워드 -->
@@ -645,245 +676,395 @@
 
     <!-- 단어 구름 -->
     <div class="trend-box">
-      <h3>💬 인기 단어 구름</h3>
-      <div class="word-cloud" id="word-cloud">
-        <span style="color:var(--text-dim);font-size:13px">로딩 중…</span>
+      <h3 id="word-cloud-title">💬 인기 단어 구름</h3>
+      <div class="word-cloud" id="word-cloud" role="group" aria-labelledby="word-cloud-title">
+        <span class="muted-note">로딩 중…</span>
       </div>
     </div>
 
   </div>
 
   <!-- 피드 -->
-  <div class="section-title">피드</div>
+  <h2 class="section-title">피드</h2>
 
   <!-- 카테고리 탭 -->
-  <div class="cat-tabs">
-    <button class="cat-btn active" data-tab="all" data-src="" onclick="switchCat('all','',this)">
+  <div class="cat-tabs" id="cat-tabs" role="group" aria-label="카테고리">
+    <button type="button" class="cat-btn active" data-tab="all" aria-pressed="true">
       전체 <span class="tab-count" id="count-all">0</span>
     </button>
-    <button class="cat-btn" data-tab="game" data-src="" onclick="switchCat('game','',this)">
+    <button type="button" class="cat-btn" data-tab="game" aria-pressed="false">
       🎮 게임/IT <span class="tab-count" id="count-game">0</span>
     </button>
-    <button class="cat-btn" data-tab="celeb" data-src="" onclick="switchCat('celeb','',this)">
+    <button type="button" class="cat-btn" data-tab="celeb" aria-pressed="false">
       🎤 연예/아이돌 <span class="tab-count" id="count-celeb">0</span>
     </button>
-    <button class="cat-btn" data-tab="humor" data-src="" onclick="switchCat('humor','',this)">
+    <button type="button" class="cat-btn" data-tab="humor" aria-pressed="false">
       😂 유머 <span class="tab-count" id="count-humor">0</span>
     </button>
-    <button class="cat-btn" data-tab="food" data-src="" onclick="switchCat('food','',this)">
+    <button type="button" class="cat-btn" data-tab="food" aria-pressed="false">
       🍽 음식/카페 <span class="tab-count" id="count-food">0</span>
     </button>
-    <button class="cat-btn" data-tab="beauty" data-src="" onclick="switchCat('beauty','',this)">
+    <button type="button" class="cat-btn" data-tab="beauty" aria-pressed="false">
       💄 뷰티/패션 <span class="tab-count" id="count-beauty">0</span>
     </button>
-    <button class="cat-btn" data-tab="car" data-src="" onclick="switchCat('car','',this)">
+    <button type="button" class="cat-btn" data-tab="car" aria-pressed="false">
       🚗 자동차 <span class="tab-count" id="count-car">0</span>
     </button>
   </div>
 
   <!-- 커뮤니티 칩 -->
   <div class="src-chips-wrap">
-    <div class="src-chips" id="src-chips">
-      <button class="src-chip active" data-src="" onclick="switchSrc('',this)" style="background:var(--accent)">
-        전체 <span class="chip-count" id="chip-count-all">0</span>
+    <div class="src-chips" id="src-chips" role="group" aria-label="커뮤니티">
+      <button type="button" class="src-chip active" data-src="" aria-pressed="true">
+        전체 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="fmkorea" data-color="#ff6b35" onclick="switchSrc('fmkorea',this)">
-        🔥 FM코리아 <span class="chip-count" id="chip-count-fmkorea">0</span>
+      <button type="button" class="src-chip" data-src="fmkorea" data-color="#ff6b35" aria-pressed="false">
+        🔥 FMKorea <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="todayhumor" data-color="#2ecc71" onclick="switchSrc('todayhumor',this)">
-        😂 오늘의유머 <span class="chip-count" id="chip-count-todayhumor">0</span>
+      <button type="button" class="src-chip" data-src="todayhumor" data-color="#2ecc71" aria-pressed="false">
+        😂 오늘의유머 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="ruliweb" data-color="#3498db" onclick="switchSrc('ruliweb',this)">
-        🎮 루리웹 <span class="chip-count" id="chip-count-ruliweb">0</span>
+      <button type="button" class="src-chip" data-src="ruliweb" data-color="#3498db" aria-pressed="false">
+        🎮 루리웹 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="clien" data-color="#9b59b6" onclick="switchSrc('clien',this)">
-        💻 클리앙 <span class="chip-count" id="chip-count-clien">0</span>
+      <button type="button" class="src-chip" data-src="clien" data-color="#9b59b6" aria-pressed="false">
+        💻 클리앙 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="instagram" data-color="#e040fb" onclick="switchSrc('instagram',this)">
-        📸 인스타 <span class="chip-count" id="chip-count-instagram">0</span>
+      <button type="button" class="src-chip" data-src="theqoo" data-color="#e91e8c" aria-pressed="false">
+        💗 더쿠 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="theqoo" data-color="#e91e8c" onclick="switchSrc('theqoo',this)">
-        💗 더쿠 <span class="chip-count" id="chip-count-theqoo">0</span>
+      <button type="button" class="src-chip" data-src="mlbpark" data-color="#1565c0" aria-pressed="false">
+        ⚾ MLB파크 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="mlbpark" data-color="#1565c0" onclick="switchSrc('mlbpark',this)">
-        ⚾ MLB파크 <span class="chip-count" id="chip-count-mlbpark">0</span>
+      <button type="button" class="src-chip" data-src="instiz" data-color="#ff7675" aria-pressed="false">
+        💬 인스티즈 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="instiz" data-color="#ff7675" onclick="switchSrc('instiz',this)">
-        💬 인스티즈 <span class="chip-count" id="chip-count-instiz">0</span>
+      <button type="button" class="src-chip" data-src="bobaedream" data-color="#fdcb6e" aria-pressed="false">
+        🚗 보배드림 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="bobaedream" data-color="#fdcb6e" onclick="switchSrc('bobaedream',this)">
-        🚗 보배드림 <span class="chip-count" id="chip-count-bobaedream">0</span>
+      <button type="button" class="src-chip" data-src="natekorea" data-color="#e17055" aria-pressed="false">
+        💁 네이트판 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="natekorea" data-color="#e17055" onclick="switchSrc('natekorea',this)">
-        💁 네이트판 <span class="chip-count" id="chip-count-natekorea">0</span>
+      <button type="button" class="src-chip" data-src="humoruniv" data-color="#f9ca24" aria-pressed="false">
+        🤣 웃긴대학 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="humoruniv" data-color="#f9ca24" onclick="switchSrc('humoruniv',this)">
-        🤣 웃긴대학 <span class="chip-count" id="chip-count-humoruniv">0</span>
+      <button type="button" class="src-chip" data-src="arcalive" data-color="#00b4d8" aria-pressed="false">
+        🌊 아카라이브 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="arcalive" data-color="#00b4d8" onclick="switchSrc('arcalive',this)">
-        🌊 아카라이브 <span class="chip-count" id="chip-count-arcalive">0</span>
+      <button type="button" class="src-chip" data-src="dcinside" data-color="#0066cc" aria-pressed="false">
+        🎭 디시인사이드 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="dcinside" data-color="#0066cc" onclick="switchSrc('dcinside',this)">
-        🎭 디시인사이드 <span class="chip-count" id="chip-count-dcinside">0</span>
+      <button type="button" class="src-chip" data-src="dogdrip" data-color="#00b894" aria-pressed="false">
+        🐶 개드립 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="dogdrip" data-color="#00b894" onclick="switchSrc('dogdrip',this)">
-        🐶 도그드립 <span class="chip-count" id="chip-count-dogdrip">0</span>
+      <button type="button" class="src-chip" data-src="inven" data-color="#d35400" aria-pressed="false">
+        ⚔️ 인벤 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="inven" data-color="#d35400" onclick="switchSrc('inven',this)">
-        ⚔️ 인벤 <span class="chip-count" id="chip-count-inven">0</span>
+      <button type="button" class="src-chip" data-src="ppomppu" data-color="#27ae60" aria-pressed="false">
+        💰 뽐뿌 <span class="chip-count">0</span>
       </button>
-      <button class="src-chip" data-src="ppomppu" data-color="#27ae60" onclick="switchSrc('ppomppu',this)">
-        💰 뽐뿌 <span class="chip-count" id="chip-count-ppomppu">0</span>
-      </button>
-      <button class="src-chip" data-src="ddanzi" data-color="#6c5ce7" onclick="switchSrc('ddanzi',this)">
-        📰 딴지일보 <span class="chip-count" id="chip-count-ddanzi">0</span>
+      <button type="button" class="src-chip" data-src="ddanzi" data-color="#6c5ce7" aria-pressed="false">
+        📰 딴지일보 <span class="chip-count">0</span>
       </button>
     </div>
   </div>
 
   <div id="card-container"></div>
 
+  <noscript>
+    <div class="empty-state">
+      <div class="icon">📰</div>
+      <div>실시간 피드는 자바스크립트가 필요합니다.
+        <a href="{{ base }}/data/trends.json">원본 데이터(JSON)</a> 또는
+        <a href="{{ base }}/daily/">데일리 리포트</a>를 확인하세요.</div>
+    </div>
+  </noscript>
+
 </main>
 
 <!-- 자동 갱신 타이머 바 -->
-<div class="timer-bar-wrap">
+<div class="timer-bar-wrap" aria-hidden="true">
   <div class="timer-bar" id="timer-bar" style="width:100%"></div>
 </div>
 
 <!-- Toast -->
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
-const REFRESH_MS = {{ refresh_interval }} * 1000;
+const BASE = {{ (base or '')|tojson }};
+const REFRESH_MS = {{ (refresh_interval or 600)|int }} * 1000;
+const DEPLOY_GRACE_MS = 3 * 60 * 1000;     // 크롤 시각 → Pages 배포 반영까지 여유
+const RETRY_MS = 2 * 60 * 1000;            // 불러오기 실패 시 재시도 간격
+const FETCH_TIMEOUT_MS = 20 * 1000;        // 응답 없이 멈춘 요청을 끊는 시간 (멈춘 요청 하나가 이후 갱신을 모두 막지 않게)
+const VISIBLE_REFETCH_MIN_MS = 60 * 1000;  // 탭 복귀 즉시 갱신의 최소 간격 (잦은 탭 전환마다 전체 JSON 재요청 방지)
+// 원본 인기글 목록은 약 1시간마다 바뀐다 → 데이터 시각(last_updated)이 이보다 오래되면 원본 수집이 멈춘 것으로 본다
+const DATA_STALE_MS = 3 * 60 * 60 * 1000;
+const AI_SUMMARY_MAX_AGE_MS = 24 * 60 * 60 * 1000;  // 이보다 오래된 AI 요약은 숨긴다 (Gemini 실패가 이어질 때)
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+let fullData = null;        // 항상 필터 없는 전체 JSON — 필터는 클라이언트에서만 적용
 let currentTab = 'all';
-let allData = null;
-let fullData = null;   // 전체(필터 없는) 데이터 캐시 — 칩 카운트 계산용
+let currentSrc = '';
+let activeWordFilter = null;
 let nextRefresh = Date.now() + REFRESH_MS;
-let timerInterval = null;
+let lastFetchAt = 0;
+let loadPromise = null;     // 진행 중인 요청 (중복 요청 방지)
+let autoFailStreak = 0;
+
+// 카테고리 탭 → 게시글 판별 함수 (서버 categories 집계와 같은 기준)
+const TAB_FILTERS = {
+  food:   p => !!p.is_food,
+  beauty: p => !!(p.is_beauty || p.is_fashion),
+  game:   p => !!p.is_game,
+  celeb:  p => !!p.is_celeb,
+  humor:  p => !!p.is_humor,
+  car:    p => !!p.is_car,
+};
+
+// 제목 키워드 기반 이모지
+const TITLE_EMOJIS = [
+  [['먹','음식','맛집','식당','카페','밥','라면','치킨','피자','커피','케이크','디저트','파스타','초밥'], '🍽️'],
+  [['여행','해외','일본','유럽','제주','부산','관광','호텔','비행기'], '✈️'],
+  [['뷰티','화장','피부','헤어','다이어트','네일','향수'], '💄'],
+  [['게임','리그','롤','배그','오버워치','마인크래프트','스팀'], '🎮'],
+  [['축구','야구','농구','스포츠','선수','경기','리그'], '⚽'],
+  [['영화','드라마','넷플','웹툰','소설','애니'], '🎬'],
+  [['아이돌','가수','연예','콘서트','팬','앨범'], '🎤'],
+  [['주식','코인','부동산','경제','돈','투자'], '💰'],
+  [['강아지','고양이','반려','펫','동물'], '🐾'],
+  [['패션','옷','코디','쇼핑','하울','브랜드'], '👗'],
+  [['육아','아이','아기','유치원','초등'], '👶'],
+  [['IT','컴퓨터','폰','애플','삼성','AI','ChatGPT'], '💻'],
+];
+
+// 단어 구름 팔레트 [배경, 글자] — 글자색은 틴트 배경 위 4.5:1 이상
+const WORD_COLORS = [
+  ['rgba(124,108,255,0.15)', '#5a48e0'],
+  ['rgba(255,108,157,0.15)', '#c2185b'],
+  ['rgba(3,199,90,0.15)',    '#067a38'],
+  ['rgba(255,159,67,0.15)',  '#a8560a'],
+  ['rgba(96,165,250,0.15)',  '#1d64c2'],
+  ['rgba(251,191,36,0.15)',  '#886713'],
+];
+const WORD_RISING_COLOR = ['rgba(255,71,87,0.15)', '#bd2a3a'];
 
 // ── 데이터 로드 ──────────────────────────────────────────────────────────────
 
-let currentSrc = '';
-let _loadAbort = null;  // 진행 중인 fetch 취소용
+// 전체 JSON 을 받아 fullData 를 교체한다. 결과: {ok, changed}
+function loadData() {
+  if (loadPromise) return loadPromise;
+  loadPromise = (async () => {
+    // 응답 없이 멈춘 요청은 FETCH_TIMEOUT_MS 뒤 끊는다 → catch 로 가서 RETRY_MS 뒤 다시 시도
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = ctl ? setTimeout(() => ctl.abort(), FETCH_TIMEOUT_MS) : null;
+    const prev = fullData;
+    try {
+      const res = await fetch(`${BASE}/data/trends.json?t=${Date.now()}`,
+                              { cache: 'no-store', signal: ctl ? ctl.signal : undefined });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (!data || !Array.isArray(data.posts)) throw new Error('trends.json 형식 오류');
+      const changed = !prev || data.last_updated !== prev.last_updated;
+      fullData = data;
+      try {
+        renderAll();
+      } catch (e) {
+        // 렌더 중 예외 → 이 데이터는 버리고 이전 화면으로 되돌린다 (첫 로드면 아래에서 오류 안내)
+        fullData = prev;
+        if (prev) { try { renderAll(); } catch (_) { /* 이전 데이터도 실패하면 그대로 둔다 */ } }
+        throw e;
+      }
+      lastFetchAt = Date.now();
+      scheduleNext();
+      return { ok: true, changed };
+    } catch (e) {
+      console.error('트렌드 데이터 로드 실패:', e);
+      if (!fullData) renderLoadError();
+      return { ok: false, changed: false };
+    } finally {
+      if (timer) clearTimeout(timer);
+      loadPromise = null;
+    }
+  })();
+  return loadPromise;
+}
 
-async function loadData(tab = currentTab, src = currentSrc) {
-  // 이전 요청 취소 (칩 빠르게 전환 시 stale 응답 덮어쓰기 방지)
-  if (_loadAbort) { _loadAbort.abort(); }
-  _loadAbort = new AbortController();
-  const signal = _loadAbort.signal;
-  try {
-    const res = await fetch(`/api/trends?tab=${tab}&source=${src}`, { signal });
-    if (!res.ok) throw new Error(res.status);
-    const data = await res.json();
-    allData = data;
-    // 전체 데이터(필터 없음)일 때만 fullData 갱신
-    if (tab === 'all' && !src) fullData = data;
-    renderAll(data);
-    updateStatus(data);
-  } catch (e) {
-    if (e.name === 'AbortError') return;  // 취소된 요청은 무시
-    console.error('로드 오류:', e);
-    showToast('데이터 로드 실패. 재시도 중…');
+// 다음 자동 갱신 시각: 서버 실행 주기(checked_at + 주기 + 배포 여유)에 맞춤
+function scheduleNext() {
+  let next = Date.now() + REFRESH_MS;
+  const t = parseIsoMs(fullData && (fullData.checked_at || fullData.last_updated));
+  if (t !== null) {
+    const expected = t + REFRESH_MS + DEPLOY_GRACE_MS;
+    if (expected > Date.now() + 30000 && expected < next) next = expected;
   }
+  nextRefresh = next;
 }
 
 function loadCounts() {
-  // fullData(전체 포스트)에서 로컬 계산 — API 중복 호출 없음
-  const base = fullData || allData;
-  if (!base) return;
-  const posts = base.posts || [];
+  const posts = (fullData && fullData.posts) || [];
 
   // ── 소스별 카운트 ──
   const srcCounts = {};
   const srcMeta   = {};   // {srcId: {label, emoji, color}}
   for (const p of posts) {
-    srcCounts[p.source] = (srcCounts[p.source] || 0) + 1;
-    if (!srcMeta[p.source]) {
-      srcMeta[p.source] = { label: p.source_label || p.source, emoji: p.source_emoji || '📝', color: p.source_color || '#7c6cff' };
+    const src = String(p.source || '');
+    if (!src) continue;
+    srcCounts[src] = (srcCounts[src] || 0) + 1;
+    if (!srcMeta[src]) {
+      srcMeta[src] = { label: p.source_label || src, emoji: p.source_emoji || '📝', color: safeColor(p.source_color) };
     }
   }
 
   // ── 카테고리 탭 카운트 ──
-  const catCounts = {
-    all:    posts.length,
-    food:   posts.filter(p => p.is_food).length,
-    beauty: posts.filter(p => p.is_beauty || p.is_fashion).length,
-    game:   posts.filter(p => p.is_game).length,
-    celeb:  posts.filter(p => p.is_celeb).length,
-    humor:  posts.filter(p => p.is_humor).length,
-    car:    posts.filter(p => p.is_car).length,
-  };
-  for (const [key, cnt] of Object.entries(catCounts)) {
+  const allCount = document.getElementById('count-all');
+  if (allCount) allCount.textContent = posts.length;
+  for (const [key, f] of Object.entries(TAB_FILTERS)) {
     const el = document.getElementById(`count-${key}`);
-    if (el) el.textContent = cnt;
+    if (el) el.textContent = posts.filter(f).length;
   }
 
-  // ── 기존 칩 카운트 갱신 + 0개 칩 숨김 ──
+  // ── 기존 칩 카운트 갱신 + 0개 칩 숨김 (선택 중인 칩은 유지) ──
   const container = document.getElementById('src-chips');
   const knownSrcs = new Set();
-  container.querySelectorAll('.src-chip[data-src]').forEach(btn => {
-    const src = btn.dataset.src;
+  container.querySelectorAll('.src-chip').forEach(btn => {
+    const src = btn.dataset.src || '';
+    const cc = btn.querySelector('.chip-count');
     if (!src) { // "전체" 버튼
-      const cc = btn.querySelector('.chip-count');
       if (cc) cc.textContent = posts.length;
-      btn.style.display = '';
       return;
     }
     const cnt = srcCounts[src] || 0;
-    const cc = btn.querySelector('.chip-count');
     if (cc) cc.textContent = cnt;
-    btn.style.display = cnt > 0 ? '' : 'none';
+    btn.style.display = (cnt > 0 || src === currentSrc) ? '' : 'none';
     knownSrcs.add(src);
   });
 
-  // ── 데이터에 있지만 칩 없는 소스 자동 추가 ──
+  // ── 데이터에 있지만 칩 없는 소스 자동 추가 (외부 값은 전부 이스케이프) ──
   for (const [src, meta] of Object.entries(srcMeta)) {
     if (knownSrcs.has(src)) continue;
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.className = 'src-chip';
     btn.dataset.src   = src;
     btn.dataset.color = meta.color;
-    btn.onclick = () => switchSrc(src, btn);
-    btn.innerHTML = `${meta.emoji} ${meta.label} <span class="chip-count" id="chip-count-${src}">${srcCounts[src]}</span>`;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.innerHTML = `${escHtml(meta.emoji)} ${escHtml(meta.label)} <span class="chip-count">${srcCounts[src]}</span>`;
     container.appendChild(btn);
-    knownSrcs.add(src);
   }
+}
+
+// ── 필터 ─────────────────────────────────────────────────────────────────────
+
+// 단어 매칭 기준 = 서버 _word_counter 와 같은 '제목 + 요약'
+function postText(p) {
+  return String(p.title || '') + ' ' + String(p.summary || '');
+}
+
+// 소스 → 카테고리 → 단어 순으로 적용
+function filterPosts(posts, tab, src, word) {
+  let out = posts || [];
+  if (src) out = out.filter(p => p.source === src);
+  const f = TAB_FILTERS[tab];
+  if (f) out = out.filter(f);
+  if (word) out = out.filter(p => postText(p).includes(word));
+  return out;
+}
+
+function applyFilters() {
+  if (!fullData) return;
+  const posts = filterPosts(fullData.posts, currentTab, currentSrc, activeWordFilter);
+  renderCards(posts);
+  renderWordFilterBar(posts.length);
+  document.querySelectorAll('#word-cloud .word-tag').forEach(t => {
+    const on = t.dataset.word === activeWordFilter;
+    t.classList.toggle('active-filter', on);
+    t.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+function renderWordFilterBar(count) {
+  let bar = document.getElementById('word-filter-bar');
+  if (!activeWordFilter) { if (bar) bar.remove(); return; }
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'word-filter-bar';
+    bar.className = 'word-filter-bar';
+    document.getElementById('card-container').before(bar);
+  }
+  bar.innerHTML = `<span>🔍 "<strong>${escHtml(activeWordFilter)}</strong>" 관련 포스트 <strong>${count}개</strong></span>
+    <button type="button" data-action="clear-word">✕ 필터 해제</button>`;
+}
+
+// 탭·칩 선택 표시 (소스 칩은 소스색 배경 + 대비가 더 높은 글자색)
+function paintSelection() {
+  document.querySelectorAll('.cat-btn').forEach(b => {
+    const on = b.dataset.tab === currentTab;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  document.querySelectorAll('.src-chip').forEach(c => {
+    const src = c.dataset.src || '';
+    const on = src === currentSrc;
+    c.classList.toggle('active', on);
+    c.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on && src) {
+      const bg = safeColor(c.dataset.color);
+      c.style.background = bg;
+      c.style.color = textOn(bg);
+      c.style.display = '';
+    } else {
+      c.style.background = '';
+      c.style.color = '';
+    }
+  });
 }
 
 // ── 렌더링 ───────────────────────────────────────────────────────────────────
 
-function renderAll(data) {
-  renderCards(data.posts || []);
-  if (data.trends) {
-    renderRising(data.trends.rising || []);
-    renderWordCloud(data.trends.top || []);
-    renderTicker(data.trends.rising || []);
-  }
-  renderAiSummary(data);
-  // 칩 카운트는 fullData 기준 — 전체 데이터가 갱신될 때만 재계산
-  if (currentTab === 'all' && !currentSrc) loadCounts();
+function renderAll() {
+  const trends = fullData.trends || {};
+  // 형식이 어긋난 항목(null·문자열 아닌 단어)은 버린다
+  const isWordItem = x => !!x && typeof x.word === 'string' && x.word !== '';
+  const rising = (Array.isArray(trends.rising) ? trends.rising : []).filter(isWordItem);
+  const top    = (Array.isArray(trends.top) ? trends.top : []).filter(isWordItem);
+  renderRising(rising);
+  renderTicker(rising);
+  renderWordCloud(top, rising);
+  renderAiSummary(fullData);
+  loadCounts();
+  paintSelection();
+  applyFilters();      // 현재 탭·소스·단어 필터를 새 데이터에 다시 적용
+  updateStatus();
 }
 
 function renderAiSummary(data) {
   const box = document.getElementById('ai-summary-box');
   const textEl = document.getElementById('ai-summary-text');
-  const updatedEl = document.getElementById('ai-summary-updated');
   if (!box || !textEl) return;
 
-  const summary = data.ai_summary || '';
-  if (!summary) {
+  const summary = typeof data.ai_summary === 'string' ? data.ai_summary.trim() : '';
+  // Gemini 실패가 이어지면 크롤러는 이전 요약을 그대로 둔다 → 하루 넘게 지난 요약은 숨긴다
+  const t = parseIsoMs(data.ai_summary_updated);
+  if (!summary || t === null || Date.now() - t > AI_SUMMARY_MAX_AGE_MS) {
     box.style.display = 'none';
     return;
   }
 
+  const title = document.getElementById('ai-summary-title');
+  const titleText = kstDateStr(t) === kstDateStr(Date.now()) ? '✨ 오늘의 커뮤니티 요약' : '✨ 최근 커뮤니티 요약';
+  if (title && title.textContent !== titleText) title.textContent = titleText;
   box.style.display = 'block';
   textEl.textContent = summary;
   textEl.classList.remove('loading');
+  updateAiSummaryTime();
+}
 
-  if (data.ai_summary_updated) {
-    const d = new Date(data.ai_summary_updated);
-    updatedEl.textContent = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' 기준';
-  }
+function updateAiSummaryTime() {
+  const el = document.getElementById('ai-summary-updated');
+  if (!el || !fullData) return;
+  const rel = formatDate(fullData.ai_summary_updated);
+  const text = rel ? `${rel} 갱신` : '';
+  if (el.textContent !== text) el.textContent = text;
 }
 
 function renderCards(posts) {
@@ -891,273 +1072,237 @@ function renderCards(posts) {
   container.innerHTML = '';
 
   if (!posts.length) {
+    const noData = !fullData || !(fullData.posts || []).length;
     container.innerHTML = `
       <div class="empty-state">
         <div class="icon">🔍</div>
-        <div>표시할 포스트가 없습니다.</div>
+        <div>${noData ? '아직 수집된 게시글이 없습니다. 10분마다 자동으로 수집합니다.' : '표시할 포스트가 없습니다.'}</div>
       </div>`;
     return;
   }
 
+  const frag = document.createDocumentFragment();
   posts.forEach(post => {
     const card = document.createElement('a');
     card.className = 'card';
-    card.href = post.url;
-    card.target = '_blank';
-    card.rel = 'noopener noreferrer';
-
-    const color = post.source_color || '#7c6cff';
-    const emoji = post.source_emoji || '📝';
-    const label = post.source_label || post.source;
-    const sampleNote = post.is_sample ? ' (샘플)' : '';
-    const catBadge = post.is_food ? '🍽 음식' : post.is_beauty ? '💄 뷰티' : post.is_fashion ? '👗 패션' : post.is_travel ? '✈️ 여행' : '';
-
-    // 제목 키워드 기반 이모지
-    const titleEmojis = [
-      [['먹','음식','맛집','식당','카페','밥','라면','치킨','피자','커피','케이크','디저트','파스타','초밥'], '🍽️'],
-      [['여행','해외','일본','유럽','제주','부산','관광','호텔','비행기'], '✈️'],
-      [['뷰티','화장','피부','헤어','다이어트','네일','향수'], '💄'],
-      [['게임','리그','롤','배그','오버워치','마인크래프트','스팀'], '🎮'],
-      [['축구','야구','농구','스포츠','선수','경기','리그'], '⚽'],
-      [['영화','드라마','넷플','웹툰','소설','애니'], '🎬'],
-      [['아이돌','가수','연예','콘서트','팬','앨범'], '🎤'],
-      [['주식','코인','부동산','경제','돈','투자'], '💰'],
-      [['강아지','고양이','반려','펫','동물'], '🐾'],
-      [['패션','옷','코디','쇼핑','하울','브랜드'], '👗'],
-      [['육아','아이','아기','유치원','초등'], '👶'],
-      [['IT','컴퓨터','폰','애플','삼성','AI','ChatGPT'], '💻'],
-    ];
-    let contentEmoji = emoji;
-    for (const [keywords, e] of titleEmojis) {
-      if (keywords.some(k => post.title.includes(k))) { contentEmoji = e; break; }
+    const href = safeUrl(post.url);
+    card.href = href;
+    if (href !== '#') {
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
     }
 
-    const rankLabel = post.rank <= 3
-      ? ['🥇','🥈','🥉'][post.rank - 1]
-      : `#${post.rank}`;
-    const rankClass = post.rank <= 3 ? 'card-rank-badge top3' : 'card-rank-badge';
+    const color = safeColor(post.source_color);
+    const emoji = post.source_emoji || '📝';
+    const label = post.source_label || post.source || '';
+    const title = String(post.title || '');
+    const catBadge = post.is_food ? '🍽 음식' : post.is_beauty ? '💄 뷰티' : post.is_fashion ? '👗 패션' : post.is_travel ? '✈️ 여행' : '';
 
-    const dateStr = post.date ? (() => {
-      try {
-        const d = new Date(post.date.replace(' ', 'T') + 'Z');
-        return d.toLocaleString('ko-KR', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-      } catch { return post.date; }
-    })() : '';
-    const likes    = post.likes    ? `<span class="card-stat">❤️ ${fmtNum(post.likes)}</span>` : '';
-    const comments = post.comments ? `<span class="card-stat">💬 ${fmtNum(post.comments)}</span>` : '';
+    let contentEmoji = emoji;
+    for (const [keywords, e] of TITLE_EMOJIS) {
+      if (keywords.some(k => title.includes(k))) { contentEmoji = e; break; }
+    }
 
+    const rank = Number(post.rank) || 0;
+    const rankLabel = rank >= 1 && rank <= 3 ? ['🥇','🥈','🥉'][rank - 1] : rank > 0 ? `#${rank}` : '';
+    const rankClass = rank >= 1 && rank <= 3 ? 'card-rank-badge top3' : 'card-rank-badge';
+
+    const dateStr  = formatDate(post.date);
+    const likes    = Number(post.likes)    > 0 ? `<span class="card-stat">❤️ ${fmtNum(post.likes)}</span>` : '';
+    const comments = Number(post.comments) > 0 ? `<span class="card-stat">💬 ${fmtNum(post.comments)}</span>` : '';
+
+    // 배지 글자는 소스색을 어둡게(×0.5) 만든 색, 소스색은 틴트 배경·테두리에만
     card.innerHTML = `
       <div class="card-body">
         <div class="card-meta">
-          <span class="source-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${emoji} ${escHtml(label)}${sampleNote}</span>
+          <span class="source-badge" style="background:${color}22;color:${darken(color)};border:1px solid ${color}44">${escHtml(emoji)} ${escHtml(label)}</span>
           ${catBadge ? `<span class="keyword-tag">${catBadge}</span>` : ''}
-          <span class="${rankClass}">${rankLabel}</span>
+          ${rankLabel ? `<span class="${rankClass}">${rankLabel}</span>` : ''}
         </div>
-        <div class="card-title"><em class="card-title-emoji">${contentEmoji}</em>${escHtml(post.title)}</div>
+        <div class="card-title"><em class="card-title-emoji">${escHtml(contentEmoji)}</em>${escHtml(title)}</div>
         ${post.summary ? `<div class="card-summary">${escHtml(post.summary)}</div>` : ''}
         <div class="card-footer">
           <div class="card-author">
             ${post.author ? `<span>✍️ ${escHtml(post.author)}</span>` : ''}
-            ${dateStr ? `<span>${dateStr}</span>` : ''}
+            ${dateStr ? `<span>${escHtml(dateStr)}</span>` : ''}
           </div>
           <div class="card-stats">${likes}${comments}</div>
         </div>
       </div>
     `;
-    container.appendChild(card);
+    frag.appendChild(card);
   });
+  container.appendChild(frag);
+}
+
+function renderLoadError() {
+  const container = document.getElementById('card-container');
+  container.innerHTML = `
+    <div class="empty-state">
+      <div class="icon">⚠️</div>
+      <div>데이터를 불러오지 못했습니다.</div>
+      <button type="button" class="refresh-btn" data-action="retry">다시 시도</button>
+    </div>`;
+  const txt = document.getElementById('status-text');
+  if (txt) txt.textContent = '불러오기 실패';
+}
+
+// 급상승은 원본 목록이 두 번 이상 바뀌어야 계산된다. 그 뒤에도 비어 있으면 '없음'이 사실이다
+function risingReady() {
+  return (Number(fullData && fullData.crawl_count) || 0) >= 2;
 }
 
 function renderRising(rising) {
   const list = document.getElementById('rising-list');
   if (!rising.length) {
-    list.innerHTML = '<li><span style="color:var(--text-dim);font-size:13px">데이터 수집 중… (2회 이상 크롤링 후 표시)</span></li>';
+    list.innerHTML = risingReady()
+      ? '<li><span class="muted-note">지금은 급상승 키워드가 없습니다.</span></li>'
+      : '<li><span class="muted-note">데이터 수집 중… (2회 이상 수집 후 표시)</span></li>';
     return;
   }
   list.innerHTML = rising.slice(0, 10).map((item, i) => `
     <li>
       <span class="rising-rank ${i < 3 ? 'top3' : ''}">${i+1}</span>
       <span class="rising-word">${escHtml(item.word)}</span>
-      <span class="rising-vel">+${item.velocity}</span>
-      <span class="rising-count">${item.count}회</span>
+      <span class="rising-vel">+${escHtml(Number(item.velocity) || 0)}</span>
+      <span class="rising-count">${escHtml(Number(item.count) || 0)}회</span>
     </li>
   `).join('');
 }
 
-function renderWordCloud(top) {
+function renderWordCloud(top, rising) {
   const cloud = document.getElementById('word-cloud');
-  if (!top.length) { cloud.innerHTML = '<span style="color:var(--text-dim);font-size:13px">로딩 중…</span>'; return; }
-
-  const maxScore = Math.max(...top.map(t => t.score), 1);
-  const colors = [
-    ['rgba(124,108,255,0.15)', '#7c6cff'],
-    ['rgba(255,108,157,0.15)', '#ff6c9d'],
-    ['rgba(3,199,90,0.15)', '#03c75a'],
-    ['rgba(255,159,67,0.15)', '#ff9f43'],
-    ['rgba(96,165,250,0.15)', '#60a5fa'],
-    ['rgba(251,191,36,0.15)', '#fbbf24'],
-  ];
-
-  const risingWords = new Set((allData?.trends?.rising || []).map(r => r.word));
-  const risingMap = Object.fromEntries((allData?.trends?.rising || []).map(r => [r.word, r.velocity]));
+  // 갱신으로 다시 그릴 때 키보드 포커스를 같은 단어로 되돌리기 위해 기억
+  const focused = document.activeElement && document.activeElement.classList.contains('word-tag')
+    ? document.activeElement.dataset.word : null;
 
   // 현재 포스트에 실제로 있는 단어만 표시 (히스토리에만 있고 현재 없는 단어 제거)
-  const currentPosts = allData?.posts || [];
+  const posts = (fullData && fullData.posts) || [];
   const validTop = top.filter(item =>
-    currentPosts.some(p => (p.title || '').includes(item.word) || (p.summary || '').includes(item.word))
-  );
+    item && typeof item.word === 'string' && item.word &&
+    posts.some(p => postText(p).includes(item.word))
+  ).slice(0, 40);
 
-  cloud.innerHTML = validTop.slice(0, 40).map((item, i) => {
-    const ratio = item.score / maxScore;
-    const size = ratio > 0.7 ? 'size-3' : ratio > 0.4 ? 'size-2' : 'size-1';
-    const isRising = risingWords.has(item.word);
-    const [bg, col] = isRising
-      ? ['rgba(255,71,87,0.15)', '#ff4757']
-      : colors[i % colors.length];
-    const vel = risingMap[item.word];
-    const tooltip = `${item.count}회 언급${isRising ? ` · 급상승 +${vel}` : ''}`;
-    const prefix = isRising ? '▲ ' : '';
-    return `<span class="word-tag ${size}${isRising ? ' rising' : ''}"
-      style="background:${bg};color:${col};border-color:${col}44"
-      title="${tooltip}"
-      onclick="filterByWord('${item.word.replace(/'/g,"\\'")}')"
-      >${prefix}${escHtml(item.word)}</span>`;
-  }).join('');
-}
-
-let activeWordFilter = null;
-
-function filterByWord(word) {
-  if (activeWordFilter === word) {
-    activeWordFilter = null;
-    document.querySelectorAll('.word-tag').forEach(t => t.classList.remove('active-filter'));
-    document.getElementById('word-filter-bar')?.remove();
-    renderCards(allData?.posts || []);
+  if (!validTop.length) {
+    cloud.innerHTML = '<span class="muted-note">아직 표시할 단어가 없습니다.</span>';
     return;
   }
-  activeWordFilter = word;
-  document.querySelectorAll('.word-tag').forEach(t => {
-    const w = t.textContent.replace(/^▲\s*/, '').trim();
-    t.classList.toggle('active-filter', w === word);
-  });
 
-  const filtered = (allData?.posts || []).filter(p => p.title.includes(word));
+  const maxScore = Math.max(...top.map(t => Number(t && t.score) || 0), 1);
+  const risingMap = new Map(rising.map(r => [r.word, Number(r.velocity) || 0]));
 
-  let bar = document.getElementById('word-filter-bar');
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.id = 'word-filter-bar';
-    bar.className = 'word-filter-bar';
-    document.getElementById('card-container').before(bar);
+  cloud.innerHTML = validTop.map((item, i) => {
+    const ratio = (Number(item.score) || 0) / maxScore;
+    const size = ratio > 0.7 ? 'size-3' : ratio > 0.4 ? 'size-2' : 'size-1';
+    const isRising = risingMap.has(item.word);
+    const [bg, col] = isRising ? WORD_RISING_COLOR : WORD_COLORS[i % WORD_COLORS.length];
+    const tooltip = `${Number(item.count) || 0}회 언급${isRising ? ` · 급상승 +${risingMap.get(item.word)}` : ''}`;
+    const prefix = isRising ? '▲ ' : '';
+    return `<button type="button" class="word-tag ${size}${isRising ? ' rising' : ''}"
+      data-word="${escHtml(item.word)}" aria-pressed="false"
+      style="background:${bg};color:${col};border-color:${col}44"
+      title="${escHtml(tooltip)}">${prefix}${escHtml(item.word)}</button>`;
+  }).join('');
+
+  if (focused) {
+    const again = Array.from(cloud.querySelectorAll('.word-tag')).find(b => b.dataset.word === focused);
+    if (again) again.focus();
   }
-  bar.innerHTML = `<span>🔍 "<strong>${escHtml(word)}</strong>" 관련 포스트 <strong>${filtered.length}개</strong></span>
-    <button onclick="filterByWord('${word.replace(/'/g,"\\'")}')">✕ 필터 해제</button>`;
-
-  renderCards(filtered);
 }
 
 function renderTicker(rising) {
   const ticker = document.getElementById('ticker');
-  if (!rising.length) return;
+  if (!rising.length) {
+    ticker.classList.add('static');
+    ticker.innerHTML = risingReady()
+      ? '<span class="ticker-item">지금은 급상승 키워드가 없습니다</span>'
+      : '<span class="ticker-item">급상승 키워드 수집 중…</span>';
+    return;
+  }
   const items = rising.slice(0, 10).map(r =>
-    `<span class="ticker-item"><span class="arrow">▲</span><span class="word">${escHtml(r.word)}</span> (+${r.velocity})</span>`
+    `<span class="ticker-item"><span class="arrow">▲</span><span class="word">${escHtml(r.word)}</span> (+${escHtml(Number(r.velocity) || 0)})</span>`
   ).join('');
   // 반복을 위해 두 번
+  ticker.classList.remove('static');
   ticker.innerHTML = items + items;
 }
 
 // ── 상태 업데이트 ─────────────────────────────────────────────────────────────
 
-function updateStatus(data) {
+// 'n분 전 갱신'은 데이터가 바뀐 시각(last_updated). 원본 목록은 약 1시간마다 바뀌므로 수십 분 전이 정상이다.
+// '수집 지연': status 'stale'(수집 실패로 이전 데이터 유지), 마지막 확인(checked_at)이 주기의 3배 넘게 멈춤,
+// 또는 데이터가 DATA_STALE_MS 넘게 그대로(원본 갱신이 멈춤)
+function updateStatus() {
+  if (!fullData) return;
+  const badge = document.getElementById('status-badge');
   const dot = document.getElementById('status-dot');
   const txt = document.getElementById('status-text');
-  dot.className = 'status-dot' + (data.status === 'crawling' ? ' crawling' : '');
 
-  if (data.last_updated) {
-    const d = new Date(data.last_updated);
-    txt.textContent = `마지막 갱신: ${d.toLocaleTimeString('ko-KR')}`;
-  } else {
-    txt.textContent = data.status === 'crawling' ? '크롤링 중…' : '대기 중';
-  }
+  const t = parseIsoMs(fullData.last_updated);
+  const checked = parseIsoMs(fullData.checked_at);
+  const rel = formatDate(fullData.last_updated);
+  const now = Date.now();
+  const tooOld = (checked !== null && now - checked > REFRESH_MS * 3) ||
+                 (t !== null && now - t > (checked !== null ? DATA_STALE_MS : REFRESH_MS * 3));
+  const stale = fullData.status === 'stale' || tooOld;
+
+  let text = rel ? `${rel} 갱신` : '갱신 시각 알 수 없음';
+  if (stale) text += ' · 수집 지연';
+  if (txt.textContent !== text) txt.textContent = text;
+
+  badge.classList.toggle('stale', stale);
+  dot.classList.toggle('stale', stale);
+  const tips = [];
+  if (t !== null) tips.push(`데이터 갱신: ${kstDateTimeStr(t)}`);
+  if (checked !== null) tips.push(`마지막 확인: ${kstDateTimeStr(checked)}`);
+  badge.title = tips.length ? `${tips.join(' · ')} (KST)` : '';
+  updateAiSummaryTime();
 }
 
-// ── 탭/칩 전환 ────────────────────────────────────────────────────────────────
+// ── 탭/칩/단어 전환 ───────────────────────────────────────────────────────────
+// 탭과 커뮤니티 칩은 둘 중 하나만 선택된다. 탭·칩을 바꾸면 단어 필터는 해제하고,
+// 단어 필터는 현재 탭·칩 결과 안에서 적용한다. 자동 갱신은 세 상태를 모두 유지한다.
 
-// fullData가 있으면 클라이언트에서 즉시 필터링 (서버 API 호출 없음)
-function filterAndRender(tab, src) {
-  if (!fullData) { loadData(tab, src); return; }
-  let posts = fullData.posts || [];
-  if (src)              posts = posts.filter(p => p.source === src);
-  if (tab === 'food')   posts = posts.filter(p => p.is_food);
-  else if (tab === 'beauty') posts = posts.filter(p => p.is_beauty || p.is_fashion);
-  else if (tab === 'game')   posts = posts.filter(p => p.is_game);
-  else if (tab === 'celeb')  posts = posts.filter(p => p.is_celeb);
-  else if (tab === 'humor')  posts = posts.filter(p => p.is_humor);
-  else if (tab === 'car')    posts = posts.filter(p => p.is_car);
-  renderCards(posts);
-}
-
-function switchCat(tab, src, btn) {
+function switchCat(tab) {
+  if (tab !== 'all' && !TAB_FILTERS[tab]) return;
   currentTab = tab;
   currentSrc = '';
-  // reset chip selection to "전체"
-  document.querySelectorAll('.src-chip').forEach(c => {
-    c.classList.remove('active');
-    c.style.background = '';
-  });
-  const allChip = document.querySelector('.src-chip[data-src=""]');
-  if (allChip) { allChip.classList.add('active'); allChip.style.background = 'var(--accent)'; }
-
-  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  if (tab === 'all') {
-    if (fullData) renderCards(fullData.posts || []);
-    else loadData(tab, src);
-  } else {
-    filterAndRender(tab, src);
-  }
+  activeWordFilter = null;
+  paintSelection();
+  applyFilters();
 }
 
-function switchSrc(src, btn) {
-  currentSrc = src;
-  const tab = 'all';
-  currentTab = tab;
-
-  // reset cat tabs to "전체"
-  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
-  document.querySelector('.cat-btn[data-tab="all"]')?.classList.add('active');
-
-  document.querySelectorAll('.src-chip').forEach(c => {
-    c.classList.remove('active');
-    c.style.background = '';
-  });
-  btn.classList.add('active');
-  btn.style.background = btn.dataset.color || '#7c6cff';
-
-  filterAndRender(tab, src);
+function switchSrc(src) {
+  currentSrc = src || '';
+  currentTab = 'all';
+  activeWordFilter = null;
+  paintSelection();
+  applyFilters();
 }
 
+// 같은 단어를 다시 누르거나 null 이면 해제
+function filterByWord(word) {
+  activeWordFilter = (!word || word === activeWordFilter) ? null : word;
+  applyFilters();
+}
 
-
-// ── 수동 새로고침 ─────────────────────────────────────────────────────────────
+// ── 수동 새로고침 (정적 JSON 재조회만 — 크롤링은 서버가 10분마다 수행) ─────────
 
 async function manualRefresh() {
   const btn = document.getElementById('refresh-btn');
   btn.disabled = true;
-  btn.textContent = '크롤링 중…';
-  showToast('🔄 크롤링 시작…');
+  btn.textContent = '불러오는 중…';
   try {
-    await fetch('/api/refresh', { method: 'POST' });
-    // 크롤링 완료 폴링
-    for (let i = 0; i < 30; i++) {
-      await sleep(2000);
-      const status = await fetch('/api/status').then(r=>r.json());
-      if (status.status === 'ok') {
-        await loadData();
-        showToast('✅ 새 트렌드 수집 완료!');
-        nextRefresh = Date.now() + REFRESH_MS;
-        break;
-      }
+    const r = await loadData();
+    if (!r.ok) {
+      showToast('⚠️ 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
+    } else if (r.changed) {
+      autoFailStreak = 0;
+      showToast('✅ 최신 트렌드를 불러왔습니다');
+    } else {
+      autoFailStreak = 0;
+      const rel = formatDate(fullData.last_updated);
+      showToast(`이미 최신 데이터입니다${rel ? ` (${rel} 갱신)` : ''}`);
     }
   } finally {
     btn.disabled = false;
@@ -1165,56 +1310,185 @@ async function manualRefresh() {
   }
 }
 
-// ── 자동 갱신 타이머 ──────────────────────────────────────────────────────────
+// ── 자동 갱신 ─────────────────────────────────────────────────────────────────
+
+async function autoRefresh() {
+  const r = await loadData();
+  if (!r.ok) {
+    nextRefresh = Date.now() + RETRY_MS;
+    autoFailStreak++;
+    if (autoFailStreak === 1) showToast('⚠️ 자동 갱신 실패 — 잠시 후 다시 시도합니다');
+    return;
+  }
+  autoFailStreak = 0;
+  if (r.changed) showToast('🔄 새 트렌드로 갱신했습니다');
+}
 
 function startTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = setInterval(async () => {
+  const bar = document.getElementById('timer-bar');
+  setInterval(() => {
+    if (document.hidden) return;   // 숨은 탭에서는 갱신하지 않음
     const remaining = nextRefresh - Date.now();
     const pct = Math.max(0, Math.min(100, (remaining / REFRESH_MS) * 100));
-    document.getElementById('timer-bar').style.width = pct + '%';
+    bar.style.width = pct + '%';
+    updateStatus();                // 'n분 전' 표시를 시간 흐름에 맞춰 갱신
 
-    if (remaining <= 0) {
+    if (remaining <= 0 && !loadPromise) {
       nextRefresh = Date.now() + REFRESH_MS;
-      await loadData();
-      showToast('🔄 자동 갱신 완료');
+      autoRefresh();
     }
   }, 1000);
+
+  // 탭이 다시 보이면 즉시 1회 갱신 (방금 받았으면 생략)
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    updateStatus();
+    if (Date.now() - lastFetchAt > VISIBLE_REFETCH_MIN_MS && !loadPromise) autoRefresh();
+  });
+}
+
+// ── 이벤트 (인라인 onclick 대신 위임) ─────────────────────────────────────────
+
+function bindEvents() {
+  document.getElementById('refresh-btn').addEventListener('click', manualRefresh);
+  document.querySelector('main').addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    if (btn.classList.contains('cat-btn'))       switchCat(btn.dataset.tab);
+    else if (btn.classList.contains('src-chip')) switchSrc(btn.dataset.src);
+    else if (btn.classList.contains('word-tag')) filterByWord(btn.dataset.word);
+    else if (btn.dataset.action === 'clear-word') filterByWord(null);
+    else if (btn.dataset.action === 'retry')      manualRefresh();
+  });
 }
 
 // ── 유틸 ─────────────────────────────────────────────────────────────────────
 
 function escHtml(s) {
-  if (!s) return '';
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  if (s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// http/https 링크만 통과, 그 외(javascript:, data:, 상대경로 등)는 '#'
+function safeUrl(u) {
+  if (typeof u !== 'string') return '#';
+  const s = u.trim();
+  if (!/^https?:\/\//i.test(s)) return '#';
+  try {
+    const parsed = new URL(s);
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') ? parsed.href : '#';
+  } catch (e) {
+    return '#';
+  }
+}
+
+// style 속성에 넣을 색은 #rrggbb 만 허용
+function safeColor(c, fallback = '#7c6cff') {
+  return (typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c)) ? c : fallback;
+}
+
+function hexChannels(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+// 채널마다 k배 — 소스색 배지 글자용 (틴트 배경 위 대비 확보)
+function darken(hex, k = 0.5) {
+  return '#' + hexChannels(hex).map(v => Math.floor(v * k).toString(16).padStart(2, '0')).join('');
+}
+
+function relLuminance(hex) {
+  const [r, g, b] = hexChannels(hex).map(v => {
+    v /= 255;
+    return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+// 배경색 위에서 흰 글자와 본문색 중 대비가 더 높은 쪽
+function textOn(bgHex) {
+  const L = relLuminance(bgHex);
+  const onWhite = 1.05 / (L + 0.05);
+  const onDark = (L + 0.05) / (relLuminance('#1a1a2e') + 0.05);
+  return onWhite >= onDark ? '#fff' : '#1a1a2e';
 }
 
 function fmtNum(n) {
+  n = Number(n);
+  if (!isFinite(n)) return '';
   if (n >= 10000) return (n/10000).toFixed(1) + '만';
   if (n >= 1000) return (n/1000).toFixed(1) + 'k';
-  return n;
+  return String(n);
 }
 
-function formatDate(s) {
-  if (!s) return '';
-  try {
-    const d = new Date(s);
-    const now = new Date();
-    const diff = now - d;
-    if (diff < 60*60*1000) return `${Math.floor(diff/60000)}분 전`;
-    if (diff < 24*60*60*1000) return `${Math.floor(diff/3600000)}시간 전`;
-    return `${d.getMonth()+1}/${d.getDate()}`;
-  } catch { return s; }
+// epoch ms → KST 'YYYY-MM-DD'
+function kstDateStr(ms) {
+  return new Date(ms + KST_OFFSET_MS).toISOString().slice(0, 10);
 }
 
+// epoch ms → KST 'YYYY-MM-DD HH:MM'
+function kstDateTimeStr(ms) {
+  return new Date(ms + KST_OFFSET_MS).toISOString().slice(0, 16).replace('T', ' ');
+}
+
+// 'YYYY-MM-DDTHH:MM[:SS[.fff]]' + 오프셋('Z' 또는 ±HH:MM) → epoch ms.
+// 오프셋이 없으면 KST 로 간주(커뮤니티 표기 시각은 모두 KST). 해석 불가면 null
+function parseIsoMs(s) {
+  if (typeof s !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/.exec(s.trim());
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3], h = +m[4], mi = +m[5], se = +(m[6] || 0);
+  if (h > 23 || mi > 59 || se > 59) return null;
+  const base = new Date(Date.UTC(y, mo - 1, d, h, mi, se));
+  if (base.getUTCFullYear() !== y || base.getUTCMonth() !== mo - 1 || base.getUTCDate() !== d) return null;
+  let offMin = 9 * 60;
+  const off = m[7];
+  if (off === 'Z') offMin = 0;
+  else if (off) {
+    const digits = off.slice(1).replace(':', '');
+    offMin = (off[0] === '-' ? -1 : 1) * (+digits.slice(0, 2) * 60 + +digits.slice(2, 4));
+  }
+  return base.getTime() - offMin * 60000;
+}
+
+// 게시글·갱신 시각 표시
+//  'YYYY-MM-DD'(KST 날짜)        → '오늘' / '어제' / 'M/D'
+//  시각 있는 ISO(오프셋 포함)     → '방금 전' / 'n분 전' / 'n시간 전' / 'M/D'(KST)
+//  해석할 수 없으면 ''
+function formatDate(s, now = Date.now()) {
+  if (typeof s !== 'string' || !s.trim()) return '';
+  const str = s.trim();
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str);
+  if (dm) {
+    const y = +dm[1], mo = +dm[2], d = +dm[3];
+    const dt = new Date(Date.UTC(y, mo - 1, d));
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return '';
+    if (str === kstDateStr(now)) return '오늘';
+    if (str === kstDateStr(now - 86400000)) return '어제';
+    return `${mo}/${d}`;
+  }
+  const t = parseIsoMs(str);
+  if (t === null) return '';
+  const diff = now - t;
+  const k = new Date(t + KST_OFFSET_MS);
+  const md = `${k.getUTCMonth() + 1}/${k.getUTCDate()}`;
+  if (diff < -5 * 60000) return md;          // 미래 시각(표기 오류)은 날짜만
+  if (diff < 60000) return '방금 전';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}분 전`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}시간 전`;
+  return md;
+}
+
+let toastTimer = null;
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3000);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
 }
-
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ── 스켈레톤 생성 ─────────────────────────────────────────────────────────────
 
@@ -1233,22 +1507,10 @@ function renderSkeletons() {
 // ── 초기화 ────────────────────────────────────────────────────────────────────
 
 async function init() {
+  bindEvents();
   renderSkeletons();
-  await loadData();
-
-  // 데이터가 없으면(크롤링 중) 3초마다 폴링
-  if (!allData || allData.total === 0) {
-    showToast('🔄 크롤링 중… 잠시 기다려 주세요');
-    const poll = setInterval(async () => {
-      const st = await fetch('/api/status').then(r => r.json());
-      if (st.status === 'ok' && st.total > 0) {
-        clearInterval(poll);
-        await loadData();
-        showToast('✅ 데이터 로드 완료!');
-      }
-    }, 3000);
-  }
-
+  const r = await loadData();
+  if (!r.ok) nextRefresh = Date.now() + RETRY_MS;
   startTimer();
 }
 
@@ -1256,3 +1518,4 @@ init();
 </script>
 </body>
 </html>
+{% endautoescape %}

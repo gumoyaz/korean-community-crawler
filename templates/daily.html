@@ -1,44 +1,66 @@
-<!DOCTYPE html>
+{% autoescape true %}<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{% if view == 'detail' and summary %}{{ summary.date_kr }} 커뮤니티 트렌드 데일리 — 커트{% else %}커뮤니티 트렌드 데일리 — 커트{% endif %}</title>
-{% if view == 'detail' and summary %}
+{% set is_detail = view == 'detail' and summary %}
+{% if is_detail %}
+{% set page_url = site_url ~ '/daily/' ~ summary.date ~ '/' %}
+<title>{{ summary.date_kr }} 커뮤니티 트렌드 데일리 — 커트</title>
 <meta name="description" content="{{ summary.date_kr }} 한국 주요 인터넷 커뮤니티 인기글 데일리 요약. FM코리아, 디씨인사이드, 루리웹 등 오늘의 화제글 모음.">
-<link rel="canonical" href="{{ site_url }}/daily/{{ summary.date }}">
-<meta property="og:url" content="{{ site_url }}/daily/{{ summary.date }}">
+<meta name="robots" content="index, follow">
 <meta property="og:title" content="{{ summary.date_kr }} 커뮤니티 트렌드 데일리 — 커트">
 <meta property="og:description" content="{{ summary.date_kr }} 한국 주요 커뮤니티 인기글 데일리 요약.">
-<meta property="article:published_time" content="{{ summary.date }}">
+<meta property="article:published_time" content="{{ summary.generated_at or summary.date }}">
+{% elif view == 'pending' %}
+{% set page_url = site_url ~ '/daily/' ~ date ~ '/' %}
+<title>{{ date_kr }} 데일리 리포트 준비 중 — 커트</title>
+<meta name="description" content="{{ date_kr }} 커뮤니티 트렌드 데일리 리포트는 KST 12시 이후 자동 생성됩니다.">
+{# 임시 안내 페이지는 색인하지 않음 — 리포트가 생기면 같은 주소가 index 로 바뀐다 #}
+<meta name="robots" content="noindex, follow">
+<meta property="og:title" content="{{ date_kr }} 커뮤니티 트렌드 데일리 — 커트">
+<meta property="og:description" content="{{ date_kr }} 데일리 리포트는 KST 12시 이후 자동 생성됩니다.">
 {% else %}
+{% set page_url = site_url ~ '/daily/' %}
+<title>커뮤니티 트렌드 데일리 — 커트</title>
 <meta name="description" content="한국 주요 인터넷 커뮤니티 인기글 데일리 요약 아카이브. FM코리아, 디씨인사이드, 루리웹 등 매일의 화제글을 날짜별로 확인하세요.">
-<link rel="canonical" href="{{ site_url }}/daily">
-<meta property="og:url" content="{{ site_url }}/daily">
+<meta name="robots" content="index, follow">
 <meta property="og:title" content="커뮤니티 트렌드 데일리 — 커트">
 <meta property="og:description" content="한국 주요 인터넷 커뮤니티 인기글 데일리 요약 아카이브. 매일의 화제글을 날짜별로 확인하세요.">
 {% endif %}
-<link rel="icon" type="image/png" href="/static/logo.png">
-<link rel="apple-touch-icon" href="/static/logo.png">
-<meta name="robots" content="index, follow">
+<link rel="canonical" href="{{ page_url }}">
+<meta property="og:url" content="{{ page_url }}">
+{% if gsc_verification %}<meta name="google-site-verification" content="{{ gsc_verification }}">
+{% endif %}
+<link rel="icon" type="image/png" href="{{ base }}/static/logo.png">
+<link rel="apple-touch-icon" href="{{ base }}/static/logo.png">
 <meta name="author" content="커트">
-<meta property="og:type" content="{% if view == 'detail' and summary %}article{% else %}website{% endif %}">
+<meta property="og:type" content="{% if is_detail %}article{% else %}website{% endif %}">
 <meta property="og:site_name" content="커트">
 <meta property="og:image" content="{{ site_url }}/static/logo.png">
 <meta property="og:locale" content="ko_KR">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:image" content="{{ site_url }}/static/logo.png">
+{% if view != 'pending' %}
 <!-- JSON-LD -->
 <script type="application/ld+json">
-{% if view == 'detail' and summary %}
+{% if is_detail %}
 {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "{{ summary.date_kr }} 커뮤니티 트렌드 데일리",
-  "description": "{{ summary.date_kr }} 한국 주요 커뮤니티 인기글 데일리 요약",
-  "url": "{{ site_url }}/daily/{{ summary.date }}",
-  "datePublished": "{{ summary.date }}",
-  "publisher": { "@type": "Organization", "name": "커트", "url": "{{ site_url }}/" },
+  "headline": {{ (summary.date_kr ~ ' 커뮤니티 트렌드 데일리')|tojson }},
+  "description": {{ (summary.date_kr ~ ' 한국 주요 커뮤니티 인기글 데일리 요약')|tojson }},
+  "url": {{ page_url|tojson }},
+  "mainEntityOfPage": {{ page_url|tojson }},
+  "datePublished": {{ (summary.generated_at or summary.date)|tojson }},
+  "image": [{{ (site_url ~ '/static/logo.png')|tojson }}],
+  "author": { "@type": "Organization", "name": "커트", "url": {{ (site_url ~ '/')|tojson }} },
+  "publisher": {
+    "@type": "Organization",
+    "name": "커트",
+    "url": {{ (site_url ~ '/')|tojson }},
+    "logo": { "@type": "ImageObject", "url": {{ (site_url ~ '/static/logo.png')|tojson }} }
+  },
   "inLanguage": "ko-KR"
 }
 {% else %}
@@ -47,11 +69,12 @@
   "@type": "CollectionPage",
   "name": "커뮤니티 트렌드 데일리",
   "description": "한국 주요 인터넷 커뮤니티 인기글 데일리 요약 아카이브",
-  "url": "{{ site_url }}/daily",
+  "url": {{ page_url|tojson }},
   "inLanguage": "ko-KR"
 }
 {% endif %}
 </script>
+{% endif %}
 <style>
   :root {
     --bg: #f5f5f7;
@@ -59,15 +82,16 @@
     --surface2: #f1f3f5;
     --border: #e9ecef;
     --text: #1a1a2e;
-    --text-dim: #6c757d;
-    --accent: #ff4757;
+    --text-dim: #5f6670;      /* surface2 위에서도 4.5:1 이상 */
+    --accent: #ff4757;        /* 배경·테두리용 브랜드색 */
+    --accent-text: #bd2a3a;   /* 글자용 강조색 (흰 배경·옅은 틴트 위 4.5:1 이상) */
     --accent2: #ff9f43;
-    --insta-grad: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
     --radius: 14px;
     --shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.06);
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
 
   body {
     background: var(--bg);
@@ -78,6 +102,12 @@
   }
 
   a { color: inherit; text-decoration: none; }
+
+  /* 키보드 포커스 표시 */
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--accent-text);
+    outline-offset: 2px;
+  }
 
   /* ── Header ── */
   header {
@@ -103,7 +133,7 @@
 
   .header-right { display: flex; align-items: center; gap: 10px; }
   .nav-link-outline {
-    font-size: 13px; color: var(--accent);
+    font-size: 13px; color: var(--accent-text);
     background: transparent;
     border: 1.5px solid var(--accent);
     padding: 6px 14px; border-radius: 8px;
@@ -125,10 +155,10 @@
   }
   .page-header .label {
     font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
-    color: var(--accent); text-transform: uppercase;
+    color: var(--accent-text); text-transform: uppercase;
     margin-bottom: 8px;
   }
-  .page-header h2 {
+  .page-header h1 {
     font-size: 28px; font-weight: 800;
     line-height: 1.2; color: var(--text);
   }
@@ -181,7 +211,7 @@
   .card-body .card-meta .chip {
     background: rgba(255,71,87,0.08);
     border: 1px solid rgba(255,71,87,0.15);
-    color: var(--accent);
+    color: var(--accent-text);
     font-size: 11px; padding: 2px 8px; border-radius: 20px;
   }
   .arrow-icon { color: var(--text-dim); font-size: 18px; }
@@ -203,7 +233,7 @@
     color: var(--text-dim);
   }
   .empty-state .icon { font-size: 48px; margin-bottom: 16px; }
-  .empty-state h3 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
+  .empty-state h2 { font-size: 18px; color: var(--text); margin-bottom: 8px; }
   .empty-state p { font-size: 14px; line-height: 1.6; }
 
   /* ── Pending state ── */
@@ -215,17 +245,13 @@
     text-align: center;
     box-shadow: var(--shadow);
   }
-  .pending-state .spinner {
-    width: 40px; height: 40px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-    margin: 0 auto 20px;
-  }
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .pending-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
+  .pending-state .pending-icon { font-size: 40px; margin-bottom: 16px; }
+  .pending-state h2 { font-size: 18px; margin-bottom: 8px; color: var(--text); }
   .pending-state p { color: var(--text-dim); font-size: 14px; line-height: 1.6; }
+  .pending-links {
+    display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    margin-top: 20px;
+  }
 
   /* ── Detail: navigation ── */
   .date-nav {
@@ -245,7 +271,7 @@
     transition: color .15s, border-color .15s, background .15s;
     box-shadow: var(--shadow);
   }
-  .date-nav-btn:hover { color: var(--accent); border-color: var(--accent); background: #fff5f5; }
+  .date-nav-btn:hover { color: var(--accent-text); border-color: var(--accent); background: #fff5f5; }
   .date-nav-btn.disabled { opacity: 0.35; pointer-events: none; }
   .date-nav-center {
     font-size: 15px; font-weight: 700; color: var(--text);
@@ -261,6 +287,12 @@
     font-size: 13px; color: var(--text-dim);
   }
   .meta-strip .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--border); }
+  .report-note {
+    margin: -16px 0 24px;
+    padding: 10px 14px;
+    font-size: 13px; line-height: 1.6; color: var(--text-dim);
+    background: var(--surface2); border-radius: 10px;
+  }
 
   /* ── Detail: summary body ── */
   .summary-body {
@@ -284,15 +316,18 @@
     display: flex; align-items: center; gap: 8px;
   }
   .summary-body h2:first-child { margin-top: 0; }
+  .summary-body h1 { font-size: 20px; font-weight: 800; margin: 0 0 14px; }
   .summary-body h3 {
     font-size: 15px; font-weight: 600;
-    color: var(--accent);
+    color: var(--accent-text);
     margin: 20px 0 8px;
   }
+  .summary-body h4 { font-size: 14.5px; font-weight: 700; margin: 16px 0 6px; }
   .summary-body p { margin-bottom: 14px; color: var(--text); }
   .summary-body p:last-child { margin-bottom: 0; }
   .summary-body strong { color: var(--text); font-weight: 700; }
-  .summary-body em { color: var(--accent); font-style: normal; }
+  .summary-body em { color: var(--accent-text); font-style: normal; }
+  .summary-body a { color: var(--accent-text); text-decoration: underline; }
   .summary-body ul, .summary-body ol {
     padding-left: 20px; margin-bottom: 14px;
   }
@@ -305,6 +340,16 @@
     background: rgba(255,71,87,0.04);
     border-radius: 0 6px 6px 0;
   }
+  .summary-body code {
+    background: var(--surface2); border-radius: 4px;
+    padding: 1px 5px; font-size: .92em;
+  }
+  .summary-body pre {
+    background: var(--surface2); border-radius: 8px;
+    padding: 12px 14px; margin-bottom: 14px; overflow-x: auto;
+  }
+  .summary-body pre code { padding: 0; background: none; }
+  .summary-body hr { border: 0; border-top: 1px solid var(--border); margin: 24px 0; }
   @media (max-width: 600px) {
     .summary-body { padding: 20px 16px; font-size: 14.5px; }
   }
@@ -342,39 +387,29 @@
     flex-shrink: 0;
     margin-top: 1px;
   }
-  .post-rank.gold   { background: rgba(251,191,36,.15); color: #d97706; }
-  .post-rank.silver { background: rgba(156,163,175,.12); color: #6b7280; }
-  .post-rank.bronze { background: rgba(234,88,12,.12);  color: #c2410c; }
+  .post-rank.gold   { background: rgba(251,191,36,.15); color: #a15c05; }
+  .post-rank.silver { background: rgba(156,163,175,.12); color: #5b626e; }
+  .post-rank.bronze { background: rgba(234,88,12,.12);  color: #b03a0a; }
   .post-content { flex: 1; min-width: 0; }
   .post-title {
     font-size: 14px; font-weight: 600; margin-bottom: 5px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     color: var(--text);
   }
-  .post-title a:hover { color: var(--accent); }
+  .post-title a:hover { color: var(--accent-text); }
   .post-meta {
     font-size: 12px; color: var(--text-dim);
     display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
   }
+  /* 소스색은 왼쪽 띠로만 — 글자는 본문색(노란 계열 소스도 읽히도록) */
   .source-badge {
     display: inline-flex; align-items: center; gap: 4px;
     font-size: 11px; padding: 2px 7px; border-radius: 6px;
     font-weight: 600;
+    color: var(--text);
     background: var(--surface2);
+    border-left: 3px solid var(--src, #adb5bd);
   }
-
-  /* ── Generate button ── */
-  .generate-btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    background: var(--accent);
-    color: #fff; border: none; cursor: pointer;
-    padding: 10px 20px; border-radius: 10px;
-    font-size: 14px; font-weight: 600;
-    margin-top: 20px;
-    transition: opacity .2s;
-  }
-  .generate-btn:hover { opacity: .85; }
-  .generate-btn:disabled { opacity: .5; cursor: not-allowed; }
 
   /* ── Back link ── */
   .back-link {
@@ -383,9 +418,9 @@
     margin-bottom: 24px;
     transition: color .15s;
   }
-  .back-link:hover { color: var(--accent); }
+  .back-link:hover { color: var(--accent-text); }
 
-  /* ── TTS Player ── */
+  /* ── TTS Player (speechSynthesis 지원 확인 후 JS가 표시) ── */
   .tts-player {
     display: flex;
     align-items: center;
@@ -404,6 +439,7 @@
     border: none; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     font-size: 18px;
+    font-family: inherit;
     transition: transform .1s, opacity .2s;
     flex-shrink: 0;
   }
@@ -434,21 +470,22 @@
   .tts-speed-btn {
     background: var(--surface2); border: 1px solid var(--border);
     color: var(--text-dim); font-size: 11px; font-weight: 600;
+    font-family: inherit;
     padding: 4px 8px; border-radius: 6px; cursor: pointer;
     transition: color .15s, border-color .15s;
   }
-  .tts-speed-btn.active { color: var(--accent); border-color: var(--accent); }
+  .tts-speed-btn.active { color: var(--accent-text); border-color: var(--accent); }
   .tts-voice-label {
     font-size: 11px; color: var(--text-dim);
   }
   /* 읽는 중인 섹션 하이라이트 */
   .summary-body h2.tts-active {
-    color: var(--accent);
+    color: var(--accent-text);
   }
 
   @media (max-width: 600px) {
     main { padding: 20px 12px 60px; }
-    .page-header h2 { font-size: 22px; }
+    .page-header h1 { font-size: 22px; }
     .page-header p { font-size: 13px; }
     .date-nav { gap: 8px; }
     .date-nav-btn { padding: 8px 12px; font-size: 12px; }
@@ -463,6 +500,7 @@
     .tts-player { padding: 10px 14px; gap: 8px; }
     .tts-label { font-size: 11px; }
     .tts-info { min-width: 0; }
+    .pending-state { padding: 36px 20px; }
   }
 
   @media (max-width: 430px) {
@@ -474,18 +512,22 @@
     .post-item { padding: 8px 10px; gap: 8px; }
     .post-meta { flex-wrap: wrap; }
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    .summary-card:hover { transform: none; }
+  }
 </style>
 </head>
 <body>
 
 <header>
   <div class="header-inner">
-    <a href="/" class="logo">
-      <img src="/static/logo.png" alt="커트">
+    <a href="{{ base }}/" class="logo">
+      <img src="{{ base }}/static/logo.png" alt="커트" width="35" height="35">
       <span class="logo-tagline">커뮤니티 트렌드 리포트</span>
     </a>
     <div class="header-right">
-      <a href="/" class="nav-link-outline">실시간 트렌드</a>
+      <a href="{{ base }}/" class="nav-link-outline">실시간 트렌드</a>
     </div>
   </div>
 </header>
@@ -497,7 +539,7 @@
 
   <div class="page-header">
     <div class="label">📰 Daily Report</div>
-    <h2>데일리 리포트</h2>
+    <h1>데일리 리포트</h1>
     <p>매일 한국 주요 커뮤니티 상위 게시글을 Gemini AI로 깊게 요약합니다.<br>
        요약만 읽어도 오늘 인터넷에서 무슨 일이 있었는지 파악할 수 있습니다.</p>
   </div>
@@ -506,7 +548,7 @@
     <div class="summary-grid">
       {% for s in summaries %}
         {% set parts = s.date.split('-') %}
-        <a href="/daily/{{ s.date }}" class="summary-card">
+        <a href="{{ base }}/daily/{{ s.date }}/" class="summary-card">
           <div class="date-badge">
             <div class="day">{{ parts[2] }}</div>
             <div class="month">{{ parts[0] }}.{{ parts[1] }}</div>
@@ -518,18 +560,18 @@
             </div>
             <div class="card-meta">
               <span class="chip">📝 {{ s.post_count }}개 게시글</span>
-              <span>{{ s.generated_at[:16].replace('T', ' ') }} 생성</span>
+              {% if s.generated_at %}<span>{{ s.generated_at[:16].replace('T', ' ') }} 생성</span>{% endif %}
             </div>
           </div>
-          <div class="arrow-icon">›</div>
+          <div class="arrow-icon" aria-hidden="true">›</div>
         </a>
       {% endfor %}
     </div>
   {% else %}
     <div class="empty-state">
       <div class="icon">📭</div>
-      <h3>아직 생성된 리포트가 없습니다</h3>
-      <p>서버가 크롤링을 완료하면 자동으로 오늘의 리포트가 생성됩니다.<br>
+      <h2>아직 생성된 리포트가 없습니다</h2>
+      <p>매일 KST 12시 이후 그날의 리포트가 자동으로 생성됩니다.<br>
          조금 뒤에 다시 확인해 주세요.</p>
     </div>
   {% endif %}
@@ -537,61 +579,39 @@
 {# ──────────────────── PENDING VIEW ──────────────────── #}
 {% elif view == 'pending' %}
 
-  <a href="/daily" class="back-link">← 목록으로</a>
+  <a href="{{ base }}/daily/" class="back-link">← 목록으로</a>
 
   <div class="page-header">
     <div class="label">📰 Daily Report</div>
-    <h2>{{ date_kr }}</h2>
+    <h1>{{ date_kr }}</h1>
   </div>
 
+  {% set latest_date = prev_date or (summaries[0].date if summaries else None) %}
   <div class="pending-state">
-    <div class="spinner"></div>
-    <h3>오늘의 리포트를 준비 중입니다</h3>
-    <p>크롤링이 충분히 쌓이면 자동으로 Gemini가 깊은 요약을 생성합니다.<br>
-       지금 바로 생성하려면 아래 버튼을 눌러주세요.</p>
-    <button class="generate-btn" id="genBtn" onclick="triggerGenerate('{{ date }}')">
-      ✨ 지금 생성하기
-    </button>
-    <p id="genMsg" style="margin-top:14px;font-size:13px;color:var(--text-dim);display:none;"></p>
+    <div class="pending-icon" aria-hidden="true">⏳</div>
+    <h2>오늘의 리포트를 준비 중입니다</h2>
+    <p>오늘 리포트는 KST 12시 이후 자동 생성됩니다.<br>
+       12시가 지났다면 잠시 후 이 페이지를 새로고침해 주세요.</p>
+    <div class="pending-links">
+      {% if latest_date %}<a href="{{ base }}/daily/{{ latest_date }}/" class="nav-link-outline">지난 리포트 보기</a>{% endif %}
+      <a href="{{ base }}/" class="nav-link-outline">실시간 트렌드 보기</a>
+    </div>
   </div>
-
-  <script>
-    async function triggerGenerate(date) {
-      const btn = document.getElementById('genBtn');
-      const msg = document.getElementById('genMsg');
-      btn.disabled = true;
-      btn.textContent = '생성 중…';
-      msg.style.display = 'block';
-      msg.textContent = 'Gemini AI가 요약을 생성하고 있습니다. 1~2분 후 페이지를 새로고침해 주세요.';
-      try {
-        await fetch('/api/daily/generate', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({date}),
-        });
-        setTimeout(() => location.reload(), 90000);
-      } catch(e) {
-        msg.textContent = '오류가 발생했습니다. 잠시 후 다시 시도해 주세요.';
-        btn.disabled = false;
-        btn.textContent = '✨ 지금 생성하기';
-      }
-    }
-  </script>
 
 {# ──────────────────── DETAIL VIEW ──────────────────── #}
-{% elif view == 'detail' and summary %}
+{% elif is_detail %}
 
-  <a href="/daily" class="back-link">← 목록으로</a>
+  <a href="{{ base }}/daily/" class="back-link">← 목록으로</a>
 
   <div class="page-header">
     <div class="label">📰 Daily Report</div>
-    <h2>{{ summary.date_kr }}</h2>
+    <h1>{{ summary.date_kr }}</h1>
   </div>
 
   {# Date navigation #}
-  <div class="date-nav">
+  <nav class="date-nav" aria-label="날짜 이동">
     {% if prev_date %}
-      <a href="/daily/{{ prev_date }}" class="date-nav-btn">‹ {{ prev_date }}</a>
+      <a href="{{ base }}/daily/{{ prev_date }}/" class="date-nav-btn" aria-label="이전 리포트 {{ prev_date }}">‹ {{ prev_date }}</a>
     {% else %}
       <span class="date-nav-btn disabled">‹ 이전</span>
     {% endif %}
@@ -599,73 +619,81 @@
     <span class="date-nav-center">{{ summary.date }}</span>
 
     {% if next_date %}
-      <a href="/daily/{{ next_date }}" class="date-nav-btn">{{ next_date }} ›</a>
+      <a href="{{ base }}/daily/{{ next_date }}/" class="date-nav-btn" aria-label="다음 리포트 {{ next_date }}">{{ next_date }} ›</a>
     {% else %}
       <span class="date-nav-btn disabled">다음 ›</span>
     {% endif %}
-  </div>
+  </nav>
 
-  {# TTS Player #}
-  <div class="tts-player" id="ttsPlayer">
-    <button class="tts-btn stop" id="ttsPrevBtn" onclick="ttsSkip(-1)" disabled title="이전">⏮</button>
-    <button class="tts-btn play" id="ttsPlayBtn" onclick="ttsToggle()" title="읽기 시작">▶</button>
-    <button class="tts-btn stop" id="ttsStopBtn" onclick="ttsStop()" disabled title="정지">■</button>
-    <button class="tts-btn stop" id="ttsNextBtn" onclick="ttsSkip(1)" disabled title="다음">⏭</button>
+  {# TTS Player — speechSynthesis 를 지원할 때만 JS가 hidden 을 푼다 #}
+  <div class="tts-player" id="ttsPlayer" hidden>
+    <button type="button" class="tts-btn stop" id="ttsPrevBtn" disabled aria-label="이전 섹션" title="이전 섹션">⏮</button>
+    <button type="button" class="tts-btn play" id="ttsPlayBtn" aria-label="읽기 시작" title="읽기 시작">▶</button>
+    <button type="button" class="tts-btn stop" id="ttsStopBtn" disabled aria-label="정지" title="정지">■</button>
+    <button type="button" class="tts-btn stop" id="ttsNextBtn" disabled aria-label="다음 섹션" title="다음 섹션">⏭</button>
     <div class="tts-info">
       <div class="tts-label" id="ttsLabel">재생 버튼을 눌러 요약을 들어보세요</div>
-      <div class="tts-progress"><div class="tts-progress-bar" id="ttsBar"></div></div>
+      <div class="tts-progress" aria-hidden="true"><div class="tts-progress-bar" id="ttsBar"></div></div>
     </div>
-    <div class="tts-speed">
-      <button class="tts-speed-btn" onclick="ttsSetSpeed(0.85)">0.85×</button>
-      <button class="tts-speed-btn active" onclick="ttsSetSpeed(1.0)">1×</button>
-      <button class="tts-speed-btn" onclick="ttsSetSpeed(1.2)">1.2×</button>
-      <button class="tts-speed-btn" onclick="ttsSetSpeed(1.5)">1.5×</button>
+    <div class="tts-speed" id="ttsSpeed" role="group" aria-label="읽기 속도">
+      <button type="button" class="tts-speed-btn" data-speed="0.85" aria-pressed="false">0.85×</button>
+      <button type="button" class="tts-speed-btn active" data-speed="1" aria-pressed="true">1×</button>
+      <button type="button" class="tts-speed-btn" data-speed="1.2" aria-pressed="false">1.2×</button>
+      <button type="button" class="tts-speed-btn" data-speed="1.5" aria-pressed="false">1.5×</button>
     </div>
     <span class="tts-voice-label" id="ttsVoiceLabel"></span>
   </div>
 
   {# Meta strip #}
+  {% set model_label = (summary.model|replace('-', ' ')|title) if summary.model else 'Gemini AI' %}
   <div class="meta-strip">
-    <span>📝 {{ summary.post_count }}개 게시글 분석</span>
-    <span class="dot"></span>
-    <span>🤖 Gemini 2.5 Flash</span>
-    <span class="dot"></span>
+    {% if summary.analyzed_count %}
+    <span>📝 {{ summary.analyzed_count }}개 게시글 분석</span>
+    {% else %}
+    <span>📝 상위 게시글 {{ summary.post_count }}개</span>
+    {% endif %}
+    <span class="dot" aria-hidden="true"></span>
+    <span>🤖 {{ model_label }}</span>
+    {% if summary.generated_at %}
+    <span class="dot" aria-hidden="true"></span>
     <span>{{ summary.generated_at[:16].replace('T', ' ') }} 생성</span>
-    <span class="dot"></span>
-    <button onclick="triggerRegenerate('{{ summary.date }}')"
-            id="regenBtn"
-            style="background:none;border:1px solid var(--border);color:var(--text-dim);
-                   font-size:12px;padding:3px 10px;border-radius:6px;cursor:pointer;
-                   transition:color .15s,border-color .15s;"
-            onmouseover="this.style.color='var(--text)';this.style.borderColor='var(--accent)'"
-            onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='var(--border)'">
-      ↻ 재생성
-    </button>
+    {% endif %}
   </div>
 
-  {# Deep summary #}
+  {# 정오본: 그날 오전까지의 인기글 기준. 다음 날 0시 이후 하루 전체 목록으로 다시 만든다 #}
+  {% if summary.date == today and not summary.is_final %}
+  <p class="report-note">생성 시각까지 올라온 인기글로 만든 중간 리포트입니다. 자정이 지나면 하루 전체 인기글로 다시 정리됩니다.</p>
+  {% endif %}
+
+  {# Deep summary — summary_html 은 빌드 단계에서 nh3 로 정화됨 #}
   <div class="summary-body">
     {{ summary.summary_html | safe }}
   </div>
 
   {# Top posts #}
   {% if summary.posts %}
-    <div class="section-title">이 날의 상위 게시글</div>
+    <h2 class="section-title">이 날의 상위 게시글</h2>
     <div class="post-list">
       {% for p in summary.posts[:30] %}
+        {# style 속성에는 #rrggbb 형식 색만 넣는다 #}
+        {% set sc = p.source_color if (p.source_color is string and p.source_color|length == 7 and p.source_color[0] == '#' and p.source_color[1:].lower().strip('0123456789abcdef') == '') else '#adb5bd' %}
         <div class="post-item">
           <div class="post-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
             {{ loop.index }}
           </div>
           <div class="post-content">
             <div class="post-title">
-              <a href="{{ p.url }}" target="_blank" rel="noopener">{{ p.title }}</a>
+              {% if p.url is string and p.url.startswith(('http://', 'https://')) %}
+              <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">{{ p.title }}</a>
+              {% else %}
+              {{ p.title }}
+              {% endif %}
             </div>
             <div class="post-meta">
-              <span class="source-badge" style="color: {{ p.source_color or '#aaa' }};">
+              <span class="source-badge" style="--src: {{ sc }}">
                 {{ p.source_emoji or '' }} {{ p.source_label or p.source }}
               </span>
-              {% if p.views %}<span>👁 {{ '{:,}'.format(p.views) }}</span>{% endif %}
+              {% if p.views is number and p.views > 0 %}<span>👁 {{ '{:,}'.format(p.views) }}</span>{% endif %}
               {% if p.likes %}<span>👍 {{ p.likes }}</span>{% endif %}
               {% if p.comments %}<span>💬 {{ p.comments }}</span>{% endif %}
               {% if p.date %}<span>{{ p.date[:10] }}</span>{% endif %}
@@ -677,214 +705,278 @@
   {% endif %}
 
   <script>
-  // ── TTS ──────────────────────────────────────────────────────────────────
-  const synth   = window.speechSynthesis;
-  let ttsSpeed  = 1.0;
-  let ttsPaused = false;
-  let ttsChunks        = [];   // 분할된 청크 배열
-  let ttsChunkSections = [];   // 청크 index → H2 섹션 index
-  let ttsSectionStarts = [];   // 섹션 index → 첫 청크 index
-  let ttsIdx    = 0;
-  let ttsUtter  = null;
-  let ttsVoice  = null;
+  // ── TTS (브라우저 음성 합성) ─────────────────────────────────────────────────
+  // speechSynthesis 미지원(일부 인앱 브라우저 등)이면 플레이어를 숨긴 채로 끝낸다.
+  (function () {
+    if (!('speechSynthesis' in window) || typeof SpeechSynthesisUtterance === 'undefined') return;
+    const synth  = window.speechSynthesis;
+    const player = document.getElementById('ttsPlayer');
+    const body   = document.querySelector('.summary-body');
+    if (!player || !body) return;
+    player.hidden = false;
 
-  // 가장 좋은 한국어 음성 선택 (Google > Microsoft > 기타 순)
-  function pickVoice() {
-    const voices = synth.getVoices().filter(v => v.lang.startsWith('ko'));
-    if (!voices.length) return null;
-    const priority = ['Google', 'Microsoft'];
-    for (const kw of priority) {
-      const v = voices.find(v => v.name.includes(kw));
-      if (v) return v;
+    const playBtn    = document.getElementById('ttsPlayBtn');
+    const prevBtn    = document.getElementById('ttsPrevBtn');
+    const nextBtn    = document.getElementById('ttsNextBtn');
+    const stopBtn    = document.getElementById('ttsStopBtn');
+    const labelEl    = document.getElementById('ttsLabel');
+    const barEl      = document.getElementById('ttsBar');
+    const voiceLabel = document.getElementById('ttsVoiceLabel');
+    const speedBtns  = Array.from(document.querySelectorAll('.tts-speed-btn'));
+
+    const TTS_MAX_CHARS = 100;   // 한 발화 최대 글자 수 (원격 음성의 약 15초 끊김 방지 — 100자 ≈ 13초)
+    const IDLE_LABEL = '재생 버튼을 눌러 요약을 들어보세요';
+
+    let ttsSpeed  = 1.0;
+    let ttsActive = false;       // 재생 세션 진행 중(일시정지 포함)
+    let ttsPaused = false;
+    let ttsChunks        = [];   // 분할된 청크 배열
+    let ttsChunkSections = [];   // 청크 index → H2 섹션 index (-1 = 도입부)
+    let ttsSectionStarts = [];   // 섹션 index → 첫 청크 index
+    let ttsIdx    = 0;
+    let ttsVoice  = null;
+    let ttsSession = 0;          // cancel 뒤 늦게 도착하는 이전 발화의 onend/onerror 무시용
+    let ttsErrors  = 0;
+
+    // 한국어 음성 선택: 기기 내장(localService) > Google > Microsoft > 기타
+    function pickVoice() {
+      const voices = synth.getVoices().filter(v => (v.lang || '').toLowerCase().replace('_', '-').startsWith('ko'));
+      if (!voices.length) return null;
+      return voices.find(v => v.localService)
+        || voices.find(v => v.name.includes('Google'))
+        || voices.find(v => v.name.includes('Microsoft'))
+        || voices[0];
     }
-    return voices[0];
-  }
 
-  function initVoice() {
-    ttsVoice = pickVoice();
-    if (ttsVoice) {
-      document.getElementById('ttsVoiceLabel').textContent = ttsVoice.name;
+    function initVoice() {
+      ttsVoice = pickVoice();
+      if (ttsVoice) voiceLabel.textContent = ttsVoice.name;
+      else if (synth.getVoices().length) voiceLabel.textContent = '한국어 음성 없음 (기본 음성으로 읽음)';
     }
-  }
-  synth.onvoiceschanged = initVoice;
-  initVoice();
+    synth.onvoiceschanged = initVoice;
+    initVoice();
 
-  // 요약 본문을 h2 섹션 단위로 분할
-  const TTS_MAX_CHARS = 200;  // Chrome Web Speech API 안정 한계
-
-  function splitLong(text) {
-    // 문장 단위로 자르되 TTS_MAX_CHARS 초과하면 분할
-    const result = [];
-    const sentences = text.split(/(?<=[.!?。])\s+|(?<=다[.。])\s+|(?<=요[.。])\s+/);
-    let buf = '';
-    for (const s of sentences) {
-      if ((buf + s).length > TTS_MAX_CHARS && buf) {
-        result.push(buf.trim());
-        buf = s;
-      } else {
-        buf += (buf ? ' ' : '') + s;
+    // 한도를 넘는 한 문장을 쉼표·가운뎃점 → 공백 → 글자 수 순으로 자른다
+    function hardSplit(s) {
+      const out = [];
+      let rest = s.trim();
+      while (rest.length > TTS_MAX_CHARS) {
+        const head = rest.slice(0, TTS_MAX_CHARS);
+        let cut = Math.max(head.lastIndexOf(','), head.lastIndexOf('·'), head.lastIndexOf('，'));
+        if (cut < TTS_MAX_CHARS / 3) cut = head.lastIndexOf(' ');
+        cut = cut < TTS_MAX_CHARS / 3 ? TTS_MAX_CHARS : cut + 1;
+        out.push(rest.slice(0, cut).trim());
+        rest = rest.slice(cut).trim();
       }
+      if (rest) out.push(rest);
+      return out;
     }
-    if (buf.trim()) result.push(buf.trim());
-    return result.length ? result : [text.slice(0, TTS_MAX_CHARS)];
-  }
 
-  function buildChunks() {
-    const body = document.querySelector('.summary-body');
-    if (!body) return [];
-
-    // Step 1: 섹션 수집 (h2Idx = -1은 첫 H2 이전 도입부)
-    const sections = [];
-    let h2Idx = -1;
-    let cur = [];
-    for (const node of body.childNodes) {
-      if (node.nodeName === 'H2') {
-        if (cur.length) sections.push({ h2Idx, text: cur.join(' ') });
-        h2Idx++;
-        cur = [node.textContent.replace(/🔥\s*/g, '').trim()];
-      } else {
-        const t = node.textContent?.trim();
-        if (t) cur.push(t);
+    // 문장 단위로 나눈 뒤 TTS_MAX_CHARS 안에서 다시 묶는다
+    function splitLong(text) {
+      const pieces = [];
+      for (const s of text.replace(/([.!?。])\s+/g, '$1\n').split('\n')) {
+        if (s.trim()) pieces.push(...hardSplit(s));
       }
-    }
-    if (cur.length) sections.push({ h2Idx, text: cur.join(' ') });
-
-    // Step 2: 섹션별 청크 분할 + 매핑 테이블 구성
-    const allChunks = [];
-    ttsChunkSections = [];    // chunk index → h2 element index (-1 = 도입부)
-    ttsSectionStarts = [];    // h2 element index → 해당 섹션 첫 chunk index
-
-    for (const sec of sections) {
-      if (sec.h2Idx >= 0) ttsSectionStarts[sec.h2Idx] = allChunks.length;
-      for (const c of splitLong(sec.text)) {
-        allChunks.push(c);
-        ttsChunkSections.push(sec.h2Idx);
+      const out = [];
+      let buf = '';
+      for (const p of pieces) {
+        if (buf && (buf + ' ' + p).length > TTS_MAX_CHARS) { out.push(buf); buf = p; }
+        else buf = buf ? buf + ' ' + p : p;
       }
-    }
-    return allChunks;
-  }
-
-  function ttsSpeak(idx) {
-    if (idx >= ttsChunks.length) { ttsFinish(); return; }
-    ttsIdx = idx;
-
-    // 현재 청크가 속한 H2 element index (-1이면 도입부)
-    const h2 = ttsChunkSections[idx] ?? -1;
-    document.querySelectorAll('.summary-body h2').forEach((h, i) => {
-      h.classList.toggle('tts-active', i === h2);
-    });
-
-    // 진행바 & 라벨 (H2 기준)
-    const totalH2 = ttsSectionStarts.length;
-    if (h2 >= 0 && totalH2 > 0) {
-      document.getElementById('ttsBar').style.width = ((h2 + 1) / totalH2 * 100) + '%';
-      document.getElementById('ttsLabel').textContent = `${h2 + 1} / ${totalH2} 섹션 읽는 중…`;
-    } else {
-      document.getElementById('ttsBar').style.width = '0%';
-      document.getElementById('ttsLabel').textContent = '도입부 읽는 중…';
+      if (buf) out.push(buf);
+      return out;
     }
 
-    ttsUtter = new SpeechSynthesisUtterance(ttsChunks[idx]);
-    ttsUtter.lang  = 'ko-KR';
-    ttsUtter.rate  = ttsSpeed;
-    ttsUtter.pitch = 1.05;
-    if (ttsVoice) ttsUtter.voice = ttsVoice;
-    ttsSetNavBtns(true);
-    ttsUtter.onend   = () => ttsSpeak(idx + 1);
-    ttsUtter.onerror = (e) => {
-      if (e.error === 'interrupted' || e.error === 'canceled') return;
-      console.warn('TTS 오류 (청크', idx, '):', e.error);
-      ttsSpeak(idx + 1);
-    };
-    synth.speak(ttsUtter);
-  }
+    // 이모지는 읽지 않음
+    const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}]/gu;
 
-  function ttsSetNavBtns(playing) {
-    const h2 = ttsChunkSections[ttsIdx] ?? -1;
-    document.getElementById('ttsPrevBtn').disabled = !playing || h2 <= 0;
-    document.getElementById('ttsNextBtn').disabled = !playing || h2 >= ttsSectionStarts.length - 1;
-    document.getElementById('ttsStopBtn').disabled = !playing;
-  }
+    // 요약 본문을 H2 섹션 단위로 모으고(목록은 항목별로 따로) 청크로 나눈다
+    function buildChunks() {
+      const sections = [];
+      let cur = { h2Idx: -1, parts: [] };
+      let h2Idx = -1;
+      const push = t => {
+        t = (t || '').replace(EMOJI_RE, '').replace(/\s+/g, ' ').trim();
+        if (t) cur.parts.push(t);
+      };
+      for (const node of body.childNodes) {
+        if (node.nodeName === 'H2') {
+          if (cur.parts.length) sections.push(cur);
+          h2Idx++;
+          cur = { h2Idx, parts: [] };
+          push(node.textContent);
+        } else if (node.nodeName === 'UL' || node.nodeName === 'OL') {
+          Array.from(node.children).forEach(li => push(li.textContent));
+        } else {
+          push(node.textContent);
+        }
+      }
+      if (cur.parts.length) sections.push(cur);
 
-  function ttsSkip(dir) {
-    const h2 = ttsChunkSections[ttsIdx] ?? -1;
-    const target = h2 + dir;
-    if (target < 0 || target >= ttsSectionStarts.length) return;
-    synth.cancel();
-    ttsPaused = false;
-    document.getElementById('ttsPlayBtn').textContent = '⏸';
-    ttsSpeak(ttsSectionStarts[target]);
-  }
-
-  function ttsToggle() {
-    if (!synth.speaking && !ttsPaused) {
-      ttsChunks = buildChunks();
-      if (!ttsVoice) ttsVoice = pickVoice();
-      ttsPaused = false;
-      document.getElementById('ttsPlayBtn').textContent = '⏸';
-      ttsSetNavBtns(true);
-      ttsSpeak(0);
-    } else if (synth.speaking && !ttsPaused) {
-      synth.pause();
-      ttsPaused = true;
-      document.getElementById('ttsPlayBtn').textContent = '▶';
-      document.getElementById('ttsLabel').textContent = '일시정지됨';
-    } else if (ttsPaused) {
-      synth.resume();
-      ttsPaused = false;
-      document.getElementById('ttsPlayBtn').textContent = '⏸';
+      const chunks = [];
+      ttsChunkSections = [];
+      ttsSectionStarts = [];
+      for (const sec of sections) {
+        if (sec.h2Idx >= 0) ttsSectionStarts[sec.h2Idx] = chunks.length;
+        for (const part of sec.parts) {
+          for (const c of splitLong(part)) {
+            chunks.push(c);
+            ttsChunkSections.push(sec.h2Idx);
+          }
+        }
+      }
+      return chunks;
     }
-  }
 
-  function ttsStop() {
-    synth.cancel();
-    ttsPaused = false;
-    ttsFinish();
-  }
-
-  function ttsFinish() {
-    document.getElementById('ttsPlayBtn').textContent = '▶';
-    document.getElementById('ttsBar').style.width = '0%';
-    document.getElementById('ttsLabel').textContent = '재생 버튼을 눌러 요약을 들어보세요';
-    document.querySelectorAll('.summary-body h2').forEach(h => h.classList.remove('tts-active'));
-    ttsSetNavBtns(false);
-  }
-
-  function ttsSetSpeed(s) {
-    ttsSpeed = s;
-    document.querySelectorAll('.tts-speed-btn').forEach(b => {
-      b.classList.toggle('active', parseFloat(b.textContent) === s);
-    });
-    // 재생 중이면 현재 섹션 다시 시작
-    if (synth.speaking || ttsPaused) {
+    // 진행 중인 발화를 모두 끊고 일시정지 상태까지 초기화 (cancel 은 paused 를 풀지 않음)
+    function ttsHardCancel() {
+      ttsSession++;
       synth.cancel();
+      if (synth.paused) synth.resume();
       ttsPaused = false;
-      document.getElementById('ttsPlayBtn').textContent = '⏸';
-      ttsSpeak(ttsIdx);
     }
-  }
 
-  // 페이지 벗어날 때 정지
-  window.addEventListener('beforeunload', () => synth.cancel());
-  // ─────────────────────────────────────────────────────────────────────────
+    function setPlayBtn(playing) {
+      const label = playing ? '일시정지' : (ttsActive ? '이어 읽기' : '읽기 시작');
+      playBtn.textContent = playing ? '⏸' : '▶';
+      playBtn.setAttribute('aria-label', label);
+      playBtn.title = label;
+    }
 
-    async function triggerRegenerate(date) {
-      const btn = document.getElementById('regenBtn');
-      btn.disabled = true;
-      btn.textContent = '재생성 중…';
-      try {
-        await fetch('/api/daily/generate', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({date}),
-        });
-        btn.textContent = '생성 시작됨 (1~2분 후 새로고침)';
-        setTimeout(() => location.reload(), 90000);
-      } catch(e) {
-        btn.textContent = '오류';
-        btn.disabled = false;
+    function showProgress(idx) {
+      const h2 = ttsChunkSections[idx] ?? -1;
+      document.querySelectorAll('.summary-body h2').forEach((h, i) => {
+        h.classList.toggle('tts-active', i === h2);
+      });
+      const totalH2 = ttsSectionStarts.length;
+      if (h2 >= 0 && totalH2 > 0) {
+        barEl.style.width = ((h2 + 1) / totalH2 * 100) + '%';
+        labelEl.textContent = `${h2 + 1} / ${totalH2} 섹션 읽는 중…`;
+      } else {
+        barEl.style.width = '0%';
+        labelEl.textContent = '도입부 읽는 중…';
       }
     }
+
+    function ttsSetNavBtns() {
+      const h2 = ttsActive ? (ttsChunkSections[ttsIdx] ?? -1) : -1;
+      prevBtn.disabled = !ttsActive || h2 <= 0;
+      nextBtn.disabled = !ttsActive || h2 >= ttsSectionStarts.length - 1;
+      stopBtn.disabled = !ttsActive;
+    }
+
+    function ttsSpeak(idx) {
+      if (idx >= ttsChunks.length) { ttsFinish(); return; }
+      ttsIdx = idx;
+      const my = ttsSession;
+      showProgress(idx);
+      ttsSetNavBtns();
+
+      const u = new SpeechSynthesisUtterance(ttsChunks[idx]);
+      u.lang  = 'ko-KR';
+      u.rate  = ttsSpeed;
+      u.pitch = 1.05;
+      if (ttsVoice) u.voice = ttsVoice;
+      u.onend = () => {
+        if (my !== ttsSession) return;
+        ttsErrors = 0;
+        ttsSpeak(idx + 1);
+      };
+      u.onerror = (e) => {
+        if (my !== ttsSession) return;
+        if (e.error === 'interrupted' || e.error === 'canceled') return;
+        console.warn('TTS 오류 (청크', idx, '):', e.error);
+        if (++ttsErrors >= 3) {   // 연속 실패면 멈추고 안내
+          ttsStop();
+          labelEl.textContent = '이 브라우저에서는 음성 재생에 실패했습니다';
+          return;
+        }
+        ttsSpeak(idx + 1);
+      };
+      synth.speak(u);
+    }
+
+    function ttsToggle() {
+      if (!ttsActive) {
+        ttsChunks = buildChunks();
+        if (!ttsChunks.length) return;
+        if (!ttsVoice) ttsVoice = pickVoice();
+        ttsHardCancel();
+        ttsActive = true;
+        ttsErrors = 0;
+        setPlayBtn(true);
+        ttsSpeak(0);
+      } else if (!ttsPaused) {
+        synth.pause();
+        ttsPaused = true;
+        setPlayBtn(false);
+        labelEl.textContent = '일시정지됨';
+      } else {
+        ttsPaused = false;
+        setPlayBtn(true);
+        showProgress(ttsIdx);
+        synth.resume();
+        // pause 가 사실상 cancel 로 동작하는 환경이면 현재 청크부터 다시 읽음
+        if (!synth.speaking && !synth.pending) {
+          ttsHardCancel();
+          ttsSpeak(ttsIdx);
+        }
+      }
+    }
+
+    function ttsSkip(dir) {
+      if (!ttsActive) return;
+      let target = (ttsChunkSections[ttsIdx] ?? -1) + dir;
+      while (target >= 0 && target < ttsSectionStarts.length && ttsSectionStarts[target] === undefined) target += dir;
+      if (target < 0 || target >= ttsSectionStarts.length) return;
+      ttsHardCancel();
+      setPlayBtn(true);
+      ttsSpeak(ttsSectionStarts[target]);
+    }
+
+    function ttsStop() {
+      ttsHardCancel();
+      ttsFinish();
+    }
+
+    function ttsFinish() {
+      ttsActive = false;
+      ttsPaused = false;
+      setPlayBtn(false);
+      barEl.style.width = '0%';
+      labelEl.textContent = IDLE_LABEL;
+      document.querySelectorAll('.summary-body h2').forEach(h => h.classList.remove('tts-active'));
+      ttsSetNavBtns();
+    }
+
+    function ttsSetSpeed(s) {
+      ttsSpeed = s;
+      speedBtns.forEach(b => {
+        const on = parseFloat(b.dataset.speed) === s;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      // 재생 중(일시정지 포함)이면 현재 청크부터 새 속도로 다시 읽음
+      if (ttsActive) {
+        ttsHardCancel();
+        setPlayBtn(true);
+        ttsSpeak(ttsIdx);
+      }
+    }
+
+    playBtn.addEventListener('click', ttsToggle);
+    stopBtn.addEventListener('click', ttsStop);
+    prevBtn.addEventListener('click', () => ttsSkip(-1));
+    nextBtn.addEventListener('click', () => ttsSkip(1));
+    speedBtns.forEach(b => b.addEventListener('click', () => ttsSetSpeed(parseFloat(b.dataset.speed))));
+
+    // 페이지 벗어날 때 정지
+    const stopOnLeave = () => { ttsSession++; synth.cancel(); };
+    window.addEventListener('pagehide', stopOnLeave);
+    window.addEventListener('beforeunload', stopOnLeave);
+  })();
+  // ─────────────────────────────────────────────────────────────────────────
   </script>
 
 {% endif %}
@@ -892,3 +984,4 @@
 </main>
 </body>
 </html>
+{% endautoescape %}

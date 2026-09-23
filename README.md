@@ -1,245 +1,161 @@
 # 커트 — 커뮤니티 트렌드
 
-한국 주요 인터넷 커뮤니티를 실시간 크롤링해 **지금 화제인 글들을 한눈에** 볼 수 있는 Flask 웹 앱입니다.
+한국 주요 인터넷 커뮤니티의 인기글을 10분마다 모아 **지금 화제인 글들을 한눈에** 보여주는 사이트입니다.
+매일 KST 12시 이후에는 Gemini가 그날의 화제를 정리한 **데일리 리포트**를 만듭니다.
 
-## 크롤링 소스
+- 사이트: https://gumoyaz.github.io/korean-community-crawler/
+- 비용: 0원 (GitHub Actions + GitHub Pages, 상시 서버 없음)
 
-### 직접 스크래핑
-
-| 사이트 | 대상 | 조회수 |
-|---|---|---|
-| FMKorea 베스트 | 베스트 게시판 | O |
-| 오늘의유머 베스트 | bestofbest | O |
-| 루리웹 베스트 | 커뮤니티 베스트 | O |
-| 클리앙 인기 | 인기 게시판 | O |
-| 더쿠 핫 | HOT 게시판 | - |
-| MLB파크 | 불펜 게시판 | - |
-| 인스티즈 | 실시간 베스트 | - |
-| 보배드림 | 자유게시판 | - |
-| 네이트판 | 일간 랭킹 | O |
-| 웃긴대학 | 인기 게시판 | - |
-| 인스타그램 | 해시태그 (차단 시 샘플) | - |
-
-### todaybeststory.com API (22개 커뮤니티)
-
-직접 스크래핑이 어려운 커뮤니티(디시인사이드 등 IP 차단)를 포함해 22개 커뮤니티의 오늘의 베스트 글을 API로 수집합니다.
-
-| 코드 | 커뮤니티 |
-|---|---|
-| FMK | FMKorea |
-| DCI | 디시인사이드 |
-| ARC | 아카라이브 |
-| NAT | 네이트판 |
-| BOB | 보배드림 |
-| HUM | 웃긴대학 |
-| DDA | 딴지일보 |
-| … | 외 15개 |
-
-## 설치 & 실행
-
-```bash
-cd trend-crawler
-pip install -r requirements.txt
-python app.py
-```
-
-브라우저에서 http://localhost:5000
-
-### 환경변수 설정 (.env)
-
-프로젝트 루트에 `.env` 파일 생성:
+## 동작 방식
 
 ```
-GOOGLE_API_KEY=your_gemini_api_key_here
-DAILY_DB_PATH=/data/daily.db
+cron-job.org (10분마다) ──▶ GitHub Actions: Build and deploy
+schedule (백업, :07/:22/:37/:52)      │
+                                     ├─ 1. 직전 상태 복원 (Actions 캐시 → 없으면 사이트의 data/state.json)
+                                     ├─ 2. 크롤링 1회 (todaybeststory API, 부족하면 직접 스크래핑)
+                                     ├─ 3. 메인 AI 요약 (6시간마다) / 데일리 리포트 (정오본·최종본)
+                                     ├─ 4. _site/ 에 정적 사이트 렌더링 (build.py)
+                                     ├─ 5. 새 데일리 리포트가 있으면 data/daily/*.json 을 main 에 커밋
+                                     └─ 6. GitHub Pages 에 배포
 ```
 
-| 변수 | 필수 | 설명 |
-|---|---|---|
-| `GOOGLE_API_KEY` | 선택 | Gemini API 키. 없으면 AI 요약 기능만 비활성화됨. [aistudio.google.com](https://aistudio.google.com)에서 무료 발급 |
-| `DAILY_DB_PATH` | 선택 | SQLite DB 파일 경로. 미설정 시 `data/daily.db` 사용. Railway 볼륨 마운트 경로로 지정하면 재배포 후에도 데이터 유지 |
-| `SITE_URL` | 선택 | 배포 도메인. canonical URL, sitemap, llms.txt에 사용. 기본값: Railway 운영 도메인 |
+- 사이트 자체는 정적 파일이라, 크롤이 실패해도 마지막으로 배포된 화면이 그대로 떠 있습니다.
+- 데일리 리포트는 리포에 JSON으로 커밋되므로 호스팅을 옮겨도 사라지지 않습니다.
+- 브라우저는 `data/trends.json`을 10분마다 다시 읽습니다. 서버 API는 없습니다.
+
+## 수집 소스
+
+### todaybeststory.com API (주 경로)
+
+22개 커뮤니티의 당일 인기글 전체(보통 하루 1,300~2,000건)를 `limit=100`으로 끝 페이지까지 받습니다.
+FM코리아, 디시인사이드, 아카라이브, 네이트판, 보배드림, 웃긴대학, 딴지일보, 루리웹, 클리앙, 더쿠, MLB파크,
+인스티즈, 개드립, 이토랜드, 가생이, 일베, 인벤, 뽐뿌, SLR클럽, 오늘의유머, 와이고수, 82쿡.
+
+- 조회 날짜는 KST 기준이고, KST 00~02시에는 전날 목록도 함께 받습니다.
+- FM코리아 조회수는 API가 주는 합성값이라 0으로 둡니다(소스 간 비교 왜곡 방지).
+
+### 직접 스크래핑 (예비 경로)
+
+API 결과가 50건 미만이거나 커뮤니티가 8곳 미만이면 아래 10곳을 직접 긁어 보탭니다.
+오늘의유머, 루리웹(베스트), 클리앙, 더쿠, MLB파크(불펜 베스트), 보배드림, 네이트판, 웃긴대학, 아카라이브, 딴지일보.
+
+- 행 단위로 파싱해서 제목·조회수·날짜가 항상 같은 글에서 나옵니다.
+- 공지·광고·댓글 수 링크는 걸러냅니다. FM코리아·인스티즈는 봇 차단 때문에 직접 요청하지 않습니다.
 
 ## 화면 구성
 
-- **✨ 오늘의 커뮤니티 요약** — Gemini AI가 소스별 대표글을 주제별로 묶어 자연어 요약 (6시간마다 갱신)
-- **급상승 티커** — 상단 스크롤 배너, 실시간 급상승 키워드 표시
-- **급상승 키워드** — velocity 기반 상위 10개 단어 + 상승폭
-- **인기 단어 구름** — 클릭하면 해당 키워드 포함 글만 필터링
+- **✨ 오늘의 커뮤니티 요약** — Gemini가 커뮤니티별 대표글을 주제별로 묶은 짧은 요약 (6시간마다, 24시간 넘으면 숨김)
+- **급상승 티커 / 급상승 키워드** — 직전 크롤 대비 빈도가 늘어난 단어
+- **인기 단어 구름** — 클릭하면 그 단어가 들어간 글만 필터링 (키보드로도 선택 가능)
 - **카테고리 탭** — 전체 / 게임·IT / 연예·아이돌 / 유머 / 음식·카페 / 뷰티·패션 / 자동차
-- **커뮤니티 칩** — 멀티라인 그리드로 사이트별 필터 (글 수 표시)
-- **카드 피드** — 이모지·소스 배지·요약·날짜 표시, 클릭하면 원글로 이동
+- **커뮤니티 칩** — 사이트별 필터 (글 수 표시)
+- **카드 피드** — 출처 배지, 본문 요약, 시각, 조회·추천·댓글. 클릭하면 원글로 이동
+- **데일리 리포트** (`/daily/`) — 날짜별 아카이브, 이전/다음 이동, 읽어주기(TTS)
+
+## 데일리 리포트
+
+| 시점 (KST) | 동작 |
+|---|---|
+| 12:00 이후 첫 실행 | 오늘 **정오본** 생성 |
+| 다음 날 00:10~01:59 | 하루 전체 목록으로 전날 **최종본**을 다시 생성해 덮어씀 (정오본이 없으면 백필) |
+| 생성 실패 | 30분 뒤 다음 실행에서 자동 재시도 |
+
+- 입력은 그날 글 가운데 랭킹 상위 20개입니다. 한 커뮤니티는 최대 4개까지만 넣고, 커뮤니티가 10곳 미만이면 생성을 미룹니다.
+- 프롬프트는 제목·본문에 있는 사실만 쓰게 합니다. 입력에 없는 소속·직함·반응은 추측하지 않습니다.
+- 모델은 `gemini-3.8-flash`이고, 일시 오류(5xx)나 일일 한도에 걸리면 예비 모델 `gemini-3.5-flash-lite`로 넘어갑니다. 둘 다 환경변수로 바꿀 수 있습니다.
+- 저장 형식은 `data/daily/YYYY-MM-DD.json`입니다. 필드는 `date, generated_at, model, post_count, analyzed_count, summary_md, posts`입니다.
 
 ## 랭킹 로직
 
-### 4단계 점수 산정
-
-**Step 1 — 인게이지먼트 점수** (소스별 정규화)
-
-각 소스 내 최대값 기준으로 로그 정규화 후 가중 합산:
+**1. 인게이지먼트 점수** — 소스 안에서만 로그 정규화한 뒤 가중 합산합니다. 조회수가 없는 소스는 위치 점수만 씁니다.
 
 ```
-engagement = 조회수점수×0.60 + 추천수점수×0.25 + 댓글수점수×0.15
+engagement = 조회수×0.60 + 추천수×0.25 + 댓글수×0.15
+base       = 위치점수×0.35 + engagement×0.65
 ```
 
-조회수 없는 소스는 위치 점수만 사용.
+위치 점수는 소스별 순번 기준입니다(1위 100점에서 차감).
 
-**Step 2 — 시간 감쇠**
+**2. 시간 감쇠** — `decay = e^(-나이(일) / 90)` (반감기 약 62일). 90일을 넘은 글은 제외합니다.
 
-```
-decay = e^(-나이(일) / 90)    # 반감기 90일
-```
+**3. 소스 대표글 가산점** — 소스마다 1위 글에 ×1.10을 줍니다.
 
-30일 이내에서는 조회수가 날짜보다 우선 (3일/1천 < 21일/1만).  
-90일 초과 글은 완전 제외.
+**4. 다양성 점감 + 하드 캡** — 같은 소스의 n번째 글은 `×0.65^n`이고, 소스당 최대 25개입니다.
 
-| 글 나이 | 점수 비율 |
-|---------|---------|
-| 오늘 | 100% |
-| 3일 | 97% |
-| 1주일 | 93% |
-| 21일 | 79% |
-| 30일 | 72% |
-| 90일 | 37% |
-| 90일 초과 | 제외 |
-
-**Step 3 — 채널 대표글 가산점**
-
-각 소스에서 가장 높은 점수의 글 1개에 +10% 보너스.  
-조회수 없는 소스도 최소 1개는 상위 노출 기회 확보.
-
-**Step 4 — 다양성 점감 + 하드 캡**
+## 키워드 트렌드
 
 ```
-diversity_score = rank_score × 0.65^n    # n: 같은 소스에서 n번째 글
+velocity    = (현재 − 직전)×2 + (현재 − 4회전 전)
+trend_score = min(100, base + max(0, velocity)×3)
 ```
 
-- 2번째 글: 65%, 3번째: 42%, 5번째: 18%, 7번째: 8%
-- 소스당 최대 **15개** 하드 캡으로 특정 커뮤니티 독점 방지
+- 최근 6회 크롤의 단어 빈도를 `state.json`에 보관합니다. 이력이 4회 미만이면 가장 오래된 회차와 비교합니다.
+- API 목록이 직전과 똑같으면(시간당 갱신 사이) 이력에 쌓지 않습니다.
+- 수집 규모가 2배 넘게 다른 회차끼리는 비교하지 않습니다.
+- 불용어(STOP_WORDS), 조사·어미 제거, 합성어 오탐 제외 규칙을 거칩니다.
 
-### 위치 점수
+## 로컬 실행
 
-- 직접 스크래핑: 1위=100점, 한 칸마다 −1.5점
-- todaybeststory: 전체 결과에서 −0.5점씩 감소
-
-### 키워드 트렌드 점수
-
+```bash
+pip install -r requirements.txt
+python build.py --base "" --out _site --force
+python -m http.server -d _site 8000
+# http://localhost:8000
 ```
-trend_score = 현재빈도 기반 base + velocity_bonus × 3
-velocity    = (현재 − 직전) × 2 + (현재 − 4회전 전)
-```
 
-- 과거 6회 크롤링 히스토리 유지
-- `velocity > 0` 이고 `count >= 2`인 단어만 "급상승" 목록 노출
+- `--no-crawl` — 크롤 없이 운영 사이트의 `state.json`으로 렌더링만 합니다.
+- `--state-file PATH` — 상태를 파일에서 읽습니다.
+- `--now ISO` — 현재 시각을 주입합니다(테스트용).
+- KST 12시 이후에 `--force`로 크롤하면 `data/daily/`에 오늘 리포트가 생길 수 있습니다. 테스트할 때는 `DAILY_DIR`을 임시 폴더로 지정하세요.
 
-### 키워드 필터링 (불용어)
+## 환경변수
 
-1. **길이 제한** — 6음절 이상 제외
-2. **어미 제거** — 정규식으로 조사·어미 제거 후 어근 추출
-3. **STOP_WORDS** — 부사·접속사·SNS 상투어·커뮤니티 카테고리 용어 등 200개 이상
+로컬은 `.env`, Actions는 Secrets(키)와 Variables(나머지)에 넣습니다. 비워 두면 기본값을 씁니다.
 
-## AI 오늘의 요약
+| 변수 | 기본값 | 설명 |
+|---|---|---|
+| `GOOGLE_API_KEY` | (없음) | Gemini API 키. 없으면 AI 요약·데일리 리포트만 꺼짐 |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | 기본 모델 |
+| `GEMINI_FALLBACK_MODEL` | `gemini-3.5-flash-lite` | 예비 모델. `none`이면 끔 |
+| `SITE_URL` | `https://gumoyaz.github.io/korean-community-crawler` | canonical·sitemap·llms.txt의 기준 주소. 경로 부분이 내부 링크의 base가 됨 |
+| `GSC_VERIFICATION` | (없음) | 서치 콘솔 HTML 태그 인증값. 있으면 메타태그 출력 |
+| `STATE_URL` | `{SITE_URL}/data/state.json` | Actions 캐시가 없을 때 상태를 받아올 주소 |
+| `MIN_INTERVAL_MIN` | `7` | 이 시간(분) 안에 다시 호출되면 크롤·배포를 건너뜀 |
+| `DAILY_DIR` | `data/daily` | 데일리 리포트 저장 폴더 |
 
-Gemini 2.5 Flash REST API를 활용해 소스별 1위 글 제목을 주제별로 묶어 자연어 요약문 생성.
+## 배포 설정 (최초 1회)
 
-- **갱신 주기**: 6시간마다
-- **재료**: 랭킹 순으로 소스별 대표글 최대 20개 제목 + 조회수
-- **조건**: `GOOGLE_API_KEY` 환경변수 설정 시 활성화, 없으면 카드 숨김 처리
-- **할루시네이션 방지**: 제목에 없는 내용은 추측하지 않도록 프롬프트 제한
-- **SDK 미사용**: `requests`로 REST API 직접 호출 (패키지 의존성 없음)
+1. 리포를 **Public**으로 둡니다. 무료 플랜의 Pages와 Actions 무제한 사용 조건입니다.
+2. Settings → Pages → Source를 **GitHub Actions**로 지정합니다.
+3. Settings → Secrets and variables → Actions에서 Secret `GOOGLE_API_KEY`를 등록합니다.
+4. Actions 탭 → **Build and deploy** → Run workflow로 첫 배포를 합니다. `main` 푸시로 돌면 크롤 없이 렌더링만 합니다.
+5. [cron-job.org](https://cron-job.org)에 10분 간격 작업을 등록합니다. Actions의 `schedule`은 지연·누락이 잦아 백업으로만 둡니다.
+   - URL: `POST https://api.github.com/repos/gumoyaz/korean-community-crawler/actions/workflows/pages.yml/dispatches`
+   - 헤더: `Authorization: Bearer <fine-grained PAT>`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`
+   - 본문: `{"ref":"main"}` (성공하면 204)
+   - PAT 권한: 이 리포만 선택, Repository permissions → **Actions: Read and write**
 
-## 카테고리 감지
+## 산출물
 
-포스트 제목·요약에서 키워드 매칭으로 자동 분류:
-
-| 카테고리 | 주요 키워드 예시 |
+| 경로 | 내용 |
 |---|---|
-| 음식/카페 | 맛집, 카페, 디저트, 치킨, 라멘 |
-| 뷰티/패션 | 뷰티, 스킨케어, 메이크업, 코디, 하울 |
-| 게임/IT | 롤, 배그, 닌텐도, 아이폰, AI |
-| 연예/아이돌 | 아이돌, BTS, 뉴진스, 콘서트, 컴백 |
-| 유머 | 개그, 병맛, 드립, 짤, 밈 |
-| 자동차 | 전기차, 테슬라, 중고차, 현대차 |
+| `/` | 메인 (JS가 `data/trends.json`을 읽어 렌더링) |
+| `/data/trends.json` | 게시글, 키워드 트렌드, AI 요약, 갱신 시각 |
+| `/data/state.json` | 다음 실행이 이어받을 상태 (키워드 이력, 점수 이력, 직전 글 목록) |
+| `/daily/`, `/daily/YYYY-MM-DD/` | 데일리 목록·상세 (서버 렌더링) |
+| `/sitemap.xml`, `/robots.txt`, `/llms.txt`, `/404.html` | SEO·AI 크롤러용 |
 
-## 자동 갱신
+## SEO / AI 검색
 
-- 서버 시작 시 즉시 첫 크롤링 (백그라운드 스레드)
-- 이후 **10분마다** 자동 재크롤링
-- AI 요약은 **6시간마다** 갱신
-- 화면 하단 타이머 바로 다음 갱신까지 남은 시간 표시
+- 페이지마다 description, canonical(끝 슬래시 통일), Open Graph, Twitter Card, JSON-LD(`WebSite` / `Article` / `CollectionPage`)를 넣습니다.
+- `sitemap.xml`에는 메인·데일리 목록·날짜별 리포트가 들어갑니다. `lastmod`는 리포트 생성일입니다.
+- `llms.txt`는 ChatGPT·Claude·Gemini·Perplexity 같은 AI 크롤러용 사이트 안내서입니다.
+- 프로젝트 페이지(`/korean-community-crawler/`)라서 `robots.txt`는 크롤러가 읽지 않습니다. 서치 콘솔에 `sitemap.xml`을 직접 제출해야 합니다.
 
-## API 엔드포인트
+## 옛 데이터 이전
 
-### 트렌드
+Railway 시절 SQLite(`daily.db`)가 있다면 JSON으로 옮길 수 있습니다.
 
-| 엔드포인트 | 설명 |
-|---|---|
-| `GET /api/trends` | 전체 포스트 + 트렌드 + AI 요약 데이터 |
-| `GET /api/trends?source=ruliweb` | 특정 소스만 필터 |
-| `GET /api/trends?tab=food` | 음식/카페 카테고리 |
-| `GET /api/trends?tab=game` | 게임/IT 카테고리 |
-| `GET /api/trends?tab=celeb` | 연예/아이돌 카테고리 |
-| `GET /api/trends?tab=humor` | 유머 카테고리 |
-| `GET /api/trends?tab=beauty` | 뷰티/패션 카테고리 |
-| `GET /api/trends?tab=car` | 자동차 카테고리 |
-| `POST /api/refresh` | 즉시 크롤링 시작 |
-| `GET /api/status` | 크롤링 상태 확인 |
-
-### 데일리 요약
-
-| 엔드포인트 | 설명 |
-|---|---|
-| `GET /daily` | 일별 요약 목록 페이지 (최근 60일) |
-| `GET /daily/<date>` | 특정 날짜 요약 페이지 (예: `/daily/2025-05-01`) |
-| `GET /api/daily` | 최근 60일 요약 목록 (JSON) |
-| `GET /api/daily/<date>` | 특정 날짜 요약 상세 (JSON) |
-| `POST /api/daily/generate` | 오늘 또는 지정 날짜 요약 강제 생성. body: `{"date": "2025-05-01"}` (생략 시 오늘) |
-
-## 데이터 저장소
-
-SQLite 파일 하나(`data/daily.db`)에 일별 요약이 영구 저장됩니다.
-
-```sql
-CREATE TABLE daily_summaries (
-    date         TEXT PRIMARY KEY,  -- YYYY-MM-DD (KST)
-    summary_md   TEXT NOT NULL,     -- Gemini가 생성한 마크다운 리포트
-    posts_json   TEXT NOT NULL,     -- 요약에 사용된 게시글 목록 (JSON 배열)
-    post_count   INTEGER NOT NULL,  -- 게시글 수
-    generated_at TEXT NOT NULL      -- 생성 시각 (ISO 8601, KST)
-);
+```bash
+python tools/import_daily_db.py --db daily.db --out data/daily
 ```
-
-> Railway 배포 시 볼륨을 `/data`에 마운트하고 `DAILY_DB_PATH=/data/daily.db`로 설정하면 재배포 후에도 데이터가 유지됩니다.
-
-## SEO / AI 검색 최적화
-
-### 검색엔진 (SEO)
-
-| 엔드포인트 | 설명 |
-|---|---|
-| `GET /robots.txt` | 크롤러 허용/차단 규칙 |
-| `GET /sitemap.xml` | 전체 페이지 목록 (메인 + 데일리 날짜별) |
-
-- Open Graph / Twitter Card: 카카오톡·SNS 공유 미리보기
-- JSON-LD 구조화 데이터: 메인 `WebSite`, 데일리 `Article`/`CollectionPage` 스키마
-
-**구글 서치 콘솔 등록 (최초 1회)**
-1. [Google Search Console](https://search.google.com/search-console) → 속성 추가
-2. 사이트맵 제출: `/sitemap.xml`
-
-### AI 검색 (AEO)
-
-| 엔드포인트 | 설명 |
-|---|---|
-| `GET /llms.txt` | AI 크롤러용 사이트 안내서 |
-
-ChatGPT(`GPTBot`), Claude(`ClaudeBot`), Gemini, Perplexity(`PerplexityBot`) 등 주요 AI 봇을 `robots.txt`에 명시적으로 허용. `/llms.txt`에 서비스 목적·추천 상황·API 엔드포인트·최근 데일리 리포트 링크 포함.
-
-## 배포 (Railway)
-
-```
-web: gunicorn app:app --workers 1 --threads 4 --bind 0.0.0.0:$PORT
-```
-
-GitHub 푸시 시 Railway 자동 재배포.  
-Railway 대시보드 → Variables 탭에서 `GOOGLE_API_KEY` 환경변수 설정.

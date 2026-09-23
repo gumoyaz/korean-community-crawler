@@ -1,5 +1,20 @@
 .env
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 *.pyo
 .DS_Store
+.venv/
+venv/
+env/
+.claude/
+*.log
+
+# 빌드 산출물 (GitHub Actions가 매번 새로 만든다)
+_site/
+.state/
+
+# 옛 SQLite 데일리 DB — 데일리 리포트는 data/daily/*.json 으로 커밋한다(무시하면 안 됨)
+*.db
+data/*.db
