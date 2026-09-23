@@ -17,7 +17,6 @@
 | `.github/workflows/pages.yml` | 빌드·배포 워크플로 |
 | `tools/import_daily_db.py` | 옛 SQLite `daily.db` → JSON 변환 |
 | `data/daily/` | **커밋되는** 데일리 리포트 아카이브 (Actions 봇이 커밋) |
-| `docs/worklog.md` | 작업 일지. 의미 있는 변경·결정·장애 대응 후 날짜별 항목을 추가한다 |
 
 ## 실행 흐름 (pages.yml)
 
@@ -55,6 +54,27 @@ python -m http.server -d _site 8000
 - 테스트할 때는 `DAILY_DIR`을 임시 폴더로 두어 `data/daily/`를 오염시키지 않는다.
 - Windows에서는 `PYTHONUTF8=1`로 실행한다(콘솔 인코딩).
 - `_site/`, `.state/`, `.env`, `*.db`는 gitignore 대상이다.
+
+## 운영 메모
+
+- 수동 실행: Actions → Build and deploy → Run workflow. "간격 가드 무시"를 체크하면 바로 크롤한다.
+- 외부 트리거: cron-job.org가 10분마다 `POST /repos/gumoyaz/korean-community-crawler/actions/workflows/pages.yml/dispatches`를 호출한다.
+  - 헤더에 `User-Agent`가 없으면 GitHub가 403을 준다.
+  - 토큰은 이 리포만 선택한 fine-grained PAT이고, 권한은 Actions: Read and write다. 만료되면 GitHub에서 재발급해 cron-job.org 헤더를 교체한다. 교체하기 전까지는 백업 `schedule`만 돈다.
+- Gemini 무료 한도는 모델마다 따로 있고, 태평양 자정(KST 16~17시)에 리셋된다. 3.8 Flash는 503(high demand)이 잦아서 예비 모델 체인이 자주 쓰인다.
+- 상태 확인: `data/state.json`의 `last_run`, `daily_failed_at`과 `data/trends.json`의 `status`, `crawl_count`를 본다.
+
+## 앞으로 할 것
+
+- [ ] 9/23 데일리 최종본 재생성 결과 확인. 00:26에 실패했고 예비 모델 체인을 넣은 뒤 재시도 대기 중이다.
+- [ ] Actions(해외 IP)에서 직접 스크래핑 예비 경로 성공률 확인. TBS가 실패해 fallback이 도는 날의 로그를 본다.
+- [ ] TBS가 부분적으로 실패하고 fallback까지 전부 실패하면 커뮤니티 수가 적은 목록이 `ok`로 통과한다. stale 판정을 보강한다.
+- [ ] 키워드에 조사 '이/가'가 붙은 형태(예: "승무원이")가 남는다. "불꽃놀이"처럼 원래 '이'로 끝나는 명사를 깨지 않는 방법을 찾는다.
+- [ ] Gemini 모델 운용을 점검한다. 3.8 Flash의 503·일일 한도 빈도를 보고 기본 모델과 체인 순서를 조정한다.
+- [ ] (선택) SNS 공유용 1200×630 `og:image`를 만든다. 지금은 투명 배경 로고를 그대로 쓴다.
+- [ ] (선택) 커스텀 도메인을 연결한다. 다음 호스팅 이전 때 SEO 손실을 막는다.
+- [ ] (선택) 방문 분석(GA4 등)을 붙인다.
+- [ ] (선택) 댓글·로그인처럼 사용자 입력이 필요한 기능은 Supabase(RLS 필수, 무료는 7일 비활성 시 일시정지)로 붙인다.
 
 ## 도메인을 바꿀 때
 
