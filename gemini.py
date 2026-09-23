@@ -2,7 +2,7 @@
 Gemini REST 호출 공용 모듈 (crawler.py 메인 AI 요약, daily.py 데일리 리포트가 함께 쓴다).
 
 - SDK 없이 requests로 generateContent를 직접 호출한다.
-- 키는 GOOGLE_API_KEY, 모델은 GEMINI_MODEL(빈 값이면 DEFAULT_MODEL).
+- 키는 GOOGLE_API_KEY, 모델은 GEMINI_MODEL(빈 값이면 DEFAULT_MODEL), 예비 모델은 GEMINI_FALLBACK_MODEL(쉼표 구분).
 - 실패하면 '' 를 반환하고 원인을 한 줄 로그로 남긴다. 키 값은 절대 출력하지 않는다.
 
 모델 선택 근거 (2026-09-23 공식 문서 기준):
@@ -37,12 +37,16 @@ except ImportError:
 DEFAULT_MODEL = 'gemini-3.8-flash'
 MODEL = (os.environ.get('GEMINI_MODEL', '').strip() or DEFAULT_MODEL).removeprefix('models/')
 
-# 기본 모델이 503(high demand)·일일 한도 등으로 실패하면 한 번 넘겨 보는 예비 모델 (무료 한도는 모델마다 따로).
-# 3.5 Flash-Lite는 models 문서가 3.8 Flash와 함께 신규 프로젝트에 권장하는 모델이고 무료 티어가 있다(pricing, 2026-09-23).
-# GEMINI_FALLBACK_MODEL로 바꿀 수 있고 'none'이면 쓰지 않는다.
-DEFAULT_FALLBACK_MODEL = 'gemini-3.5-flash-lite'
-_fb = (os.environ.get('GEMINI_FALLBACK_MODEL', '').strip() or DEFAULT_FALLBACK_MODEL).removeprefix('models/')
-FALLBACK_MODEL = '' if _fb.lower() in ('none', 'off', '0') or _fb == MODEL else _fb
+# 기본 모델이 실패하면 차례로 넘겨 보는 예비 모델들 (무료 한도는 모델마다 따로).
+# 2026-09-23~24 실측: 503 'high demand'가 모델마다 시간대별로 번갈아 났다(3.8·3.7 503, 3.6·3.5 성공,
+# 3.5-Lite 60초 무응답이 같은 시각에 섞임) → 예비를 하나만 두면 둘 다 실패하는 날이 생긴다.
+# GEMINI_FALLBACK_MODEL에 쉼표로 여러 개를 줄 수 있고 'none'이면 쓰지 않는다.
+DEFAULT_FALLBACK_MODELS = 'gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite'
+_fb = os.environ.get('GEMINI_FALLBACK_MODEL', '').strip() or DEFAULT_FALLBACK_MODELS
+FALLBACK_MODELS = ([] if _fb.lower() in ('none', 'off', '0') else
+                   [m for m in dict.fromkeys(x.strip().removeprefix('models/') for x in _fb.split(','))
+                    if m and m != MODEL])
+FALLBACK_MODEL = FALLBACK_MODELS[0] if FALLBACK_MODELS else ''   # 하위 호환(첫 번째 예비 모델)
 
 API_BASE = 'https://generativelanguage.googleapis.com/v1beta'
 
@@ -53,7 +57,7 @@ _MINIMAL_OK = ('gemini-3-flash', 'gemini-3.1-flash-lite', 'gemini-3.5-flash', 'g
 RETRY_429_MAX_WAIT = 60   # 429 재시도 대기 상한(초). 이보다 길면 재시도하지 않는다.
 # 일시적 서버 오류(503 'high demand' 등)는 지수 백오프로 최대 3번 재시도한다(공식 troubleshooting 권고).
 # 3.8 Flash는 503이 잦고 5초 1회 재시도로는 회복되지 않았다(2026-09-23 실측 6회 중 5회 503).
-# 재시도 대기까지 합친 시간이 timeout을 넘으면 더 기다리지 않는다 → 전체 소요 ≤ 약 2×timeout.
+# 기본 모델의 재시도는 전체 예산(2×timeout)의 절반 안에서만 한다 → 남은 시간은 예비 모델 차례.
 RETRY_5XX = (500, 502, 503, 504)
 RETRY_5XX_WAITS = (2, 8, 20)
 
@@ -148,10 +152,12 @@ def _payload(model: str, prompt: str, max_output_tokens: int, temperature: float
     return {'contents': [{'parts': [{'text': prompt}]}], 'generationConfig': gen_cfg}
 
 
-def _post(model: str, key: str, payload: dict, timeout: float, t0: float, retry: bool):
+def _post(model: str, key: str, payload: dict, timeout: float, t0: float, retry_until: float):
     """generateContent 요청. 응답을 돌려주고, 네트워크 오류·타임아웃이면 None.
-    retry=True면 429는 1번, 5xx는 RETRY_5XX_WAITS 간격으로 재시도한다(대기를 합쳐 t0부터 timeout 안에서만)."""
+    timeout은 요청 1번의 제한 시간. retry_until > 0이면 429는 1번, 5xx는 RETRY_5XX_WAITS 간격으로
+    재시도하되 대기를 합쳐 t0부터 retry_until초 안에서만 한다(예비 모델에 시간을 남기려고)."""
     url = f'{API_BASE}/models/{model}:generateContent'
+    retry = retry_until > 0
     waits_5xx = list(RETRY_5XX_WAITS) if retry else []
     retried_429 = not retry
     while True:
@@ -166,13 +172,13 @@ def _post(model: str, key: str, payload: dict, timeout: float, t0: float, retry:
         if r.status_code == 429 and not retried_429:
             e = _api_error(r)
             wait = e['retry_delay'] if e['retry_delay'] is not None else 10.0
-            if not e['per_day'] and wait <= RETRY_429_MAX_WAIT and elapsed + wait <= timeout:
+            if not e['per_day'] and wait <= RETRY_429_MAX_WAIT and elapsed + wait <= retry_until:
                 print(f'[Gemini] HTTP 429 {e["status"]} ({model}) - {wait:.0f}초 후 1회 재시도', flush=True)
                 time.sleep(wait + 1)
                 retried_429 = True
                 continue
         # 503 등 일시적 서버 오류는 2·8·20초 간격으로 재시도
-        if r.status_code in RETRY_5XX and waits_5xx and elapsed + waits_5xx[0] <= timeout:
+        if r.status_code in RETRY_5XX and waits_5xx and elapsed + waits_5xx[0] <= retry_until:
             wait = waits_5xx.pop(0)
             print(f'[Gemini] HTTP {r.status_code} {_api_error(r)["status"]} ({model}) - '
                   f'{wait}초 후 재시도 (남은 {len(waits_5xx)}회)', flush=True)
@@ -235,8 +241,9 @@ def generate(prompt: str, *, max_output_tokens: int = 8192, temperature: float |
 
     temperature: None이면 2.5는 0.4, 3.x는 보내지 않는다(공식 권고: 3.x는 기본값 1.0 유지).
     값을 주면 모델과 관계없이 그대로 보낸다.
-    기본 모델이 일시적 오류(5xx·타임아웃·분당 한도)나 일일 한도로 실패하면 FALLBACK_MODEL로 1번 더 시도한다.
-    전체 소요는 약 2×timeout 이내. 실패 종류는 last_error, 결과를 낸(마지막으로 시도한) 모델은 last_model.
+    기본 모델이 실패하면 FALLBACK_MODELS를 차례로 1번씩 시도한다. 전체 소요는 약 2×timeout 이내이고,
+    기본 모델의 재시도는 그 절반 안에서만 해서 예비 모델에 시간을 남긴다.
+    실패 종류는 last_error, 결과를 낸(마지막으로 시도한) 모델은 last_model.
     """
     global last_error, last_model
     last_error = ''
@@ -247,24 +254,30 @@ def generate(prompt: str, *, max_output_tokens: int = 8192, temperature: float |
         last_error = 'no_key'
         return ''
 
+    budget = 2 * timeout
     t0 = time.monotonic()
-    r = _post(MODEL, key, _payload(MODEL, prompt, max_output_tokens, temperature), timeout, t0, retry=True)
+    r = _post(MODEL, key, _payload(MODEL, prompt, max_output_tokens, temperature), timeout, t0,
+              retry_until=budget / 2)
     text, last_error = _result(r, MODEL, key, max_output_tokens)
-    if text or last_error not in ('transient', 'quota_day') or not FALLBACK_MODEL:
+    if text:
         return text
 
-    remaining = 2 * timeout - (time.monotonic() - t0)
-    if remaining < FALLBACK_MIN_SECONDS:
-        return ''
-    print(f'[Gemini] {MODEL} 실패({last_error}) → 예비 모델 {FALLBACK_MODEL}로 1회 시도', flush=True)
     primary_error = last_error
-    last_model = FALLBACK_MODEL
-    r = _post(FALLBACK_MODEL, key, _payload(FALLBACK_MODEL, prompt, max_output_tokens, temperature),
-              min(timeout, remaining), time.monotonic(), retry=False)
-    text, _ = _result(r, FALLBACK_MODEL, key, max_output_tokens)
-    # 예비 모델도 실패하면 재시도 간격은 기본 모델의 실패 종류로 정한다
-    last_error = '' if text else primary_error
-    return text
+    for fb in FALLBACK_MODELS:
+        remaining = budget - (time.monotonic() - t0)
+        if remaining < FALLBACK_MIN_SECONDS:
+            print(f'[Gemini] 남은 시간 {remaining:.0f}초 — 예비 모델 시도 중단', flush=True)
+            break
+        print(f'[Gemini] {last_model} 실패({last_error}) → 예비 모델 {fb}로 1회 시도', flush=True)
+        last_model = fb
+        r = _post(fb, key, _payload(fb, prompt, max_output_tokens, temperature),
+                  min(timeout, remaining), time.monotonic(), retry_until=0)
+        text, last_error = _result(r, fb, key, max_output_tokens)
+        if text:
+            return text
+    # 모두 실패하면 재시도 간격은 기본 모델의 실패 종류로 정한다
+    last_error = primary_error
+    return ''
 
 
 def check_model(model: str | None = None) -> bool:
@@ -291,8 +304,8 @@ def check_model(model: str | None = None) -> bool:
 
 
 if __name__ == '__main__':
-    # 새 키를 넣은 뒤 확인용: python gemini.py  (기본 모델, 예비 모델 순서로 조회)
+    # 새 키를 넣은 뒤 확인용: python gemini.py  (기본 모델, 예비 모델들 순서로 조회)
     ok = check_model()
-    if FALLBACK_MODEL:
-        check_model(FALLBACK_MODEL)   # 예비 모델은 없어도 기본 모델로 동작하므로 종료 코드에 넣지 않는다
+    for fb in FALLBACK_MODELS:
+        check_model(fb)   # 예비 모델은 없어도 기본 모델로 동작하므로 종료 코드에 넣지 않는다
     raise SystemExit(0 if ok else 1)

@@ -62,7 +62,7 @@ API 결과가 50건 미만이거나 커뮤니티가 8곳 미만이면 아래 10�
 
 - 입력은 그날 글 가운데 랭킹 상위 20개입니다. 한 커뮤니티는 최대 4개까지만 넣고, 커뮤니티가 10곳 미만이면 생성을 미룹니다.
 - 프롬프트는 제목·본문에 있는 사실만 쓰게 합니다. 입력에 없는 소속·직함·반응은 추측하지 않습니다.
-- 모델은 `gemini-3.8-flash`이고, 일시 오류(5xx)나 일일 한도에 걸리면 예비 모델 `gemini-3.5-flash-lite`로 넘어갑니다. 둘 다 환경변수로 바꿀 수 있습니다.
+- 모델은 `gemini-3.8-flash`입니다. 실패하면 예비 모델 `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-3.5-flash-lite`를 차례로 한 번씩 시도합니다(모델마다 503이 나는 시간대가 달라서). 모두 환경변수로 바꿀 수 있습니다.
 - 저장 형식은 `data/daily/YYYY-MM-DD.json`입니다. 필드는 `date, generated_at, model, post_count, analyzed_count, summary_md, posts`입니다.
 
 ## 랭킹 로직
@@ -116,7 +116,7 @@ python -m http.server -d _site 8000
 |---|---|---|
 | `GOOGLE_API_KEY` | (없음) | Gemini API 키. 없으면 AI 요약·데일리 리포트만 꺼짐 |
 | `GEMINI_MODEL` | `gemini-3.8-flash` | 기본 모델 |
-| `GEMINI_FALLBACK_MODEL` | `gemini-3.5-flash-lite` | 예비 모델. `none`이면 끔 |
+| `GEMINI_FALLBACK_MODEL` | `gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite` | 예비 모델(쉼표로 여러 개, 순서대로 시도). `none`이면 끔 |
 | `SITE_URL` | `https://gumoyaz.github.io/korean-community-crawler` | canonical·sitemap·llms.txt의 기준 주소. 경로 부분이 내부 링크의 base가 됨 |
 | `GSC_VERIFICATION` | (없음) | 서치 콘솔 HTML 태그 인증값. 있으면 메타태그 출력 |
 | `STATE_URL` | `{SITE_URL}/data/state.json` | Actions 캐시가 없을 때 상태를 받아올 주소 |
