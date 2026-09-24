@@ -328,19 +328,13 @@
   .issues .hot a .r { flex-shrink: 0; font-size: 11.5px; color: var(--text-dim); }
   .issues .hot a:hover .t { color: var(--accent-text); }
 
-  /* AI 요약 — 보드 아래 한 줄, [전체 보기]로 펼침 */
+  /* AI 요약 — 보드 아래에 전체 문단을 그대로 보여 준다 */
   .ai-line {
-    border-top: 1px solid var(--border); margin-top: 6px; padding: 2px 2px 0; font-size: 13px; line-height: 1.6; color: #3d4450;
-    display: flex; align-items: center; gap: 8px; min-height: 44px;
+    border-top: 1px solid var(--border); margin-top: 6px; padding: 12px 2px 6px;
+    font-size: 13.5px; line-height: 1.7; color: #3d4450;
   }
-  .ai-line .lbl { flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text-dim); }
-  .ai-line .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ai-line.open { display: block; padding: 10px 2px 4px; }
-  .ai-line.open .txt { white-space: pre-wrap; display: block; margin: 4px 0; }
-  .issues .ai-line button {
-    flex-shrink: 0; background: none; border: 0; color: var(--text-dim); font-size: 12px;
-    text-decoration: underline; cursor: pointer; padding: 4px 0; min-height: 40px;
-  }
+  .ai-line .lbl { display: block; font-size: 11px; font-weight: 700; color: var(--text-dim); margin-bottom: 4px; }
+  .ai-line .txt { display: block; white-space: pre-wrap; }
 
   /* 넓은 화면: 목록 | 상세 패널 */
   @media (min-width: 820px) {
@@ -697,7 +691,6 @@
     <div class="ai-line" id="ai-line" hidden>
       <span class="lbl" id="ai-lbl">✨ AI 요약</span>
       <span class="txt" id="ai-txt"></span>
-      <button type="button" id="ai-btn" aria-expanded="false" aria-controls="ai-txt">전체 보기</button>
     </div>
   </section>
 
@@ -844,7 +837,6 @@ let issueNames = new Map(); // 직전에 그린 이슈 id → 이름 (고른 이
 let issueGone = '';         // 고른 이슈가 목록에서 빠졌다는 안내에 쓸 이름 (다른 이슈를 고르면 지운다)
 let issuesShowAll = false;  // '이슈 N개 더' 펼침
 let hotOpen = null;         // '여기서만 뜨거운 글' 펼침 — 첫 렌더에서 이슈가 5개 미만이면 펼침으로 정한 뒤 고정
-let aiOpen = false;         // AI 요약 전체 보기
 let lastPanelHtml = '';     // 상세 패널·필터 막대는 내용이 바뀔 때만 다시 쓴다 (포커스·스크린리더 재낭독 방지)
 let lastFilterHtml = '';
 let lastGoneHtml = '';
@@ -1360,7 +1352,7 @@ function renderIssuesError() {
   document.querySelector('.issues-body').classList.add('no-panel');
 }
 
-// AI 요약: 보드 아래 한 줄 + [전체 보기]. 하루 넘게 지난 요약은 숨긴다 (Gemini 실패가 이어질 때)
+// AI 요약: 보드 아래에 전체 문단. 하루 넘게 지난 요약은 숨긴다 (Gemini 실패가 이어질 때)
 function renderAiLine() {
   const line = document.getElementById('ai-line');
   const txt = document.getElementById('ai-txt');
@@ -1372,15 +1364,7 @@ function renderAiLine() {
   }
   line.hidden = false;
   if (txt.textContent !== summary) txt.textContent = summary;
-  paintAiLine();
   updateAiSummaryTime();
-}
-
-function paintAiLine() {
-  const btn = document.getElementById('ai-btn');
-  document.getElementById('ai-line').classList.toggle('open', aiOpen);
-  btn.textContent = aiOpen ? '접기' : '전체 보기';
-  btn.setAttribute('aria-expanded', String(aiOpen));
 }
 
 function updateAiSummaryTime() {
@@ -1642,9 +1626,6 @@ function bindEvents() {
     } else if (btn.id === 'hot-btn' && issueData) {
       hotOpen = !hotOpen;
       renderIssues();
-    } else if (btn.id === 'ai-btn') {
-      aiOpen = !aiOpen;
-      paintAiLine();
     } else if (btn.id === 'how-btn') {
       const panel = document.getElementById('how-panel');
       panel.hidden = !panel.hidden;
