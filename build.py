@@ -69,8 +69,9 @@ DAILY_FINAL_END_HOUR = 2      # crawler._fetch_todaybeststory가 전날 목록�
 # 계속 실패할 때(SAFETY 차단 등) 크롤러 AI 요약과 같이 쓰는 무료 일일 한도(RPD)를 몇 시간 만에 다 쓴다.
 DAILY_RETRY_MIN = 30
 
-# trends.json에 내보내는 키 — get_data()에서 프론트가 쓰는 것만
-TREND_KEYS = ('posts', 'trends', 'last_updated', 'status', 'total', 'crawl_count',
+# trends.json에 내보내는 키 — get_data()에서 프론트가 쓰는 것만.
+# issues는 '지금 뜨는 이슈' 블록(글은 posts[].rank로 참조), trends는 카테고리 글 수만 남은 공개 JSON 호환용
+TREND_KEYS = ('posts', 'issues', 'trends', 'last_updated', 'status', 'total', 'crawl_count',
               'sources', 'ai_summary', 'ai_summary_updated')
 POST_FIELDS = ('title', 'url', 'source', 'source_label', 'source_emoji', 'source_color',
                'views', 'likes', 'comments', 'date', 'summary', 'author', 'rank',
@@ -435,13 +436,13 @@ def _llms_txt(site_url: str, summaries: list, data: dict) -> str:
 
 ## 주요 기능
 
+- **지금 뜨는 이슈** — 여러 커뮤니티에 같이 올라온 인기글을 이야기 단위로 묶어, 이슈마다 대표 글·퍼진 커뮤니티·글 수·신규/급상승 상태를 보여 줌
 - **실시간 인기글 피드** — 커뮤니티별, 카테고리별(게임, 연예, 유머, 음식, 뷰티·패션, 자동차 등) 필터
-- **급상승 키워드** — 직전 수집들과 비교해 언급이 빠르게 늘어난 키워드
 {ai_line}- **AI 데일리 리포트** — Gemini가 그날 인기글을 주제별로 정리한 리포트. KST 12시 무렵 오전까지의 인기글로 먼저 만들고, 다음 날 0시 이후 하루 전체 인기글로 다시 정리
 
 ## 페이지
 
-- [실시간 트렌드 메인]({site_url}/): 지금 각 커뮤니티에서 화제인 글 피드
+- [실시간 트렌드 메인]({site_url}/): 지금 뜨는 이슈와 각 커뮤니티에서 화제인 글 피드
 - [데일리 리포트 목록]({site_url}/daily/): 날짜별 AI 리포트 아카이브
 - 날짜별 리포트: `{site_url}/daily/YYYY-MM-DD/`
 
@@ -451,7 +452,7 @@ def _llms_txt(site_url: str, summaries: list, data: dict) -> str:
 
 ## 데이터
 
-- `{site_url}/data/trends.json` — 현재 인기글 목록과 키워드 트렌드(JSON, 약 10분마다 확인해 바뀌면 갱신)
+- `{site_url}/data/trends.json` — 현재 인기글 목록과 지금 뜨는 이슈(JSON, 약 10분마다 확인해 바뀌면 갱신)
 
 ## 수집 커뮤니티
 

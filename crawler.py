@@ -2,10 +2,11 @@
 Korean internet community trend crawler.
 주 경로: TodayBestStory API(21개 커뮤니티 베스트 전량).
 API 결과가 부족하면 일부 커뮤니티 베스트 목록을 직접 스크래핑한다(fallback).
-Trend scoring: keyword frequency + velocity (rate of change between rounds).
+랭킹한 글을 issues.py가 '지금 뜨는 이슈'(여러 커뮤니티에 퍼진 이야기)로 묶는다.
 """
 
 import hashlib
+import json
 import math
 import re
 import time
@@ -303,101 +304,12 @@ CATEGORY_EXCLUDE_RE = re.compile('|'.join(map(re.escape, [
     '운동권', '시민운동', '학생운동', '독립운동', '노동운동',
 ])))
 
-STOP_WORDS = {
-    '이', '그', '저', '것', '수', '이것', '그것', '저것', '이게', '그게', '저게',
-    '이거', '그거', '저거', '여기', '거기', '저기', '이쪽', '그쪽', '저쪽',
-    '우리', '저희', '나', '너', '자기', '본인', '누구', '아무', '모두',
-    '같은', '다른', '새로운', '좋은', '나쁜', '많은', '적은', '큰', '작은',
-    '높은', '낮은', '빠른', '느린', '넓은', '좁은', '오래된', '다양한', '이런',
-    '저런', '그런', '어떤', '무슨', '어느', '모든', '각각', '일부', '전체',
-    '정말', '진짜', '너무', '매우', '완전', '엄청', '굉장', '되게', '엄청나',
-    '조금', '약간', '살짝', '아주', '더', '덜', '가장', '제일', '그냥',
-    '요즘', '이제', '이미', '아직', '계속', '다시', '또', '또한', '먼저',
-    '나중', '항상', '자주', '가끔', '별로', '거의', '특히', '보통', '주로',
-    '바로', '갑자기', '드디어', '역시', '원래', '사실', '당연', '물론',
-    '오히려', '한편', '분명', '확실', '아마', '혹시', '결국', '여전히',
-    '마침내', '겨우', '벌써', '이미', '먼저', '다시', '혼자', '함께',
-    '그리고', '하지만', '근데', '그래서', '그러나', '그래도', '그러면',
-    '따라서', '게다가', '다만', '단지', '즉', '또는', '혹은', '반면',
-    '그러므로', '왜냐면', '이처럼', '이렇게', '저렇게', '어쨌든',
-    '있는', '없는', '하는', '되는', '되어', '이다', '한다', '됐다',
-    '있네', '없네', '좋네', '했네', '왔네', '봤네', '같네', '됐네',
-    '하게', '되게', '이게', '없이', '있어', '없어', '좋아', '싫어',
-    '않는', '않고', '않아', '못하', '못해',
-    '나온', '보인', '받은', '된다', '한다', '간다', '온다', '본다',
-    '알고', '알아', '알지', '알면', '알던', '몰랐', '몰라', '모름',
-    '오늘', '어제', '내일', '지금', '이번', '지난', '다음', '이후', '현재',
-    '최근', '요즘', '하루', '이틀', '일주일', '한달', '올해', '작년', '내년',
-    '오전', '오후', '저녁', '시간', '날짜', '당시', '올초', '연초', '연말',
-    '것', '수', '때', '곳', '점', '듯', '뿐', '채', '중', '후', '전',
-    '때문', '위해', '통해', '관련', '대한', '위한', '인해', '따른',
-    '경우', '정도', '생각', '이유', '방법', '결과', '내용', '부분',
-    '상황', '기준', '의미', '느낌', '차이', '종류', '형태', '방식',
-    '가지', '번째', '나머지', '마지막', '처음', '기존', '해당', '전반',
-    '사람', '사람들', '분들', '여러분', '친구', '가족',
-    '선택', '근황', '소식', '사건', '이슈모음',
-    '유튜버', '중갤', '무료', '반응', '민원',
-    # 서술어·관형형 어그로 표현 (어미 규칙으로 떼면 '재난'·'곤란' 같은 명사가 망가져 목록으로 막는다)
-    '있다', '없다', '있음', '없음', '했다', '방금',
-    '들통', '들통난', '드러난', '밝혀진', '난리난', '터진', '뒤집힌', '발칵',
-    '공개된', '알려진', '논란된', '화제된',
-    '말', '얘기', '이야기', '말씀', '대화', '주제', '질문', '답변',
-    '남자', '여자', '남성', '여성', '남편', '아내', '부인', '와이프',
-    '엄마', '아빠', '어머니', '아버지', '부모', '자녀', '아이', '아들', '딸',
-    '집', '방', '직장', '회사', '학교', '나라', '세상', '사회', '현실',
-    '공지', '안내', '필독', '운영', '이용', '규칙', '게시판', '갤러리',
-    '댓글', '답글', '글쓴이', '작성자', '조회수', '추천수', '비추천',
-    '로그인', '회원가입', '신고',
-    '이슈', '베스트', '인기자료', '실시간', '카테고리', '게시글',
-    '자유게시판', '유머게시판', '정보게시판', '기타게시판',
-    '최고조회', '베스트글', '인기글', '핫게시물', '급상승',
-    '유머', '정보', '기타', '자유', '일반', '종합', '통합',
-    '인기', '추천글', '명예글', '베오베', '베스트오브베스트',
-    '라이브', '화제글', '실시간인기', '추천인기글', '라이브화제',
-    '기사', '뉴스기사', '인기기사', '오늘기사', '최신기사',
-    '포텐', '터짐', '포텐터짐', '힛갤', '개념글', '핫딜', '딜', '익게',
-    '싱갤', '에펨', '에펨코리아', '클리앙', '루리웹', '더쿠', '인스티즈',
-    '불펜', '모공', '명예의전당', '명예전당', '명예의', '전당', '화제톡', '톡커', '톡커들',
-    '자게', '익명', '썸네일', '프사', '닉네임', '아이디', '계정',
-    '디시', '디씨', '디시인사이드', '보배드림', '보배', '에펨',
-    '아카라이브', '아카', '도그드립', '뽐뿌', '가생이', '이토랜드',
-    '밝혔다', '종합', '기자', '연합뉴스', '뉴스', '속보', '단독',
-    '주장', '발언', '발표', '보도', '취재', '입장', '해명', '논란',
-    '충격', '경악', '황당', '황당함', '어이없', '충격적', '화제',
-    '일상', '추천', '공유', '소통', '팔로우', '좋아요', '해시태그',
-    '스타그램', '맞팔', '데일리', '일상글', '소통해요', '팔로잉',
-    '선팔', '맞팔환영', '인친', '핫플', '핫하', '핫해',
-    'ㅋㅋㅋ', 'ㅎㅎㅎ', '레알', '개웃', '개쩐', '레전드', '역대급',
-    '인정', '공감', '동의', '맞아요', '맞음', '틀림', '아님',
-    '진행', '완료', '시작', '마무리', '정리', '업데이트', '확인',
-    '출처', '펌', '퍼온', '짤', '움짤', '사진', '영상', '동영상',
-    '글쓰', '글올', '올려', '올림', '질문있', '도와주',
-    '대박', '쩔어', '미쳤다', '실화냐', '레알', '헐', '와우',
-    '좋았', '최고', '최악', '별로', '그냥저냥', '그저그래',
-    '궁금', '신기', '흥미', '재미', '웃긴', '슬픈',
-    '대단', '놀랍', '신선', '어메이징', '굿', '쩐다',
-    '가봤', '해봤', '먹었', '봤어', '했어', '왔어', '갔어',
-    '핫하', '맛있', '귀엽', '예쁜', '멋진', '이쁜',
-    '잘했', '못했', '해서', '하면서', '하니까', '하더니',
-    '다들', '어떻게', '왜이렇', '어디서', '뭐하', '뭔데',
-    '어디가', '언제부터', '얼마나', '어디까지', '어디에',
-    '어떡해', '어떡하', '어쩌라', '어쩌지', '어쩌면',
-    '그러게', '그렇구나', '그렇지', '맞지', '맞죠', '그쵸',
-    '아니지', '아니죠', '아닌가', '모르겠', '모르지',
-    '뭐야', '뭔가요', '뭔지', '뭔데', '뭔일', '웬일',
-    '이게뭐', '저게뭐', '그게뭐',
-    '싱글벙글', '만원',   # 디시 말머리, 금액 표기
-}
-
-# 키워드 끝에 붙는 1음절 조사 — 같은 라운드에 어근이 따로 있으면 어근으로 합산한다
-PARTICLES = '이가은는을를의에와과로도만들랑'
-# 이 조사들은 어근이 같은 라운드에 없어도 뗀다('명절에'가 급상승 1위에 오른 사례).
-# 이·가·은·의·로·도·과·만은 명사 끝에도 흔해서 제외(고양이, 전문가, 김지은, 민주주의, 을지로, 제주도, 국문과, 오천만)
-PARTICLES_ALWAYS = '에을를는와들'
-# 어미 제거에서 보호할 단어 ('던' 어미를 떼면 '런'만 남아 버려진다)
-SUFFIX_KEEP_WORDS = {'런던'}
-
-HISTORY_SIZE = 6
+HISTORY_SIZE = 6   # post_score_history 라운드 수 (이슈 신규·급상승·+N 판정, post_velocity)
+# 튜닝 로그: 결과가 바뀐 빌드의 이슈 요약을 state에 남겨 며칠간 품질을 본다.
+# 한 번에 8개면 약 0.9KB라 개수(72)보다 크기 상한이 먼저 걸린다
+ISSUE_LOG_SIZE = 72
+ISSUE_LOG_MAX_BYTES = 30_000
+LOW_DATA_POSTS = 350   # 원본 글이 이보다 적으면 이슈 보드에 '글이 적은 시간' 안내 (issues.py도 이 값을 쓴다)
 STATE_VERSION = 1
 STATE_DROP_FIELDS = ('board', 'keyword', 'position_score')   # 복원 후 쓰지 않는 필드 - state 크기를 줄인다
 MIN_OK_POSTS = 20   # 이전 목록이 있는데 이보다 적게 모이면 수집 실패로 보고 이전 목록을 유지
@@ -415,14 +327,22 @@ ZERO_WIDTH_RE = re.compile('[​-‍⁠﻿]')   # 본문 앞에 붙는 제로폭
 SUMMARY_TAIL_RE = re.compile(r'\s*추천\s*\d+\s*공유\s*$')     # 본문 끝 버튼 글자 ('추천 9 공유')
 
 
+def _empty_issues(posts: list, now) -> dict:
+    """이슈 계산 전·실패 시의 빈 블록 (프론트는 items가 비면 '퍼진 이슈 없음'을 보여 준다).
+    계산 실패의 대비책이므로 글 필드를 직접 읽지 않는다 (source 없는 글 때문에 실패했을 수도 있다)"""
+    return {'as_of': now.isoformat(timespec='minutes') if now else None, 'posts': len(posts),
+            'communities': len({p['source'] for p in posts if p.get('source')}), 'in_issues': 0,
+            'low_data': len(posts) < LOW_DATA_POSTS, 'badges': False, 'items': [], 'hot': []}
+
+
 class TrendCrawler:
     def __init__(self):
         self._lock = threading.Lock()
         self._refresh_lock = threading.Lock()   # refresh() 동시 실행 방지
         self._posts: list = []
-        self._history: list = []
         self._post_score_history: list = []
-        self._trends: dict = {}
+        self._issues: dict = _empty_issues([], None)
+        self._issue_log: list = []          # 튜닝용 이슈 요약 (결과가 바뀐 빌드만)
         self._last_updated = None
         self._status = 'idle'
         self._crawl_count = 0
@@ -438,7 +358,9 @@ class TrendCrawler:
         with self._lock:
             return {
                 'posts': list(self._posts),
-                'trends': dict(self._trends),
+                # 옛 키워드 트렌드(rising·top·keywords)는 이슈 보드로 바뀌었다. 카테고리 글 수는 공개 JSON 호환용으로 남긴다
+                'trends': {'categories': self._category_counts(self._posts)},
+                'issues': self._issues,
                 'last_updated': self._last_updated,
                 'status': self._status,
                 'total': len(self._posts),
@@ -455,8 +377,8 @@ class TrendCrawler:
         with self._lock:
             return {
                 'version': STATE_VERSION,
-                'history': [dict(c) for c in self._history],
                 'post_score_history': [dict(h) for h in self._post_score_history],   # _url_key(url) → rank_score
+                'issue_log': list(self._issue_log),
                 # 다음 크롤이 실패하면 이걸 계속 보여준다
                 'posts': [{k: v for k, v in p.items() if k not in STATE_DROP_FIELDS} for p in self._posts],
                 'ai_summary': self._ai_summary,
@@ -474,17 +396,18 @@ class TrendCrawler:
         """export_state() 결과를 복원한다. None·빈 dict·버전 불일치·형식 오류면 조용히 무시."""
         if not isinstance(state, dict) or state.get('version') != STATE_VERSION:
             return
+        # 옛 state의 단어 이력('history')은 더 쓰지 않으므로 읽지 않는다
         try:
-            history = [Counter({str(w): int(n) for w, n in h.items()})
-                       for h in state.get('history') or [] if isinstance(h, dict)][-HISTORY_SIZE:]
             score_history = [{str(u): float(s) for u, s in h.items()}
                              for h in state.get('post_score_history') or [] if isinstance(h, dict)][-HISTORY_SIZE:]
             posts = [p for p in state.get('posts') or []
-                     if isinstance(p, dict) and _is_http_url(p.get('url')) and p.get('title')]
+                     if isinstance(p, dict) and _is_http_url(p.get('url')) and p.get('title') and p.get('source')]
             crawl_count = int(state.get('crawl_count') or 0)
         except (TypeError, ValueError, AttributeError) as e:
             print(f'[State] 크롤러 상태 형식 오류 - 무시: {e}')
             return
+        log = state.get('issue_log')
+        issue_log = [e for e in log if isinstance(e, dict)][-ISSUE_LOG_SIZE:] if isinstance(log, list) else []
         ai_summary = state.get('ai_summary') if isinstance(state.get('ai_summary'), str) else ''
         ai_updated = self._parse_iso(state.get('ai_summary_updated'))
         ai_attempted = self._parse_iso(state.get('ai_summary_attempted'))
@@ -493,13 +416,13 @@ class TrendCrawler:
         last_updated = state.get('last_updated') if isinstance(state.get('last_updated'), str) else None
         # status가 없는 옛 state는 글이 있으면 ok로 본다 (idle은 '아직 수집 전'이라는 뜻)
         status = state.get('status') if state.get('status') in ('ok', 'stale') else ('ok' if posts else 'idle')
-        # 직전 트렌드는 state에 없으므로 같은 입력(posts, history)으로 다시 계산한다
-        trends = self._score_trends(posts, history) if history else {}
+        # 이슈 블록은 state에 없으므로 같은 입력(posts, 점수 이력)과 그때 시각(last_updated)으로 다시 계산한다
+        issues = self._build_issues(posts, score_history, self._parse_iso(last_updated) or datetime.now(KST))
         with self._lock:
-            self._history = history
             self._post_score_history = score_history
             self._posts = posts
-            self._trends = trends
+            self._issues = issues
+            self._issue_log = issue_log
             self._ai_summary = ai_summary
             self._ai_summary_updated = ai_updated if ai_summary else None
             self._ai_summary_attempted = ai_attempted
@@ -508,7 +431,8 @@ class TrendCrawler:
             self._crawl_count = crawl_count
             self._last_updated = last_updated
             self._status = status
-        print(f'[State] 복원: posts {len(posts)}, history {len(history)}, crawl_count {crawl_count}, status {status}')
+        print(f'[State] 복원: posts {len(posts)}, 점수 이력 {len(score_history)}, 이슈 {len(issues["items"])}, '
+              f'이슈 로그 {len(issue_log)}, crawl_count {crawl_count}, status {status}')
 
     @staticmethod
     def _parse_iso(value):
@@ -734,8 +658,13 @@ class TrendCrawler:
         if same:
             new_summary, transient = (self._generate_ai_summary(unique) if self._ai_summary_due(now)
                                       else (None, False))
+            # 글·이력은 그대로 두고 이슈만 지금 시각으로 다시 계산한다 (신규·잠잠 판정이 시간에 따라 바뀐다)
+            with self._lock:
+                posts, score_history = list(self._posts), list(self._post_score_history)
+            issues = self._build_issues(posts, score_history, now)
             with self._lock:
                 self._status = 'ok'
+                self._set_issues(issues)
                 self._apply_ai_summary(new_summary, transient, now)
             print(f'[Refresh] 원본 목록이 직전과 같음 ({len(unique)}건) - 이력·갱신 시각 유지')
             return
@@ -746,6 +675,7 @@ class TrendCrawler:
         self._compute_post_velocity(unique, prev_post_history)
         # 키는 _url_key: 전체 URL보다 짧고(state 크기), ?page= 같은 변형이 바뀌어도 같은 글로 이어진다
         curr_scores = {_url_key(p['url']): p.get('rank_score', 0.0) for p in unique}
+        score_history = (prev_post_history + [curr_scores])[-HISTORY_SIZE:]
 
         # 직전 라운드에서 받아 둔 본문 요약은 재사용 (같은 글을 매번 다시 요청하지 않게)
         for p in unique:
@@ -764,7 +694,7 @@ class TrendCrawler:
             finally:
                 ex.shutdown(wait=False)
 
-        counter = self._word_counter(unique)
+        issues = self._build_issues(unique, score_history, now)
 
         # AI 요약 갱신 (성공 후 6시간, 실패 후 2시간·일시적 실패 후 30분 간격)
         new_summary, transient = (self._generate_ai_summary(unique) if self._ai_summary_due(now)
@@ -772,13 +702,8 @@ class TrendCrawler:
 
         with self._lock:
             self._posts = unique
-            self._history.append(counter)
-            if len(self._history) > HISTORY_SIZE:
-                self._history.pop(0)
-            self._post_score_history.append(curr_scores)
-            if len(self._post_score_history) > HISTORY_SIZE:
-                self._post_score_history.pop(0)
-            self._trends = self._score_trends(unique, self._history)
+            self._post_score_history = score_history
+            self._set_issues(issues)
             # 데이터가 바뀐 시각 (같은 목록을 다시 받은 실행에서는 바꾸지 않는다)
             self._last_updated = now.isoformat(timespec='seconds')
             self._crawl_count += 1
@@ -1162,93 +1087,37 @@ class TrendCrawler:
             p['rank'] = i + 1
         return capped
 
-    # ── 키워드 · 트렌드 ───────────────────────────────────────────────────────
-
-    # '려'(우려·배려), '랑'(사랑), '이지'(페이지), '지도', '이나'(차이나), '다가'(바다가)는
-    # 명사 끝을 잘라 먹어서 뺐다. 1음절 조사는 _word_counter의 2패스 병합으로 처리한다.
-    _SUFFIX_RE = re.compile(
-        r'(하더라구요|더라구요|더라고요|가보셨어요|셨어요|았어요|었어요'
-        r'|겠어요|겠습니다|합니다|습니다|됩니다|입니다'
-        r'|이에요|아요|어요|네요|군요|더라고|더라구'
-        r'|는데요|인데요|은데요|했어요|봤어요|왔어요'
-        r'|아버린|어버린|라버린|아버려|어버려|버린|버려'
-        r'|으려고|려고|라고|이라고'
-        r'|는지|은지|을지|ㄹ지|면서|으면서'
-        r'|이다|하다|됐다|했다|같다|싶다|지만|지는'
-        r'|으로|에서|에게|한테|처럼|만큼|보다|까지|부터'
-        r'|이며|이고|이랑|이죠|이요'
-        r'|는걸|은걸|ㄴ걸|는게|은게|ㄴ게'
-        r'|았던|었던|던|았|었)$'
-    )
-
-    def _word_counter(self, posts: list) -> Counter:
-        c = Counter()
-        for p in posts:
-            # 제목만 센다 (본문 요약이 있는 글·소스로 키워드가 쏠리지 않게)
-            words = re.findall(r'[가-힣]{2,8}', p.get('title', ''))
-            for w in words:
-                if len(w) > 5:
-                    continue
-                stem = w if w in SUFFIX_KEEP_WORDS else self._SUFFIX_RE.sub('', w)
-                if len(stem) < 2:
-                    continue
-                if stem in STOP_WORDS or w in STOP_WORDS:
-                    continue
-                if len(stem) > 2 and stem[-1] in PARTICLES and stem[:-1] in STOP_WORDS:
-                    continue
-                c[stem] += 1
-        # 2패스: '배그가'처럼 1음절 조사가 붙은 형태는 같은 라운드에 어근('배그')이 있으면 어근으로 합산.
-        # PARTICLES_ALWAYS('명절에' 등)는 어근이 없어도 어근(2음절 이상)으로 센다
-        for w in sorted(c, key=len, reverse=True):
-            if len(w) >= 3 and w[-1] in PARTICLES and (w[:-1] in c or w[-1] in PARTICLES_ALWAYS):
-                c[w[:-1]] += c.pop(w)
-        return c
+    # ── 이슈 · 카테고리 ───────────────────────────────────────────────────────
 
     @staticmethod
-    def _comparable(a: Counter, b: Counter) -> bool:
-        """두 라운드의 수집 규모(총 단어 수)가 절반~두 배 안이면 빈도 차이를 비교할 수 있다고 본다."""
-        na, nb = sum(a.values()), sum(b.values())
-        return na > 0 and nb > 0 and 0.5 <= na / nb <= 2.0
+    def _build_issues(posts: list, score_history: list, now: datetime) -> dict:
+        """'지금 뜨는 이슈' 블록 (issues.py). 계산이 실패해도 크롤·빌드는 계속되고 빈 블록을 둔다."""
+        try:
+            import issues   # 사용 지점에서 import - 모듈이 깨져도 크롤은 계속 (issues가 이 모듈의 _url_key를 쓴다)
+            return issues.build_issues(posts, score_history, now)
+        except Exception as e:
+            print(f'[Issues] 이슈 계산 오류 - 빈 블록으로: {type(e).__name__}: {e}')
+            return _empty_issues(posts, now)
 
-    def _score_trends(self, posts: list, history: list) -> dict:
-        if not history:
-            return {'rising': [], 'top': [], 'keywords': [], 'categories': {}}
+    def _set_issues(self, block: dict) -> None:
+        """이슈 블록 반영 + 튜닝 로그. self._lock 안에서 부른다.
+        결과(시각 제외)가 직전 기록과 같으면 로그에 넣지 않는다 — 같은 목록이 이어지는 실행이 대부분이다."""
+        self._issues = block
+        entry = {'t': block['as_of'], 'posts': block['posts'], 'communities': block['communities'],
+                 'items': [{k: it[k] for k in ('id', 'name', 'kind', 'status', 'n', 'c')} for it in block['items']]}
+        last = self._issue_log[-1] if self._issue_log else {}
+        if {k: v for k, v in last.items() if k != 't'} == {k: v for k, v in entry.items() if k != 't'}:
+            return
+        self._issue_log.append(entry)
+        del self._issue_log[:-ISSUE_LOG_SIZE]
+        sizes = [len(json.dumps(e, ensure_ascii=False, separators=(',', ':')).encode()) for e in self._issue_log]
+        while len(self._issue_log) > 1 and sum(sizes) + len(sizes) + 1 > ISSUE_LOG_MAX_BYTES:   # 괄호·쉼표 포함
+            self._issue_log.pop(0)
+            sizes.pop(0)
 
-        current = history[-1]
-        prev    = history[-2] if len(history) >= 2 else Counter()
-        # history가 4개 미만이면 가장 오래된 라운드를 기준으로 (빈 Counter면 모든 단어가 급상승으로 잡힘)
-        older   = history[-4] if len(history) >= 4 else history[0]
-        # 수집 규모가 크게 달라진 라운드(TBS↔fallback 전환 등)와는 비교하지 않는다
-        has_history = len(history) >= 2 and self._comparable(prev, current)
-        if not self._comparable(older, current):
-            older = prev
-
-        total = sum(current.values()) or 1
-        scored = []
-        for word, cnt in current.most_common(80):
-            if cnt < 3:
-                continue
-            base  = (cnt / total) * 100 * 10
-            vel   = (cnt - prev.get(word, 0)) * 2 + (cnt - older.get(word, 0)) if has_history else 0
-            score = min(100, base + max(0, vel) * 3)
-            scored.append({
-                'word': word,
-                'count': cnt,
-                'score': round(score, 1),
-                'velocity': vel,
-                'is_rising': has_history and vel > 0,
-            })
-
-        rising = sorted(
-            [s for s in scored if s['is_rising']],
-            key=lambda x: x['velocity'], reverse=True
-        )[:15]
-        top = sorted(scored, key=lambda x: x['score'], reverse=True)[:20]
-
-        src_counts = Counter(p.get('source', '') for p in posts)
-        keywords = [{'keyword': k, 'count': c} for k, c in src_counts.most_common()]
-
-        categories = {
+    @staticmethod
+    def _category_counts(posts: list) -> dict:
+        return {
             '음식/카페':  sum(1 for p in posts if p.get('is_food')),
             '뷰티/패션':  sum(1 for p in posts if p.get('is_beauty') or p.get('is_fashion')),
             '여행':       sum(1 for p in posts if p.get('is_travel')),
@@ -1257,8 +1126,6 @@ class TrendCrawler:
             '유머':       sum(1 for p in posts if p.get('is_humor')),
             '자동차':     sum(1 for p in posts if p.get('is_car')),
         }
-
-        return {'rising': rising, 'top': top, 'keywords': keywords, 'categories': categories}
 
     def _matches(self, text: str, word_set: set) -> bool:
         return any(w in text for w in word_set)

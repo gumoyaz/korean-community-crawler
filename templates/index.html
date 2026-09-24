@@ -53,9 +53,13 @@
     --accent: #ff4757;        /* 배경·테두리용 브랜드색 */
     --accent-text: #bd2a3a;   /* 글자용 강조색 (흰 배경·옅은 틴트 위 4.5:1 이상) */
     --accent2: #ff9f43;
+    --accent-tint: #fff0f1;   /* 신규 배지·필터 막대 바탕 */
+    --accent-line: #ffc9cf;
+    --grew: #1a7f37;          /* '+N 새 글' */
+    --warn-bg: #fff8e1;       /* '글이 적은 시간' 안내 */
+    --warn-text: #6b5300;
     --naver: #03c75a;
     --food: #ff9f43;
-    --rising: #ff4757;
     --card-hover: #fffbfb;
     --radius: 14px;
     --shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.06);
@@ -63,6 +67,7 @@
   }
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
 
   body {
     background: var(--bg);
@@ -72,9 +77,11 @@
   }
 
   /* 키보드 포커스 표시 */
-  .cat-btn:focus-visible, .src-chip:focus-visible, .word-tag:focus-visible,
+  .cat-btn:focus-visible, .src-chip:focus-visible,
   .refresh-btn:focus-visible, .card:focus-visible, .nav-link-outline:focus-visible,
-  .word-filter-bar button:focus-visible, .logo:focus-visible {
+  .issues button:focus-visible, .issues a:focus-visible,
+  .filter-bar:focus-visible, .filter-bar button:focus-visible,
+  #feed-h:focus-visible, #issues-h:focus-visible, .logo:focus-visible {
     outline: 2px solid var(--accent-text);
     outline-offset: 2px;
   }
@@ -113,15 +120,16 @@
   .header-right {
     display: flex; align-items: center; gap: 10px;
   }
+  /* 갱신 상태 배지 — 이슈 보드 머리줄 맨 앞 */
   .status-badge {
-    display: flex; align-items: center; gap: 6px;
+    display: inline-flex; align-items: center; gap: 6px;
     font-size: 12px; color: var(--text-dim);
     background: var(--surface2);
-    padding: 5px 10px; border-radius: 20px;
+    padding: 2px 9px; border-radius: 20px;
     border: 1px solid var(--border);
-    margin-left: auto;
+    margin-right: 6px;
     white-space: nowrap;
-    flex-shrink: 0;
+    vertical-align: 1px;
   }
   .status-badge.stale { color: #8a4b00; background: #fff7e6; border-color: #f5c77e; }
   .status-dot {
@@ -166,39 +174,6 @@
   .refresh-btn:active { transform: scale(.97); }
   .refresh-btn:disabled { opacity: .5; cursor: not-allowed; }
 
-  /* ── Rising ticker ── */
-  .ticker-wrap {
-    background: rgba(255,71,87,0.05);
-    border-bottom: 1px solid rgba(255,71,87,0.1);
-    padding: 8px 24px;
-    display: flex; align-items: center; gap: 12px;
-  }
-  .ticker-label {
-    font-size: 11px; font-weight: 700;
-    color: var(--accent-text);
-    background: rgba(255,71,87,0.08);
-    padding: 2px 8px; border-radius: 4px;
-    white-space: nowrap;
-    letter-spacing: 0.05em;
-  }
-  .ticker-viewport { overflow: hidden; flex: 1; }
-  .ticker-scroll {
-    display: flex; gap: 20px;
-    animation: ticker 30s linear infinite;
-    white-space: nowrap;
-  }
-  .ticker-scroll.static { animation: none; }
-  @keyframes ticker {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
-  }
-  .ticker-item {
-    font-size: 13px; color: var(--text-dim);
-    display: flex; align-items: center; gap: 5px;
-  }
-  .ticker-item .word { color: var(--text); font-weight: 600; }
-  .ticker-item .arrow { color: var(--accent-text); font-size: 12px; }
-
   /* ── Main ── */
   main {
     max-width: 1200px;
@@ -219,104 +194,186 @@
     height: 1px; background: var(--border);
   }
 
-  .trend-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    margin-bottom: 28px;
-  }
-  @media (max-width: 640px) { .trend-grid { grid-template-columns: 1fr; } }
+  #feed { scroll-margin-top: 76px; }   /* '모두 보기'로 스크롤할 때 고정 헤더에 가리지 않게 */
 
-  .trend-box {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 18px;
-    box-shadow: var(--shadow);
+  /* ── 🔥 지금 뜨는 이슈 ── */
+  .issues {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 14px 14px 8px; margin-bottom: 24px;
   }
-  .trend-box h3 {
-    font-size: 13px; font-weight: 700; margin-bottom: 12px;
-    display: flex; align-items: center; gap: 6px;
-    color: var(--text);
+  .issues button { font: inherit; color: inherit; }
+  .issues-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .issues-head h2 { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; line-height: 1.4; }
+  .issues-head h2 .fire { font-style: normal; margin-right: 4px; }
+  .issues .how-btn {
+    margin-left: auto; flex-shrink: 0; background: none; border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--text-dim); cursor: pointer; min-height: 36px;
   }
-  .trend-box h3 .badge {
-    font-size: 10px; padding: 2px 6px; border-radius: 4px;
-    background: rgba(255,71,87,0.1); color: var(--accent-text);
+  .issues .how-btn:hover { color: var(--text); border-color: #ccc; }
+  .issues-sub { font-size: 12px; color: var(--text-dim); margin: 0 0 6px; line-height: 1.7; word-break: keep-all; }
+  .issues-sub .thin { color: var(--warn-text); background: var(--warn-bg); border-radius: 4px; padding: 0 4px; white-space: nowrap; }
+  .how-panel {
+    background: var(--surface2); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px;
+    font-size: 12.5px; line-height: 1.7;
   }
-  .muted-note { color: var(--text-dim); font-size: 13px; }
+  .how-panel ul { padding-left: 18px; }
+  .how-panel b { font-weight: 700; }
 
-  /* 급상승 리스트 */
-  .rising-list { list-style: none; }
-  .rising-list li {
-    display: flex; align-items: center; gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--border);
-    font-size: 14px;
+  .issue-list { list-style: none; }
+  .issue-skel {
+    height: 64px; margin: 6px 0; border-radius: 10px; background: var(--surface2);
+    animation: shimmer 1.5s ease-in-out infinite;
   }
-  .rising-list li:last-child { border-bottom: none; }
-  .rising-rank {
-    font-size: 11px; font-weight: 700;
-    color: var(--text-dim); width: 18px; text-align: center;
+  .issues-empty { font-size: 13.5px; color: var(--text-dim); padding: 12px 6px; }
+  .issue-gone { font-size: 12.5px; color: var(--warn-text); background: var(--warn-bg); border-radius: 8px; padding: 6px 10px; margin: 4px 0 6px; word-break: keep-all; }
+  .issue + .issue .issue-row { border-top: 1px solid var(--border); }
+  .issues .issue-row {
+    display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; column-gap: 10px; row-gap: 2px;
+    grid-template-areas: "rank top badge" "rank why why" "rank meta meta";
+    width: 100%; text-align: left; background: none; border: 0; border-radius: 10px;
+    padding: 10px 6px; cursor: pointer; min-height: 64px; align-items: start; transition: background .15s;
   }
-  .rising-rank.top3 { color: var(--accent-text); }
-  .rising-word { flex: 1; font-weight: 600; color: var(--text); }
-  .rising-vel {
-    font-size: 11px; color: var(--accent-text);
-    background: rgba(255,71,87,0.1);
-    padding: 2px 6px; border-radius: 4px;
+  .issues .issue-row:hover { background: #fffbfb; }
+  .issues .issue-row[aria-expanded="true"] { background: #fff6f7; }
+  .issue.lead .issue-row { background: linear-gradient(135deg, #fff5f7 0%, #fff9f3 100%); border: 1px solid #ffe3e6; padding: 12px 8px; }
+  .issue.lead + .issue .issue-row { border-top: 0; }
+  .issues .rank { grid-area: rank; font-size: 15px; font-weight: 800; color: var(--text-dim); text-align: center; line-height: 1.4; }
+  .issues .rank.top { color: var(--accent-text); }
+  .issues .row-top { grid-area: top; display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .issues .name {
+    font-size: 15.5px; font-weight: 700; line-height: 1.35; letter-spacing: -0.2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
   }
-  .rising-count { font-size: 12px; color: var(--text-dim); }
+  .issue.lead .name { font-size: 17px; font-weight: 800; }
+  /* 퍼진 글은 이름이 원글 제목이라 길고 '왜' 줄에는 제목 대신 올라온 곳이 나온다 → 이름을 두 줄까지 */
+  .issue.repost .name {
+    white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    word-break: keep-all; overflow-wrap: anywhere;
+  }
+  .issues .kind {
+    flex-shrink: 0; font-size: 10.5px; font-weight: 700; color: var(--text-dim);
+    border: 1px solid #d5d9de; border-radius: 4px; padding: 1px 5px; white-space: nowrap; background: #fff;
+  }
+  .issues .why {
+    grid-area: why; min-width: 0; font-size: 13px; color: var(--text-dim); line-height: 1.45;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .issue.lead .why { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; color: #3d4450; font-size: 13.5px; }
+  .issues .why b { font-weight: 600; color: #464c55; }
+  .issues .meta { grid-area: meta; display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-dim); line-height: 1.4; flex-wrap: wrap; }
+  .issues .meta .grew { color: var(--grew); font-weight: 700; }
+  .issues .dots { display: inline-flex; }
+  .issues .dots i { width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #fff; margin-right: -3px; display: inline-block; }
+  .issues .meta .sep { color: #c3c8cf; }
+  .issues .mini-bar { display: none; height: 6px; border-radius: 3px; overflow: hidden; background: var(--surface2); margin-top: 6px; width: 100%; max-width: 360px; }
+  .issues .mini-bar span { display: block; height: 100%; }
+  .issues .badge {
+    grid-area: badge; align-self: start; font-size: 11.5px; font-weight: 700; padding: 3px 7px; border-radius: 6px;
+    white-space: nowrap; line-height: 1.3; margin-top: 1px;
+  }
+  .issues .badge.rising { background: var(--accent-text); color: #fff; }
+  .issues .badge.new { background: var(--accent-tint); color: var(--accent-text); border: 1px solid var(--accent-line); }
+  .issues .badge.steady { background: var(--surface2); color: var(--text-dim); }
+  .issues .badge.quiet { background: #fff; color: #6f757f; border: 1px dashed #c9ced4; }
 
-  /* 단어 구름 (button 요소 — 키보드로도 필터 가능) */
-  .word-cloud {
-    display: flex; flex-wrap: wrap; gap: 8px;
+  .issues .list-foot { display: flex; gap: 8px; border-top: 1px solid var(--border); padding: 8px 0 2px; flex-wrap: wrap; }
+  .issues .foot-btn {
+    flex: 1 1 auto; white-space: nowrap; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 0 10px; font-size: 13px; font-weight: 600; color: var(--text); cursor: pointer; min-height: 44px;
   }
-  .word-tag {
-    padding: 5px 12px;
-    border-radius: 20px;
-    font-family: inherit;
-    font-size: 13px; font-weight: 600;
-    line-height: 1.3;
-    cursor: pointer;
-    transition: transform .15s, box-shadow .2s, opacity .15s;
-    border: 1px solid transparent;
-    user-select: none;
-    -webkit-appearance: none; appearance: none;
+  .issues .foot-btn:hover { border-color: #ccc; }
+  .issues .foot-btn .cnt { color: var(--accent-text); font-weight: 800; margin-left: 2px; }
+
+  /* 상세 — 모바일은 줄 아래 펼침, 넓은 화면은 오른쪽 패널 */
+  .issues .detail { padding: 4px 6px 14px 38px; }
+  .issues .detail-status { font-size: 12.5px; line-height: 1.6; margin-bottom: 4px; }
+  .issues .detail-status .note { color: var(--text-dim); display: block; }
+  .issues .detail-time { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+  .issues .spread { margin-bottom: 10px; }
+  .issues .spread-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--surface2); }
+  .issues .spread-bar span { display: block; height: 100%; }
+  .issues .spread-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 11.5px; color: var(--text-dim); margin-top: 6px; align-items: center; }
+  .issues .spread-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: 0; }
+  .issues .pos-chip {
+    display: inline-block; margin-left: 4px; font-size: 10.5px; font-weight: 700; color: var(--accent-text);
+    background: var(--accent-tint); border: 1px solid var(--accent-line); border-radius: 4px; padding: 0 4px;
   }
-  .word-tag:hover { transform: scale(1.08); opacity: 0.85; }
-  .word-tag.size-3 { font-size: 17px; padding: 6px 14px; }
-  .word-tag.size-2 { font-size: 14px; }
-  .word-tag.size-1 { font-size: 12px; }
-  .word-tag.rising {
-    animation: word-pulse 2s ease-in-out infinite;
+  .issues .cowords { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+  .issues .cowords span { display: inline-block; background: var(--surface2); color: #464c55; border-radius: 4px; padding: 1px 6px; margin: 2px 3px 0 0; font-weight: 600; }
+  .issues .reps { list-style: none; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .issues .reps a {
+    display: block; text-decoration: none; color: var(--text); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px; padding: 8px 10px; min-height: 44px;
+    transition: border-color .15s, box-shadow .15s;
   }
-  @keyframes word-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(255,71,87,0); }
-    50%       { box-shadow: 0 0 0 5px rgba(255,71,87,0.2); }
+  .issues .reps a:hover { border-color: var(--accent); box-shadow: var(--shadow-hover); }
+  .issues .rep-top { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); margin-bottom: 2px; }
+  .issues .rep-title { font-size: 13.5px; font-weight: 600; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .issues .to-feed {
+    width: 100%; background: var(--accent-text); color: #fff; border: 0; border-radius: 10px;
+    padding: 11px 14px; font-size: 13.5px; font-weight: 700; cursor: pointer; min-height: 44px;
   }
-  .word-tag.active-filter {
-    outline: 2px solid currentColor;
-    outline-offset: 2px;
-    transform: scale(1.05);
+  .issues .to-feed:hover { background: #a3202f; }
+  .issue-panel { display: none; }
+
+  .issues .hot { padding: 8px 2px 4px; }
+  .issues .hot p { font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+  .issues .hot ul { list-style: none; }
+  .issues .hot a {
+    display: flex; gap: 8px; align-items: center; text-decoration: none; color: var(--text);
+    padding: 8px 2px; min-height: 44px; font-size: 13.5px; border-top: 1px dashed var(--border);
   }
-  .word-filter-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 10px;
-    background: rgba(255,71,87,0.05);
-    border: 1px solid rgba(255,71,87,0.2);
-    border-radius: 8px;
-    padding: 9px 14px;
-    margin-bottom: 14px;
-    font-size: 13px;
+  .issues .hot li:first-child a { border-top: 0; }
+  .issues .hot a .t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .issues .hot a .r { flex-shrink: 0; font-size: 11.5px; color: var(--text-dim); }
+  .issues .hot a:hover .t { color: var(--accent-text); }
+
+  /* AI 요약 — 보드 아래 한 줄, [전체 보기]로 펼침 */
+  .ai-line {
+    border-top: 1px solid var(--border); margin-top: 6px; padding: 2px 2px 0; font-size: 13px; line-height: 1.6; color: #3d4450;
+    display: flex; align-items: center; gap: 8px; min-height: 44px;
   }
-  .word-filter-bar button {
-    background: none; border: 1px solid var(--border);
-    color: var(--text-dim); cursor: pointer;
-    padding: 3px 9px; border-radius: 5px; font-size: 12px;
-    font-family: inherit;
+  .ai-line .lbl { flex-shrink: 0; font-size: 11px; font-weight: 700; color: var(--text-dim); }
+  .ai-line .txt { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ai-line.open { display: block; padding: 10px 2px 4px; }
+  .ai-line.open .txt { white-space: pre-wrap; display: block; margin: 4px 0; }
+  .issues .ai-line button {
+    flex-shrink: 0; background: none; border: 0; color: var(--text-dim); font-size: 12px;
+    text-decoration: underline; cursor: pointer; padding: 4px 0; min-height: 40px;
+  }
+
+  /* 넓은 화면: 목록 | 상세 패널 */
+  @media (min-width: 820px) {
+    .issues { padding: 18px 20px 10px; }
+    .issues-body { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+    .issues-body.no-panel { grid-template-columns: minmax(0, 1fr); }   /* 이슈 0개·오류: 빈 오른쪽 열을 두지 않는다 */
+    .issues .issue-row { grid-template-columns: 24px minmax(0, 1fr) auto; }
+    .issues .issue-row[aria-expanded="true"] { box-shadow: inset 3px 0 0 var(--accent); }
+    .issue-panel {
+      display: block; position: sticky; top: 76px; background: linear-gradient(135deg, #fff5f7 0%, #fff8f0 100%);
+      border: 1px solid #ffe0e0; border-radius: 12px; padding: 16px 18px; margin: 6px 0 12px;
+    }
+    .issue-panel:empty { display: none; }
+    .issue-panel .detail { padding: 0; }
+    .issues .mini-bar { display: flex; }
+    .issues .panel-title { font-size: 17px; font-weight: 800; line-height: 1.4; margin-bottom: 4px; letter-spacing: -0.2px; }
+    .issues .panel-kind { font-size: 12px; color: var(--text-dim); margin-bottom: 10px; }
+  }
+
+  /* 피드 이슈 필터 막대 ('모두 보기') */
+  .filter-bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    background: var(--accent-tint); border: 1px solid var(--accent-line); border-radius: 10px;
+    padding: 9px 12px; margin-bottom: 12px; font-size: 13px;
+  }
+  .filter-bar b { font-weight: 700; color: var(--accent-text); }
+  .filter-bar .gone { color: var(--warn-text); background: var(--warn-bg); border-radius: 4px; padding: 0 4px; white-space: nowrap; }
+  .filter-bar button {
+    margin-left: auto; background: #fff; border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; font-family: inherit; font-size: 12.5px; color: var(--text); cursor: pointer; min-height: 36px;
     white-space: nowrap;
   }
-  .word-filter-bar button:hover { color: var(--text); border-color: var(--accent); }
+  .filter-bar button:hover { border-color: var(--accent); }
 
   /* ── Category tabs ── */
   .cat-tabs {
@@ -351,47 +408,6 @@
     color: var(--text-dim);
   }
   .cat-btn.active .tab-count { background: rgba(255,71,87,0.1); color: var(--accent-text); }
-
-  /* ── AI 요약 ── */
-  .ai-summary-box {
-    background: linear-gradient(135deg, #fff5f7 0%, #fff8f0 100%);
-    border: 1px solid #ffe0e0;
-    border-radius: var(--radius);
-    padding: 20px 24px;
-    margin-bottom: 24px;
-    position: relative;
-    overflow: hidden;
-    box-shadow: var(--shadow);
-  }
-  .ai-summary-box::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: linear-gradient(90deg, #ff4757, #ff9f43, #ff6b81);
-  }
-  .ai-summary-header {
-    display: flex; align-items: center; gap: 8px;
-    margin-bottom: 12px;
-  }
-  .ai-summary-header h3 {
-    font-size: 14px; font-weight: 700; color: var(--text);
-    letter-spacing: 0.3px;
-  }
-  .ai-summary-header .ai-badge {
-    font-size: 10px; font-weight: 700;
-    background: linear-gradient(135deg, #ff4757, #ff9f43);
-    color: #fff; padding: 2px 7px; border-radius: 10px;
-    letter-spacing: 0.5px;
-  }
-  .ai-summary-updated {
-    margin-left: auto; font-size: 11px; color: var(--text-dim);
-  }
-  .ai-summary-text {
-    font-size: 14px; line-height: 1.8; color: var(--text);
-    white-space: pre-wrap;
-  }
-  .ai-summary-text.loading {
-    color: var(--text-dim); font-style: italic;
-  }
 
   /* ── Community chip grid ── */
   .src-chips-wrap {
@@ -601,9 +617,6 @@
   .toast.show { transform: translateY(0); opacity: 1; }
 
   @media (max-width: 640px) {
-    /* 모바일: 티커는 숨기고 갱신 상태 배지만 얇은 띠로 남김 */
-    .ticker-wrap { padding: 6px 12px; }
-    .ticker-label, .ticker-viewport { display: none; }
     main { padding: 16px 12px; }
     .src-chips {
       flex-wrap: nowrap;
@@ -616,8 +629,9 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .ticker-scroll, .status-dot, .word-tag.rising, .skeleton { animation: none; }
-    .card:hover, .word-tag:hover { transform: none; }
+    .status-dot, .skeleton, .issue-skel { animation: none; }
+    .card:hover { transform: none; }
+    .issues .issue-row, .issues .reps a { transition: none; }
   }
 </style>
 </head>
@@ -637,57 +651,59 @@
   </div>
 </header>
 
-<!-- 급상승 티커 + 갱신 상태 -->
-<div class="ticker-wrap">
-  <span class="ticker-label" aria-hidden="true">🔥 급상승</span>
-  <div class="ticker-viewport" aria-hidden="true">
-    <div class="ticker-scroll static" id="ticker">
-      <span class="ticker-item"><span class="arrow">▲</span> 로딩 중...</span>
-    </div>
-  </div>
-  <div class="status-badge" id="status-badge">
-    <span class="status-dot" id="status-dot" aria-hidden="true"></span>
-    <span id="status-text">불러오는 중…</span>
-  </div>
-</div>
-
 <!-- Main -->
 <main>
 
-  <!-- AI 오늘의 요약 -->
-  <div class="ai-summary-box" id="ai-summary-box" style="display:none">
-    <div class="ai-summary-header">
-      <h3 id="ai-summary-title">✨ 오늘의 커뮤니티 요약</h3>
-      <span class="ai-badge">Gemini AI</span>
-      <span class="ai-summary-updated" id="ai-summary-updated"></span>
+  <!-- 🔥 지금 뜨는 이슈 (여러 커뮤니티에 퍼진 이야기 — build 때 issues.py 가 묶는다) -->
+  <section class="issues" id="issues" aria-labelledby="issues-h">
+    <div class="issues-head">
+      <h2 id="issues-h" tabindex="-1"><em class="fire" aria-hidden="true">🔥</em>지금 뜨는 이슈</h2>
+      <button type="button" class="how-btn" id="how-btn" aria-expanded="false" aria-controls="how-panel">어떻게 고르나요?</button>
     </div>
-    <div class="ai-summary-text loading" id="ai-summary-text">요약을 불러오는 중…</div>
-  </div>
-
-  <!-- 트렌드 분석 -->
-  <h2 class="section-title">트렌드 분석</h2>
-  <div class="trend-grid">
-
-    <!-- 급상승 키워드 -->
-    <div class="trend-box">
-      <h3>🚀 급상승 키워드 <span class="badge">실시간</span></h3>
-      <ul class="rising-list" id="rising-list">
-        <li><span class="rising-rank">-</span><span class="rising-word">로딩 중…</span></li>
+    <p class="issues-sub">
+      <span class="status-badge" id="status-badge">
+        <span class="status-dot" id="status-dot" aria-hidden="true"></span>
+        <span id="status-text">불러오는 중…</span>
+      </span><span id="issues-asof"></span>
+    </p>
+    <div class="how-panel" id="how-panel" hidden>
+      <ul>
+        <li>여러 커뮤니티 인기글의 <b>제목을 서로 비교해 같은 사건을 다룬 글끼리 묶습니다.</b> AI는 쓰지 않아요.</li>
+        <li><b>서로 다른 커뮤니티</b>에 퍼질수록 위에 옵니다. 한 곳에서 여러 번 올라온 글은 덜 칩니다.</li>
+        <li><b>신규</b> 최근 3시간 안에 여러 곳에 올라옴 · <b>지속</b> 이어지는 중 · <b>잠잠</b> 8시간 넘게 새 글 없음</li>
+        <li><b>급상승</b> 최근 3번 갱신 동안 글이 3개 이상(2개라도 1.5배가 되면) 늘었거나 커뮤니티가 2곳 이상 늘었을 때, 또는 최근 3시간 안에 쓴 글이 4분의 1 이상일 때예요.</li>
+        <li><b>퍼진 글</b>은 같은 글이 여러 곳에 올라온 경우, <b>주제</b>는 한 인물·주제 아래 여러 이야기가 섞인 경우예요.</li>
+        <li><b>+N 새 글</b>은 직전 갱신(약 1시간) 뒤 이 이슈에 새로 붙은 글 수예요. 급상승과 기준이 달라 '지속' 이슈에도 붙을 수 있어요.</li>
+        <li>제목만 보고 묶기 때문에 가끔 다른 글이 섞일 수 있어요.</li>
       </ul>
     </div>
-
-    <!-- 단어 구름 -->
-    <div class="trend-box">
-      <h3 id="word-cloud-title">💬 인기 단어 구름</h3>
-      <div class="word-cloud" id="word-cloud" role="group" aria-labelledby="word-cloud-title">
-        <span class="muted-note">로딩 중…</span>
+    <div class="issues-body">
+      <div>
+        <p class="issue-gone" id="issue-gone" role="status" hidden></p>
+        <ol class="issue-list" id="issue-list" aria-busy="true">
+          <li class="issue-skel" aria-hidden="true"></li>
+          <li class="issue-skel" aria-hidden="true"></li>
+          <li class="issue-skel" aria-hidden="true"></li>
+        </ol>
+        <p class="issues-empty" id="issues-empty" hidden></p>
+        <div class="list-foot" id="list-foot" hidden>
+          <button type="button" class="foot-btn" id="more-btn" aria-expanded="false" aria-controls="issue-list" hidden></button>
+          <button type="button" class="foot-btn" id="hot-btn" aria-expanded="false" aria-controls="hot" hidden></button>
+        </div>
+        <div class="hot" id="hot" hidden></div>
       </div>
+      <aside class="issue-panel" id="issue-panel" aria-label="선택한 이슈"></aside>
     </div>
-
-  </div>
+    <div class="ai-line" id="ai-line" hidden>
+      <span class="lbl" id="ai-lbl">✨ AI 요약</span>
+      <span class="txt" id="ai-txt"></span>
+      <button type="button" id="ai-btn" aria-expanded="false" aria-controls="ai-txt">전체 보기</button>
+    </div>
+  </section>
 
   <!-- 피드 -->
-  <h2 class="section-title">피드</h2>
+  <section id="feed" aria-labelledby="feed-h">
+  <h2 class="section-title" id="feed-h" tabindex="-1">피드</h2>
 
   <!-- 카테고리 탭 -->
   <div class="cat-tabs" id="cat-tabs" role="group" aria-label="카테고리">
@@ -771,7 +787,14 @@
     </div>
   </div>
 
+  <!-- 이슈 필터 ('모두 보기') — 탭·칩 필터와 함께 걸린다 -->
+  <div class="filter-bar" id="filter-bar" role="status" tabindex="-1" hidden>
+    <span id="filter-text"></span>
+    <button type="button" data-action="clear-issue" aria-label="이슈 필터 해제">✕ 해제</button>
+  </div>
+
   <div id="card-container"></div>
+  </section>
 
   <noscript>
     <div class="empty-state">
@@ -804,10 +827,27 @@ const DATA_STALE_MS = 3 * 60 * 60 * 1000;
 const AI_SUMMARY_MAX_AGE_MS = 24 * 60 * 60 * 1000;  // 이보다 오래된 AI 요약은 숨긴다 (Gemini 실패가 이어질 때)
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
+const ISSUE_STATUS = { new: '신규', rising: '급상승', steady: '지속', quiet: '잠잠' };
+const ISSUE_KIND = { repost: '퍼진 글', topic: '주제' };   // 일반 이슈(story)는 칩 없음
+const ISSUE_LIMIT_WIDE = 5;     // 넓은 화면 기본 표시 개수 (오른쪽에 상세 패널)
+const ISSUE_LIMIT_NARROW = 3;   // 모바일 기본 표시 개수 — 첫 피드 카드가 첫 화면에서 너무 밀리지 않게
+const WIDE_MQ = window.matchMedia('(min-width: 820px)');   // CSS 의 넓은 화면 기준과 같게
+
 let fullData = null;        // 항상 필터 없는 전체 JSON — 필터는 클라이언트에서만 적용
 let currentTab = 'all';
 let currentSrc = '';
-let activeWordFilter = null;
+let issueData = null;       // fullData.issues 를 검증·정리한 것 (prepareIssues)
+let activeIssue = null;     // '모두 보기' 이슈 필터 {id, name, ranks, urls, gone} — 자동 갱신 뒤에도 id 로 유지
+let issueOpen = null;       // 모바일: 펼친 이슈 id (한 번에 하나)
+let issueSel = null;        // 넓은 화면: 사용자가 고른 이슈 id (null 이면 패널은 1위)
+let issueNames = new Map(); // 직전에 그린 이슈 id → 이름 (고른 이슈가 갱신으로 빠졌을 때 알리는 데 쓴다)
+let issueGone = '';         // 고른 이슈가 목록에서 빠졌다는 안내에 쓸 이름 (다른 이슈를 고르면 지운다)
+let issuesShowAll = false;  // '이슈 N개 더' 펼침
+let hotOpen = null;         // '여기서만 뜨거운 글' 펼침 — 첫 렌더에서 이슈가 5개 미만이면 펼침으로 정한 뒤 고정
+let aiOpen = false;         // AI 요약 전체 보기
+let lastPanelHtml = '';     // 상세 패널·필터 막대는 내용이 바뀔 때만 다시 쓴다 (포커스·스크린리더 재낭독 방지)
+let lastFilterHtml = '';
+let lastGoneHtml = '';
 let nextRefresh = Date.now() + REFRESH_MS;
 let lastFetchAt = 0;
 let loadPromise = null;     // 진행 중인 요청 (중복 요청 방지)
@@ -838,17 +878,6 @@ const TITLE_EMOJIS = [
   [['육아','아이','아기','유치원','초등'], '👶'],
   [['IT','컴퓨터','폰','애플','삼성','AI','ChatGPT'], '💻'],
 ];
-
-// 단어 구름 팔레트 [배경, 글자] — 글자색은 틴트 배경 위 4.5:1 이상
-const WORD_COLORS = [
-  ['rgba(124,108,255,0.15)', '#5a48e0'],
-  ['rgba(255,108,157,0.15)', '#c2185b'],
-  ['rgba(3,199,90,0.15)',    '#067a38'],
-  ['rgba(255,159,67,0.15)',  '#a8560a'],
-  ['rgba(96,165,250,0.15)',  '#1d64c2'],
-  ['rgba(251,191,36,0.15)',  '#886713'],
-];
-const WORD_RISING_COLOR = ['rgba(255,71,87,0.15)', '#bd2a3a'];
 
 // ── 데이터 로드 ──────────────────────────────────────────────────────────────
 
@@ -902,8 +931,8 @@ function scheduleNext() {
   nextRefresh = next;
 }
 
-function loadCounts() {
-  const posts = (fullData && fullData.posts) || [];
+// 탭·칩 숫자. 이슈 필터가 걸려 있으면 그 이슈 글만 넘겨받아 센다 → 누르면 나오는 카드 수와 같고 0개 칩은 숨는다
+function loadCounts(posts) {
 
   // ── 소스별 카운트 ──
   const srcCounts = {};
@@ -957,44 +986,62 @@ function loadCounts() {
 
 // ── 필터 ─────────────────────────────────────────────────────────────────────
 
-// 단어 매칭 기준 = 서버 _word_counter 와 같은 '제목 + 요약'
-function postText(p) {
-  return String(p.title || '') + ' ' + String(p.summary || '');
-}
-
-// 소스 → 카테고리 → 단어 순으로 적용
-function filterPosts(posts, tab, src, word) {
+// 이슈 → 소스 → 카테고리 순으로 적용. 이슈는 글 rank 집합으로만 거른다(부분 문자열 매칭 없음).
+// 목록에서 빠진 이슈는 마지막으로 본 글 주소(url)로 거른다
+function filterPosts(posts, tab, src, issue) {
   let out = posts || [];
+  if (issue) {
+    out = issue.ranks ? out.filter(p => issue.ranks.has(Number(p.rank)))
+                      : out.filter(p => issue.urls.has(String(p.url || '')));
+  }
   if (src) out = out.filter(p => p.source === src);
   const f = TAB_FILTERS[tab];
   if (f) out = out.filter(f);
-  if (word) out = out.filter(p => postText(p).includes(word));
   return out;
+}
+
+// 이슈 필터를 지금 데이터에 맞춘다 — rank 는 빌드마다 바뀌므로 같은 id 의 새 ranks 로 다시 잡는다
+function resolveIssueFilter() {
+  if (!activeIssue || !issueData) return;
+  const it = issueData.items.find(i => i.id === activeIssue.id);
+  if (it) {
+    activeIssue.name = it.name;
+    activeIssue.ranks = new Set(it.ranks);
+    activeIssue.urls = new Set(it.ranks.map(r => String(issueData.byRank.get(r).url || '')).filter(Boolean));
+    activeIssue.gone = false;
+  } else {
+    activeIssue.ranks = null;
+    activeIssue.gone = true;
+  }
 }
 
 function applyFilters() {
   if (!fullData) return;
-  const posts = filterPosts(fullData.posts, currentTab, currentSrc, activeWordFilter);
+  resolveIssueFilter();
+  loadCounts(filterPosts(fullData.posts || [], 'all', '', activeIssue));
+  const posts = filterPosts(fullData.posts, currentTab, currentSrc, activeIssue);
   renderCards(posts);
-  renderWordFilterBar(posts.length);
-  document.querySelectorAll('#word-cloud .word-tag').forEach(t => {
-    const on = t.dataset.word === activeWordFilter;
-    t.classList.toggle('active-filter', on);
-    t.setAttribute('aria-pressed', on ? 'true' : 'false');
-  });
+  renderIssueFilterBar(posts);
 }
 
-function renderWordFilterBar(count) {
-  let bar = document.getElementById('word-filter-bar');
-  if (!activeWordFilter) { if (bar) bar.remove(); return; }
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.id = 'word-filter-bar';
-    bar.className = 'word-filter-bar';
-    document.getElementById('card-container').before(bar);
+// 필터 막대: '이슈: 이름 · 글 N개 · C곳 [✕ 해제]'. N 은 아래 카드 수와 항상 같다
+function renderIssueFilterBar(shown) {
+  const bar = document.getElementById('filter-bar');
+  const txt = document.getElementById('filter-text');
+  let html = '';
+  if (activeIssue) {
+    const comm = new Set(shown.map(p => p.source)).size;
+    const narrowed = currentTab !== 'all' || !!currentSrc;
+    html = `🔥 이슈: <b>${escHtml(activeIssue.name)}</b>`
+      + (activeIssue.gone ? ' <span class="gone">목록에서 빠진 이슈</span>' : '')
+      + ` · 글 ${shown.length}개 · ${comm}곳` + (narrowed ? ' (고른 탭·커뮤니티 안)' : '');
   }
-  bar.innerHTML = `<span>🔍 "<strong>${escHtml(activeWordFilter)}</strong>" 관련 포스트 <strong>${count}개</strong></span>
-    <button type="button" data-action="clear-word">✕ 필터 해제</button>`;
+  bar.hidden = !activeIssue;
+  // role=status 라 바뀔 때만 다시 쓴다 (자동 갱신마다 같은 문장을 다시 읽지 않게)
+  if (html !== lastFilterHtml) {
+    txt.innerHTML = html;
+    lastFilterHtml = html;
+  }
 }
 
 // 탭·칩 선택 표시 (소스 칩은 소스색 배경 + 대비가 더 높은 글자색)
@@ -1024,48 +1071,323 @@ function paintSelection() {
 // ── 렌더링 ───────────────────────────────────────────────────────────────────
 
 function renderAll() {
-  const trends = fullData.trends || {};
-  // 형식이 어긋난 항목(null·문자열 아닌 단어)은 버린다
-  const isWordItem = x => !!x && typeof x.word === 'string' && x.word !== '';
-  const rising = (Array.isArray(trends.rising) ? trends.rising : []).filter(isWordItem);
-  const top    = (Array.isArray(trends.top) ? trends.top : []).filter(isWordItem);
-  renderRising(rising);
-  renderTicker(rising);
-  renderWordCloud(top, rising);
-  renderAiSummary(fullData);
-  loadCounts();
+  prepareIssues();
+  renderIssues();
+  renderAiLine();
+  applyFilters();      // 현재 탭·소스·이슈 필터를 새 데이터에 다시 적용 (탭·칩 숫자 포함)
   paintSelection();
-  applyFilters();      // 현재 탭·소스·단어 필터를 새 데이터에 다시 적용
   updateStatus();
 }
 
-function renderAiSummary(data) {
-  const box = document.getElementById('ai-summary-box');
-  const textEl = document.getElementById('ai-summary-text');
-  if (!box || !textEl) return;
+// ── 지금 뜨는 이슈 ───────────────────────────────────────────────────────────
+// trends.json 의 issues 블록은 글 제목을 복사하지 않고 posts[].rank 로 가리킨다.
+// 형식이 어긋난 항목은 버리고, 지금 posts 에 없는 rank 는 뺀다 (글 수 N = 걸러질 카드 수)
 
-  const summary = typeof data.ai_summary === 'string' ? data.ai_summary.trim() : '';
-  // Gemini 실패가 이어지면 크롤러는 이전 요약을 그대로 둔다 → 하루 넘게 지난 요약은 숨긴다
-  const t = parseIsoMs(data.ai_summary_updated);
-  if (!summary || t === null || Date.now() - t > AI_SUMMARY_MAX_AGE_MS) {
-    box.style.display = 'none';
-    return;
+function prepareIssues() {
+  const posts = (fullData && Array.isArray(fullData.posts)) ? fullData.posts : [];
+  const byRank = new Map();
+  const src = {};   // source → {label, emoji, color}
+  for (const p of posts) {
+    if (!p) continue;
+    const r = Number(p.rank);
+    if (Number.isInteger(r) && r > 0 && !byRank.has(r)) byRank.set(r, p);
+    const s = String(p.source || '');
+    if (s && !src[s]) {
+      src[s] = { label: String(p.source_label || s), emoji: String(p.source_emoji || ''), color: safeColor(p.source_color, '#888888') };
+    }
+  }
+  const b = fullData && fullData.issues;
+  const ok = !!b && typeof b === 'object' && Array.isArray(b.items);
+  const refs = a => (Array.isArray(a) ? a : []).map(Number).filter(r => byRank.has(r));
+  const str = s => (typeof s === 'string' ? s : '');
+  const items = [];
+  const seen = new Set();
+  for (const it of ok ? b.items : []) {
+    if (!it || typeof it.id !== 'string' || !it.id || seen.has(it.id)) continue;
+    const ranks = [...new Set(refs(it.ranks))];
+    if (!ranks.length) continue;
+    seen.add(it.id);
+    const sp = (Array.isArray(it.sp) ? it.sp : [])
+      .filter(x => Array.isArray(x) && typeof x[0] === 'string' && x[0])
+      .map(x => [x[0], Number(x[1]) || 0, Number(x[2]) || 0, Number(x[3]) || 0]);
+    const reps = refs(it.reps).slice(0, 3);
+    const why = byRank.has(Number(it.why)) ? Number(it.why) : (reps[0] || ranks[0]);
+    items.push({
+      id: it.id,
+      name: str(it.name).trim() || cleanTitle(byRank.get(why).title),
+      kind: ['story', 'topic', 'repost'].includes(it.kind) ? it.kind : 'story',
+      status: ISSUE_STATUS[it.status] ? it.status : 'steady',
+      status_why: str(it.status_why),
+      n: ranks.length,
+      c: Number(it.c) > 0 ? Number(it.c) : sp.length,
+      cm: Number(it.cm) || 0,
+      grew: Number(it.grew) > 0 ? Number(it.grew) : 0,
+      first: str(it.first), since: str(it.since), last: str(it.last),
+      why,
+      reps: reps.length ? reps : [why],
+      sp,
+      ranks,
+      kw: (Array.isArray(it.kw) ? it.kw : []).filter(k => typeof k === 'string' && k).slice(0, 4),
+    });
+  }
+  issueData = {
+    ok, byRank, src, items,
+    hot: ok ? [...new Set(refs(b.hot))].slice(0, 6) : [],
+    asOf: ok ? parseIsoMs(b.as_of) : null,
+    posts: ok && Number.isFinite(Number(b.posts)) ? Number(b.posts) : posts.length,
+    communities: ok && Number.isFinite(Number(b.communities)) ? Number(b.communities) : Object.keys(src).length,
+    lowData: ok && !!b.low_data,
+    badges: ok && !!b.badges,   // 이력 3라운드 미만이면 false → 상태 배지·'+N 새 글' 숨김
+  };
+}
+
+function srcOf(s) {
+  return issueData.src[s] || { label: String(s || ''), emoji: '', color: '#888888' };
+}
+
+// 카드와 같은 소스 배지 (소스색은 틴트 배경·테두리, 글자는 어둡게)
+function srcBadge(s) {
+  const x = srcOf(s);
+  return `<span class="source-badge" style="background:${x.color}22;color:${darken(x.color)};border:1px solid ${x.color}44">${escHtml(x.emoji)} ${escHtml(x.label)}</span>`;
+}
+
+// 커뮤니티별 글 수 막대 (sp = [[source, 글 수, 커뮤니티 안 최고 순위, 댓글], ...])
+function spreadBarHTML(sp, cls) {
+  const total = sp.reduce((a, x) => a + x[1], 0) || 1;
+  return `<span class="${cls}" aria-hidden="true">${sp.map(([s, c]) =>
+    `<span style="width:${(c / total * 100).toFixed(1)}%;background:${srcOf(s).color}"></span>`).join('')}</span>`;
+}
+
+// 원글 링크 (http/https 만 새 탭)
+function linkAttrs(url) {
+  const href = safeUrl(url);
+  return `href="${escHtml(href)}"${href !== '#' ? ' target="_blank" rel="noopener noreferrer"' : ''}`;
+}
+
+// 한 이슈 = 세 줄: 이름+종류/상태 배지 · 왜(대표 글) · 얼마나(커뮤니티 점·N곳·글·새 글·댓글·시작)
+function issueRowHTML(it, k, wide) {
+  const D = issueData;
+  const head = D.byRank.get(it.why);
+  const sel = wide ? panelIssue() : null;
+  const exp = wide ? !!sel && sel.id === it.id : issueOpen === it.id;
+  const whereRepost = it.kind === 'repost' && it.sp.length > 1 ? it.sp.slice(0, 3).map(x => srcOf(x[0]).label).join(' · ') : '';
+  const why = whereRepost ? `같은 글이 <b>${escHtml(whereRepost)}</b>에 올라옴`
+    : `<b>${escHtml(srcOf(head.source).label)}</b> · ${escHtml(cleanTitle(head.title))}`;
+  const whyText = whereRepost ? `같은 글이 ${whereRepost}에 올라옴` : `${srcOf(head.source).label} · ${cleanTitle(head.title)}`;
+  const dots = it.sp.slice(0, 5).map(x => `<i style="background:${srcOf(x[0]).color}"></i>`).join('');
+  const dur = sinceLabel(it.since);
+  const kind = ISSUE_KIND[it.kind] ? `<span class="kind">${ISSUE_KIND[it.kind]}</span>` : '';
+  const grew = D.badges && it.grew > 0;
+  const badge = D.badges
+    ? `<span class="badge ${it.status}" aria-hidden="true">${it.status === 'rising' ? '▲ ' : ''}${ISSUE_STATUS[it.status]}</span>` : '';
+  const lead = k === 0 && it.kind !== 'repost';
+  // 화면의 세 줄을 모두 읽어 준다 (안쪽 span 은 aria-hidden)
+  const aria = [`${k + 1}위`, it.name, D.badges ? ISSUE_STATUS[it.status] : '', ISSUE_KIND[it.kind] || '', whyText,
+    `커뮤니티 ${it.c}곳 글 ${it.n}개`, grew ? `새 글 ${it.grew}개` : '', `댓글 ${fmtNum(it.cm)}`, dur].filter(Boolean).join(', ');
+  const det = `issue-det-${it.id}`;
+  const ctl = wide ? 'issue-panel' : (exp ? det : '');
+  return `<li class="issue${lead ? ' lead' : ''}${it.kind === 'repost' ? ' repost' : ''}">
+    <button type="button" class="issue-row" data-id="${escHtml(it.id)}" aria-expanded="${exp}"${ctl ? ` aria-controls="${escHtml(ctl)}"` : ''} aria-label="${escHtml(aria)}">
+      <span class="rank${k < 3 ? ' top' : ''}" aria-hidden="true">${k + 1}</span>
+      <span class="row-top" aria-hidden="true"><span class="name">${escHtml(it.name)}</span>${kind}</span>
+      ${badge}
+      <span class="why" aria-hidden="true">${why}</span>
+      <span class="meta" aria-hidden="true"><span class="dots">${dots}</span><span>${it.c}곳 · 글 ${it.n}</span>${grew ? `<span class="sep">·</span><span class="grew">+${it.grew} 새 글</span>` : ''}<span class="sep">·</span><span>💬 ${fmtNum(it.cm)}</span>${dur ? `<span class="sep">·</span><span>${dur}</span>` : ''}${lead ? spreadBarHTML(it.sp, 'mini-bar') : ''}</span>
+    </button>
+    ${!wide && exp ? `<div class="detail" id="${escHtml(det)}">${issueDetailHTML(it, false)}</div>` : ''}
+  </li>`;
+}
+
+// 펼침/패널: 상태 근거 · 첫 글/최근 글 · 커뮤니티별 막대 · 함께 나온 말 · 대표 글 · [모두 보기]
+function issueDetailHTML(it, wide) {
+  const D = issueData;
+  const legend = it.sp.map(([s, c, pos]) => `<span><i style="background:${srcOf(s).color}"></i>${escHtml(srcOf(s).label)} ${c}${pos >= 1 && pos <= 3 ? `<span class="pos-chip">여기선 ${pos}위</span>` : ''}</span>`).join('');
+  let st = '';
+  if (D.badges) {
+    const sw = it.status_why ? ` · ${escHtml(it.status_why)}` : '';
+    const since = clockLabel(it.since);
+    st = it.status === 'rising' ? `▲ 급상승${sw}`
+      : it.status === 'new' ? `신규${sw}`
+      : it.status === 'quiet' ? `잠잠${sw}`
+      : since ? `지속 · ${escHtml(since)}부터 여러 곳에서 이어지는 중` : '지속';
+  }
+  const top = it.sp[0];
+  const note = it.kind === 'topic' ? '한 인물·주제 아래 서로 다른 이야기가 섞여 있어요.'
+    : it.kind === 'repost' ? '같은 글이 여러 커뮤니티에 올라온 경우예요.'
+    : (top && it.c > 1 && top[1] / it.n >= 0.6) ? `${escHtml(srcOf(top[0]).label)}에서 특히 많이 이야기되고 있어요.` : '';
+  const first = clockLabel(it.first), last = formatDate(it.last);
+  const time = [first ? `첫 글 ${first}` : '', last ? `최근 글 ${last}` : '',
+    D.badges && it.grew > 0 ? `직전 갱신 뒤 새 글 ${it.grew}개` : ''].filter(Boolean).join(' · ');
+  const reps = it.reps.map(r => D.byRank.get(r)).map(p => {
+    const ago = formatDate(p.date);
+    return `<li><a ${linkAttrs(p.url)}>
+      <span class="rep-top">${srcBadge(p.source)}${Number(p.comments) > 0 ? `<span>💬 ${fmtNum(p.comments)}</span>` : ''}${ago ? `<span>· ${escHtml(ago)}</span>` : ''}</span>
+      <span class="rep-title">${escHtml(cleanTitle(p.title))}</span></a></li>`;
+  }).join('');
+  const co = it.kw.length ? `<p class="cowords">함께 나온 말 ${it.kw.map(k => `<span>${escHtml(k)}</span>`).join('')}</p>` : '';
+  const title = wide ? `<p class="panel-title">${escHtml(it.name)}</p>
+    <p class="panel-kind">${ISSUE_KIND[it.kind] || '이슈'} · 커뮤니티 ${it.c}곳 · 글 ${it.n}개 · 댓글 ${fmtNum(it.cm)}</p>` : '';
+  return `${title}
+    ${st || note ? `<p class="detail-status">${st}${note ? `<span class="note">${note}</span>` : ''}</p>` : ''}
+    ${time ? `<p class="detail-time">${escHtml(time)}</p>` : ''}
+    ${it.sp.length ? `<div class="spread">${spreadBarHTML(it.sp, 'spread-bar')}<div class="spread-legend">${legend}</div></div>` : ''}
+    ${co}
+    <ul class="reps" aria-label="대표 글">${reps}</ul>
+    <button type="button" class="to-feed" data-feed="${escHtml(it.id)}">이 이슈 글 ${it.n}개 모두 보기 ↓</button>`;
+}
+
+// 여기서만 뜨거운 글: 어느 이슈에도 안 묶인 커뮤니티 1~2위 글
+function hotHTML() {
+  const rows = issueData.hot.map(r => issueData.byRank.get(r)).map(p => `<li><a ${linkAttrs(p.url)}>
+      ${srcBadge(p.source)}<span class="t">${escHtml(cleanTitle(p.title))}</span>${Number(p.comments) > 0 ? `<span class="r">💬 ${fmtNum(p.comments)}</span>` : ''}</a></li>`).join('');
+  return `<p>어느 이슈에도 묶이지 않은 글 중 커뮤니티마다 1~2위인 글, 댓글 많은 순이에요.</p><ul>${rows}</ul>`;
+}
+
+// 머리줄: '오전 8:20 기준 · 17개 커뮤니티 글 265개' (+ 글이 적은 시간 · 변화 추이 안내)
+// 기준 시각은 바로 앞 배지('n분 전 갱신')와 같은 데이터 시각(last_updated). issues.as_of 는 원본 목록이 그대로여도
+// 실행마다 새로 계산한 시각이라 배지와 어긋나므로 last_updated 가 없을 때만 쓴다
+function renderIssuesSub() {
+  const D = issueData;
+  const lu = parseIsoMs(fullData.last_updated);
+  const t = lu !== null ? lu : D.asOf;
+  const parts = [];
+  if (t !== null) parts.push(`${escHtml(kstClockLabel(t))} 기준`);
+  if (D.posts > 0) parts.push(`${D.communities}개 커뮤니티 글 ${D.posts}개`);   // 글 0개면 보드 안내가 대신 말한다
+  let html = parts.join(' · ');
+  if (D.lowData && D.posts > 0) html += ' <span class="thin">지금은 글이 적은 시간</span>';
+  // 배지는 점수 이력이 3번(원본 목록은 약 1시간마다 바뀜) 쌓여야 켜진다 — '다음 갱신'이 아닐 수 있다
+  if (D.ok && !D.badges && D.items.length) html += ' · 변화 추이는 몇 시간 뒤부터';
+  document.getElementById('issues-asof').innerHTML = html;
+}
+
+// 넓은 화면 상세 패널에 보일 이슈: 사용자가 고른 것, 없으면 1위
+function panelIssue() {
+  return issueData.items.find(i => i.id === issueSel) || issueData.items[0] || null;
+}
+
+function renderIssues() {
+  const D = issueData;
+  const wide = WIDE_MQ.matches;
+  renderIssuesSub();
+
+  // 보고 있던 이슈(넓은 화면: 고른 이슈, 모바일: 펼친 이슈)가 새 데이터에서 빠졌으면 조용히 바꾸지 않고 알린다
+  const has = id => D.items.some(i => i.id === id);
+  const watching = wide ? issueSel : issueOpen;
+  if (watching !== null && !has(watching)) issueGone = issueNames.get(watching) || '이전 이슈';
+  if (!has(issueSel)) issueSel = null;
+  if (!has(issueOpen)) issueOpen = null;
+  issueNames = new Map(D.items.map(i => [i.id, i.name]));
+  const limit = wide ? ISSUE_LIMIT_WIDE : ISSUE_LIMIT_NARROW;
+  // 보고 있던 이슈가 기본 개수 밖으로 밀렸으면 목록을 펼쳐 계속 보이게 한다
+  const picked = wide ? issueSel : issueOpen;
+  if (picked !== null && D.items.findIndex(i => i.id === picked) >= limit) issuesShowAll = true;
+  const shown = issuesShowAll ? D.items : D.items.slice(0, limit);
+  const gone = document.getElementById('issue-gone');
+  gone.hidden = !issueGone;
+  const goneHtml = issueGone ? `보던 이슈가 목록에서 빠졌어요: <b>${escHtml(issueGone)}</b>` : '';
+  if (goneHtml !== lastGoneHtml) {   // role=status — 바뀔 때만 다시 쓴다
+    gone.innerHTML = goneHtml;
+    lastGoneHtml = goneHtml;
   }
 
-  const title = document.getElementById('ai-summary-title');
-  const titleText = kstDateStr(t) === kstDateStr(Date.now()) ? '✨ 오늘의 커뮤니티 요약' : '✨ 최근 커뮤니티 요약';
-  if (title && title.textContent !== titleText) title.textContent = titleText;
-  box.style.display = 'block';
-  textEl.textContent = summary;
-  textEl.classList.remove('loading');
+  const list = document.getElementById('issue-list');
+  const empty = document.getElementById('issues-empty');
+  const more = document.getElementById('more-btn');
+  const hb = document.getElementById('hot-btn');
+  const hot = document.getElementById('hot');
+  const panel = document.getElementById('issue-panel');
+
+  keepIssueFocus(() => {
+    list.innerHTML = shown.map((it, k) => issueRowHTML(it, k, wide)).join('');
+    list.setAttribute('aria-busy', 'false');
+
+    empty.textContent = !(fullData.posts || []).length ? '아직 모인 글이 없어요. 10분마다 자동으로 수집합니다.'
+      : !D.ok ? '이슈 정보가 아직 없어요. 다음 갱신 때 다시 확인해 주세요.'
+      : '아직 여러 곳에 퍼진 이슈가 없어요.';
+    empty.hidden = D.items.length > 0;
+
+    more.hidden = D.items.length <= limit;
+    more.innerHTML = issuesShowAll ? '접기 ▴' : `이슈 <span class="cnt">${D.items.length - limit}</span>개 더 ▾`;
+    more.setAttribute('aria-expanded', String(issuesShowAll && !more.hidden));
+
+    if (hotOpen === null) hotOpen = D.items.length < 5;   // 첫 렌더에서 정하고 고정 — 자동 갱신으로 저절로 접히지 않게
+    const open = D.hot.length > 0 && hotOpen;
+    hb.hidden = !D.hot.length;
+    hb.innerHTML = `여기서만 뜨거운 글 <span class="cnt">${D.hot.length}</span> ${open ? '▴' : '▾'}`;
+    hb.setAttribute('aria-expanded', String(open));
+    hot.hidden = !open;
+    hot.innerHTML = D.hot.length ? hotHTML() : '';
+    document.getElementById('list-foot').hidden = more.hidden && hb.hidden;
+
+    const sel = wide ? panelIssue() : null;
+    const panelHtml = sel ? `<div class="detail">${issueDetailHTML(sel, true)}</div>` : '';
+    if (panelHtml !== lastPanelHtml) {
+      panel.innerHTML = panelHtml;
+      lastPanelHtml = panelHtml;
+    }
+    panel.parentElement.classList.toggle('no-panel', !panelHtml);
+  });
+}
+
+// 다시 그리기 전 포커스 위치를 기억했다가 같은 요소(이슈 id·링크 주소 기준)로 되돌린다.
+// 그 요소가 없어졌으면(보던 이슈가 목록에서 빠짐 등) 같은 상자의 첫 버튼·링크 → 이슈 첫 줄·목록 아래 버튼 → 보드 제목
+function keepIssueFocus(draw) {
+  const a = document.activeElement;
+  const box = a && a.closest ? a.closest('#issue-list, #issue-panel, #hot') : null;
+  const key = box ? [a.tagName, a.dataset.id || '', a.dataset.feed || '', a.getAttribute('href') || ''] : null;
+  draw();
+  if (!key || (document.activeElement && document.activeElement !== document.body)) return;
+  const again = Array.from(box.querySelectorAll('button, a')).find(el => el.tagName === key[0] &&
+    (el.dataset.id || '') === key[1] && (el.dataset.feed || '') === key[2] && (el.getAttribute('href') || '') === key[3]);
+  const alt = again || [...box.querySelectorAll('button, a'), ...document.querySelectorAll('#issue-list .issue-row, #list-foot button')]
+    .find(el => el.getClientRects().length > 0) || document.getElementById('issues-h');
+  alt.focus({ preventScroll: true });
+}
+
+function focusIssueRow(id) {
+  const row = Array.from(document.querySelectorAll('#issue-list .issue-row')).find(b => b.dataset.id === id);
+  if (row) row.focus({ preventScroll: true });
+}
+
+// 데이터를 못 받았을 때 보드의 스켈레톤을 안내 한 줄로 바꾼다
+function renderIssuesError() {
+  const list = document.getElementById('issue-list');
+  list.innerHTML = '';
+  list.setAttribute('aria-busy', 'false');
+  const empty = document.getElementById('issues-empty');
+  empty.textContent = '데이터를 불러오지 못했어요.';
+  empty.hidden = false;
+  document.querySelector('.issues-body').classList.add('no-panel');
+}
+
+// AI 요약: 보드 아래 한 줄 + [전체 보기]. 하루 넘게 지난 요약은 숨긴다 (Gemini 실패가 이어질 때)
+function renderAiLine() {
+  const line = document.getElementById('ai-line');
+  const txt = document.getElementById('ai-txt');
+  const summary = typeof fullData.ai_summary === 'string' ? fullData.ai_summary.trim() : '';
+  const t = parseIsoMs(fullData.ai_summary_updated);
+  if (!summary || t === null || Date.now() - t > AI_SUMMARY_MAX_AGE_MS) {
+    line.hidden = true;
+    return;
+  }
+  line.hidden = false;
+  if (txt.textContent !== summary) txt.textContent = summary;
+  paintAiLine();
   updateAiSummaryTime();
 }
 
+function paintAiLine() {
+  const btn = document.getElementById('ai-btn');
+  document.getElementById('ai-line').classList.toggle('open', aiOpen);
+  btn.textContent = aiOpen ? '접기' : '전체 보기';
+  btn.setAttribute('aria-expanded', String(aiOpen));
+}
+
 function updateAiSummaryTime() {
-  const el = document.getElementById('ai-summary-updated');
+  const el = document.getElementById('ai-lbl');
   if (!el || !fullData) return;
   const rel = formatDate(fullData.ai_summary_updated);
-  const text = rel ? `${rel} 갱신` : '';
+  const text = rel ? `✨ AI 요약 · ${rel}` : '✨ AI 요약';
   if (el.textContent !== text) el.textContent = text;
 }
 
@@ -1145,88 +1467,9 @@ function renderLoadError() {
       <div>데이터를 불러오지 못했습니다.</div>
       <button type="button" class="refresh-btn" data-action="retry">다시 시도</button>
     </div>`;
+  renderIssuesError();
   const txt = document.getElementById('status-text');
   if (txt) txt.textContent = '불러오기 실패';
-}
-
-// 급상승은 원본 목록이 두 번 이상 바뀌어야 계산된다. 그 뒤에도 비어 있으면 '없음'이 사실이다
-function risingReady() {
-  return (Number(fullData && fullData.crawl_count) || 0) >= 2;
-}
-
-function renderRising(rising) {
-  const list = document.getElementById('rising-list');
-  if (!rising.length) {
-    list.innerHTML = risingReady()
-      ? '<li><span class="muted-note">지금은 급상승 키워드가 없습니다.</span></li>'
-      : '<li><span class="muted-note">데이터 수집 중… (2회 이상 수집 후 표시)</span></li>';
-    return;
-  }
-  list.innerHTML = rising.slice(0, 10).map((item, i) => `
-    <li>
-      <span class="rising-rank ${i < 3 ? 'top3' : ''}">${i+1}</span>
-      <span class="rising-word">${escHtml(item.word)}</span>
-      <span class="rising-vel">+${escHtml(Number(item.velocity) || 0)}</span>
-      <span class="rising-count">${escHtml(Number(item.count) || 0)}회</span>
-    </li>
-  `).join('');
-}
-
-function renderWordCloud(top, rising) {
-  const cloud = document.getElementById('word-cloud');
-  // 갱신으로 다시 그릴 때 키보드 포커스를 같은 단어로 되돌리기 위해 기억
-  const focused = document.activeElement && document.activeElement.classList.contains('word-tag')
-    ? document.activeElement.dataset.word : null;
-
-  // 현재 포스트에 실제로 있는 단어만 표시 (히스토리에만 있고 현재 없는 단어 제거)
-  const posts = (fullData && fullData.posts) || [];
-  const validTop = top.filter(item =>
-    item && typeof item.word === 'string' && item.word &&
-    posts.some(p => postText(p).includes(item.word))
-  ).slice(0, 40);
-
-  if (!validTop.length) {
-    cloud.innerHTML = '<span class="muted-note">아직 표시할 단어가 없습니다.</span>';
-    return;
-  }
-
-  const maxScore = Math.max(...top.map(t => Number(t && t.score) || 0), 1);
-  const risingMap = new Map(rising.map(r => [r.word, Number(r.velocity) || 0]));
-
-  cloud.innerHTML = validTop.map((item, i) => {
-    const ratio = (Number(item.score) || 0) / maxScore;
-    const size = ratio > 0.7 ? 'size-3' : ratio > 0.4 ? 'size-2' : 'size-1';
-    const isRising = risingMap.has(item.word);
-    const [bg, col] = isRising ? WORD_RISING_COLOR : WORD_COLORS[i % WORD_COLORS.length];
-    const tooltip = `${Number(item.count) || 0}회 언급${isRising ? ` · 급상승 +${risingMap.get(item.word)}` : ''}`;
-    const prefix = isRising ? '▲ ' : '';
-    return `<button type="button" class="word-tag ${size}${isRising ? ' rising' : ''}"
-      data-word="${escHtml(item.word)}" aria-pressed="false"
-      style="background:${bg};color:${col};border-color:${col}44"
-      title="${escHtml(tooltip)}">${prefix}${escHtml(item.word)}</button>`;
-  }).join('');
-
-  if (focused) {
-    const again = Array.from(cloud.querySelectorAll('.word-tag')).find(b => b.dataset.word === focused);
-    if (again) again.focus();
-  }
-}
-
-function renderTicker(rising) {
-  const ticker = document.getElementById('ticker');
-  if (!rising.length) {
-    ticker.classList.add('static');
-    ticker.innerHTML = risingReady()
-      ? '<span class="ticker-item">지금은 급상승 키워드가 없습니다</span>'
-      : '<span class="ticker-item">급상승 키워드 수집 중…</span>';
-    return;
-  }
-  const items = rising.slice(0, 10).map(r =>
-    `<span class="ticker-item"><span class="arrow">▲</span><span class="word">${escHtml(r.word)}</span> (+${escHtml(Number(r.velocity) || 0)})</span>`
-  ).join('');
-  // 반복을 위해 두 번
-  ticker.classList.remove('static');
-  ticker.innerHTML = items + items;
 }
 
 // ── 상태 업데이트 ─────────────────────────────────────────────────────────────
@@ -1261,15 +1504,15 @@ function updateStatus() {
   updateAiSummaryTime();
 }
 
-// ── 탭/칩/단어 전환 ───────────────────────────────────────────────────────────
-// 탭과 커뮤니티 칩은 둘 중 하나만 선택된다. 탭·칩을 바꾸면 단어 필터는 해제하고,
-// 단어 필터는 현재 탭·칩 결과 안에서 적용한다. 자동 갱신은 세 상태를 모두 유지한다.
+// ── 탭/칩/이슈 전환 ───────────────────────────────────────────────────────────
+// 탭과 커뮤니티 칩은 둘 중 하나만 선택된다. 이슈 필터('모두 보기')는 탭·칩과 함께 걸리고
+// 필터 막대의 ✕ 로만 풀린다. '모두 보기'를 누르면 이슈 글 N개가 모두 보이도록 탭·칩은 초기화한다.
+// 자동 갱신은 세 상태를 모두 유지한다 (이슈는 id 로).
 
 function switchCat(tab) {
   if (tab !== 'all' && !TAB_FILTERS[tab]) return;
   currentTab = tab;
   currentSrc = '';
-  activeWordFilter = null;
   paintSelection();
   applyFilters();
 }
@@ -1277,15 +1520,40 @@ function switchCat(tab) {
 function switchSrc(src) {
   currentSrc = src || '';
   currentTab = 'all';
-  activeWordFilter = null;
   paintSelection();
   applyFilters();
 }
 
-// 같은 단어를 다시 누르거나 null 이면 해제
-function filterByWord(word) {
-  activeWordFilter = (!word || word === activeWordFilter) ? null : word;
+// 모바일은 그 자리에서 펼침(한 번에 하나), 넓은 화면은 오른쪽 패널을 바꾼다
+function toggleIssue(id) {
+  if (WIDE_MQ.matches) issueSel = id;
+  else issueOpen = issueOpen === id ? null : id;
+  issueGone = '';     // 다른 이슈를 골랐으니 '보던 이슈가 빠졌어요' 안내는 지운다
+  renderIssues();
+  focusIssueRow(id);
+}
+
+// '이 이슈 글 N개 모두 보기' → 피드를 그 이슈 글로만 거르고, 피드로 스크롤해 필터 막대에 포커스
+function filterByIssue(id) {
+  const it = issueData && issueData.items.find(i => i.id === id);
+  if (!it) return;
+  activeIssue = { id: it.id, name: it.name, ranks: null, urls: new Set(), gone: false };
+  currentTab = 'all';
+  currentSrc = '';
+  paintSelection();
+  document.getElementById('cat-tabs').scrollLeft = 0;    // 가로로 밀려 있던 탭·칩 줄도 '전체'가 보이게
+  document.getElementById('src-chips').scrollLeft = 0;
   applyFilters();
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.getElementById('feed').scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' });
+  document.getElementById('filter-bar').focus({ preventScroll: true });
+}
+
+// 필터 막대가 사라지므로 포커스는 피드 제목으로
+function clearIssueFilter() {
+  activeIssue = null;
+  applyFilters();
+  document.getElementById('feed-h').focus({ preventScroll: true });
 }
 
 // ── 수동 새로고침 (정적 JSON 재조회만 — 크롤링은 서버가 10분마다 수행) ─────────
@@ -1356,12 +1624,37 @@ function bindEvents() {
   document.querySelector('main').addEventListener('click', e => {
     const btn = e.target.closest('button');
     if (!btn) return;
-    if (btn.classList.contains('cat-btn'))       switchCat(btn.dataset.tab);
-    else if (btn.classList.contains('src-chip')) switchSrc(btn.dataset.src);
-    else if (btn.classList.contains('word-tag')) filterByWord(btn.dataset.word);
-    else if (btn.dataset.action === 'clear-word') filterByWord(null);
+    if (btn.classList.contains('cat-btn'))        switchCat(btn.dataset.tab);
+    else if (btn.classList.contains('src-chip'))  switchSrc(btn.dataset.src);
+    else if (btn.classList.contains('issue-row')) toggleIssue(btn.dataset.id);
+    else if (btn.dataset.feed)                    filterByIssue(btn.dataset.feed);
+    else if (btn.dataset.action === 'clear-issue') clearIssueFilter();
     else if (btn.dataset.action === 'retry')      manualRefresh();
+    else if (btn.id === 'more-btn') {
+      issuesShowAll = !issuesShowAll;
+      // 접으면 기본 개수 밖에서 고른·펼친 이슈는 푼다 (안 보이는 줄이 고른 채로 남거나 renderIssues 가 다시 펼치지 않게)
+      if (!issuesShowAll && issueData) {
+        const pos = id => issueData.items.findIndex(i => i.id === id);
+        if (pos(issueSel) >= ISSUE_LIMIT_WIDE) issueSel = null;
+        if (pos(issueOpen) >= ISSUE_LIMIT_NARROW) issueOpen = null;
+      }
+      if (fullData) renderIssues();
+    } else if (btn.id === 'hot-btn' && issueData) {
+      hotOpen = !hotOpen;
+      renderIssues();
+    } else if (btn.id === 'ai-btn') {
+      aiOpen = !aiOpen;
+      paintAiLine();
+    } else if (btn.id === 'how-btn') {
+      const panel = document.getElementById('how-panel');
+      panel.hidden = !panel.hidden;
+      btn.setAttribute('aria-expanded', String(!panel.hidden));
+    }
   });
+  // 화면 폭이 넓은/좁은 기준을 넘으면 펼침 방식(패널 ↔ 아코디언)이 바뀌므로 다시 그린다
+  const onWide = () => { if (fullData) renderIssues(); };
+  if (WIDE_MQ.addEventListener) WIDE_MQ.addEventListener('change', onWide);
+  else if (WIDE_MQ.addListener) WIDE_MQ.addListener(onWide);
 }
 
 // ── 유틸 ─────────────────────────────────────────────────────────────────────
@@ -1481,6 +1774,43 @@ function formatDate(s, now = Date.now()) {
   if (diff < 3600000) return `${Math.floor(diff / 60000)}분 전`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}시간 전`;
   return md;
+}
+
+// 이슈 시작 시각 → '25분 전 시작' / '14시간째' / '2일째' (날짜만 있는 값은 '')
+function sinceLabel(s, now = Date.now()) {
+  const t = parseIsoMs(s);
+  if (t === null) return '';
+  const m = Math.max(0, Math.round((now - t) / 60000));
+  if (m < 60) return `${m}분 전 시작`;
+  if (m < 1440) return `${Math.floor(m / 60)}시간째`;
+  return `${Math.floor(m / 1440)}일째`;
+}
+
+// ISO → KST '오늘 08:56' / '어제 18:22' / '9/21 07:10' (날짜만 있는 값은 '')
+function clockLabel(s, now = Date.now()) {
+  const t = parseIsoMs(s);
+  if (t === null) return '';
+  const hm = kstDateTimeStr(t).slice(11);
+  const d = kstDateStr(t);
+  if (d === kstDateStr(now)) return `오늘 ${hm}`;
+  if (d === kstDateStr(now - 86400000)) return `어제 ${hm}`;
+  const k = new Date(t + KST_OFFSET_MS);
+  return `${k.getUTCMonth() + 1}/${k.getUTCDate()} ${hm}`;
+}
+
+// epoch ms → KST '오전 8:20' (오늘이 아니면 '9/23 오후 11:15')
+function kstClockLabel(ms, now = Date.now()) {
+  const k = new Date(ms + KST_OFFSET_MS);
+  const h = k.getUTCHours();
+  const hm = `${h < 12 ? '오전' : '오후'} ${h % 12 || 12}:${String(k.getUTCMinutes()).padStart(2, '0')}`;
+  return kstDateStr(ms) === kstDateStr(now) ? hm : `${k.getUTCMonth() + 1}/${k.getUTCDate()} ${hm}`;
+}
+
+// 보드에 보여 줄 제목: 끝의 확장자 표기(.jpg 등)와 ㅋㅋ·..·~~·!! 같은 꼬리를 뗀다
+function cleanTitle(t) {
+  const s = String(t || '');
+  return s.replace(/\.+\s*(jpg|jpeg|jpf|gif|png|mp4|twt|txt|webp)\b/ig, '')
+    .replace(/(\s*[ㄱ-ㅎㅏ-ㅣ]{2,}|\s*\.{2,}|\s*~+|\s*!{2,}|\s*\?{2,})+\s*$/, '').trim() || s;
 }
 
 let toastTimer = null;
