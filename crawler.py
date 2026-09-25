@@ -1,11 +1,15 @@
 """
 Korean internet community trend crawler.
 주 경로: TodayBestStory API(21개 커뮤니티 베스트 전량).
-API 결과가 부족하면 일부 커뮤니티 베스트 목록을 직접 스크래핑한다(fallback).
+예비 경로(커뮤니티 단위): TBS에서 빠졌거나(missing) 갱신이 멈춘(degraded) 커뮤니티만
+  직접 스크래핑(fallback)과 이슈링크(sources_issuelink.py, 2차 소스)로 채운다.
+  TBS 글이 아주 적은 커뮤니티(오유 등)는 평소에도 이슈링크로 보탠다.
+커뮤니티별 수집 상태는 source_health로 남기고, KST 02~12시에는 당일 글이 모자란 칸만 전날 상위 글로 채운다.
 랭킹한 글을 issues.py가 '지금 뜨는 이슈'(여러 커뮤니티에 퍼진 이야기)로 묶는다.
 """
 
 import hashlib
+import inspect
 import json
 import math
 import re
@@ -14,7 +18,7 @@ import random
 import threading
 import requests
 from bs4 import BeautifulSoup
-from collections import Counter
+from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone, timedelta
 from urllib.parse import urljoin, urlparse
@@ -50,6 +54,17 @@ def _fmt_dt(dt: datetime) -> str:
     return dt.astimezone(KST).strftime('%Y-%m-%dT%H:%M:%S+09:00')
 
 
+def _parse_iso_dt(value):
+    """ISO 8601 → aware datetime. 'Z'는 UTC, 오프셋이 없으면 KST로 본다. 형식이 틀리면 None."""
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=KST)
+
+
 def _url_key(url: str) -> str:
     """같은 글의 URL 변형(?page=2, &p=1, 게시판 경로 차이)을 하나로 묶는 중복 제거 키."""
     u = urlparse(url)
@@ -68,18 +83,37 @@ def _url_key(url: str) -> str:
     return f'{host}{u.path}?{u.query}'
 
 
+TITLE_KEY_MIN = 5   # 공백·기호를 뺀 제목이 이보다 짧으면 제목으로 같은 글을 찾지 않는다 (짧은 제목은 다른 글끼리 겹친다)
+
+
+def _title_key(p: dict) -> str:
+    """같은 커뮤니티의 같은 글을 제목으로 알아보는 키 ('source|공백·기호를 뺀 소문자 제목', 짧으면 '').
+    경로마다 글 번호가 다른 곳용 — SLR·보배드림은 TBS(베스트 게시판 번호: id=best_article&no=673740)와
+    이슈링크(원래 게시판 번호: id=free&no=41756037)가 같은 글을 다른 URL로 준다"""
+    t = re.sub(r'[\W_]+', '', str(p.get('title') or '')).lower()
+    return f"{p.get('source')}|{t}" if len(t) >= TITLE_KEY_MIN else ''
+
+
 # ── TodayBestStory API ─────────────────────────────────────────────────────────
 
 TBS_API_URL = 'https://todaybeststory.com/api/v2/communities/posts/range'
 TBS_PAGE_LIMIT = 100   # API 최대값 (그 이상은 400)
+# 실행마다 limit을 100/99로 번갈아 쓴다(분÷10 홀짝). TBS 응답은 URL별로 약 10분 캐시돼서, 같은 URL이면
+# HH:10 실행이 직전(HH:00) 실행이 만든 캐시를 다시 읽고 끝난다(2026-09-24 측정: 처음 쓴 limit URL은 새 값)
+TBS_PAGE_LIMITS = (TBS_PAGE_LIMIT, TBS_PAGE_LIMIT - 1)
 TBS_MAX_PAGES = 30     # 안전 상한 (하루 1300~2000건 → 13~20페이지)
 # 초. 넘으면 페이지 넘기기를 멈추고 받은 만큼 쓴다. 마감 직전 페이지가 최악(15초×2회+대기 2초)으로 걸려도
 # 호출부 hard timeout 90초 안에 끝나야 받은 페이지를 잃지 않는다 (평소 16페이지 약 8초)
 TBS_DEADLINE = 55
-TBS_MIN_POSTS = 50     # TBS 결과가 이보다 적거나
-TBS_MIN_SOURCES = 8    # 커뮤니티 수가 이보다 적으면 직접 스크래핑을 보탠다
+# KST 이 시각 전에는 TBS를 전날·오늘 같이 받는다(자정 직후 오늘 목록이 작아서). 전날 상위 글 저장(오전 보충)과
+# build.py의 전날 데일리 최종본(DAILY_FINAL_END_HOUR)이 이 시간대를 같이 쓴다
+MERGE_PREV_END_HOUR = 2
+TBS_MIN_POSTS = 50     # 끝까지 받았어도 TBS 결과가 이보다 적거나
+TBS_MIN_SOURCES = 8    # 커뮤니티 수가 이보다 적으면 25개를 못 채운 커뮤니티 전부를 예비 경로로 보탠다 (보조 조건)
 
-# communityId → (source id, 라벨, 이모지, 색)
+# communityId → (source id, 라벨, 이모지, 색).
+# 일베(ILB)는 2024-08 이후 TBS 전체 DB에 글이 0건이라 뺐다(2026-09 확인) — 수집 커뮤니티는 21곳.
+# 다시 나오면 아래 '새로 추가된 커뮤니티' 분기가 API 이름으로 받는다
 COMMUNITY_ID_MAP = {
     'FMK': ('fmkorea', 'FMKorea', '🔥', '#ff6b35'),
     'DCI': ('dcinside', '디시인사이드', '🎭', '#0066cc'),
@@ -96,7 +130,6 @@ COMMUNITY_ID_MAP = {
     'DOG': ('dogdrip', '개드립', '🐶', '#00b894'),
     'ETO': ('etoland', '이토랜드', '🎯', '#fd79a8'),
     'GAS': ('gasengi', '가생이닷컴', '🌏', '#e84393'),
-    'ILB': ('ilbe', '일베', '⚡', '#636e72'),
     'INV': ('inven', '인벤', '⚔️', '#d35400'),
     'PPO': ('ppomppu', '뽐뿌', '💰', '#27ae60'),
     'SLR': ('slrclub', 'SLR클럽', '📷', '#2980b9'),
@@ -108,11 +141,63 @@ SOURCE_META = {v[0]: v[1:] for v in COMMUNITY_ID_MAP.values()}   # source id →
 
 # TBS readCount가 실제 조회수가 아닌 소스 (FMK는 37만~95만 1만 단위 계단값) → 조회수 0으로 두고 순위·추천·댓글로만 평가
 SYNTHETIC_VIEW_SOURCES = {'FMK'}
+# 같은 커뮤니티 source id. 이슈링크 글(실제 조회수)도 조회수를 0으로 둔다 — 한 커뮤니티에 TBS 글(0)과 섞이면
+# _assign_ranks가 그 커뮤니티를 '조회수 있음'으로 보고 TBS 글을 조회수 0점으로 뒤로 민다
+SYNTHETIC_VIEW_SOURCE_IDS = {COMMUNITY_ID_MAP[c][0] for c in SYNTHETIC_VIEW_SOURCES if c in COMMUNITY_ID_MAP}
 
 
-# ── 직접 스크래핑 (TBS 결과가 부족할 때만) ────────────────────────────────────
+# ── 커뮤니티별 수집 상태 (source_health) ──────────────────────────────────────
+# status: ok | degraded(TBS 갱신 멈춤) | missing(있어야 할 시각인데 TBS에 당일 글 없음) | blocked(TBS가 못 주고 직접 수집도 차단)
+HEALTH_STALE_MIN = 90     # TBS에서 이 시간(분) 넘게 갱신(updateDatetime)이 없는 커뮤니티는 degraded
+HEALTH_FROM_HOUR = 6      # degraded·stale-source는 KST 06~24시에만 판정한다
+# '이 시각(KST)부터는 TBS에 당일 글이 있어야 정상'인 고정 기대치. 2026-09-22~25 커뮤니티별 TBS 첫 수집 시각
+# (creationDatetime 최솟값)의 가장 늦은 날 기준. 날마다 거의 같은 곳(에펨·클리앙 등 00시대, 디시·뽐뿌 01시대)은 2~3시간,
+# 날마다 크게 흔들리는 곳은 4시간 여유를 둔다(인스티즈 01:11~06:11, 와이고수 00:06~06:06, 보배 01~05시, SLR 07~11시,
+# 웃대 10~14시 — 3일치 + 2시간으로 잡았던 06시는 09-25 인스티즈·와이고수 06시대 첫 수집에서 missing 오탐이 났다).
+# 02시 전(전날 목록을 같이 받는 시간)에는 None이 아닌 곳 전부.
+# None: 하루 글이 1~14건뿐이라(오유·가생이·인벤) 당일 글이 없어도 정상 — missing으로 보지 않는다
+EXPECTED_BY_HOUR = {
+    'fmkorea': 2, 'mlbpark': 2, 'clien': 2, 'etoland': 2, 'dogdrip': 2, 'natekorea': 2, 'arcalive': 2, 'cook82': 2,
+    'dcinside': 4, 'ppomppu': 4,
+    'ruliweb': 6, 'theqoo': 6,
+    'bobaedream': 9, 'instiz': 10, 'ygosu': 10, 'ddanzi': 13, 'slrclub': 15, 'humoruniv': 18,
+    'todayhumor': None, 'gasengi': None, 'inven': None,
+}
+PARTIAL_MIN_PROBLEMS = 3  # TBS에서 빠지거나(missing) 멈춘(degraded) 기대 커뮤니티가 이만큼 이상이면 status partial
+# TBS가 온전하지 않을 때(장애·중간 끊김) 새 결과를 채택하는 절대 기준. 못 넘으면 이전 목록을 유지(stale).
+# 넘으면 채택하고, 이번에 빠진 커뮤니티는 이전 글을 유지해 병합한다(kept)
+FALLBACK_MIN_SOURCES = 6
+FALLBACK_MIN_POSTS = 150
+ISSUELINK_THIN = 5              # 결정 2-b: TBS 글이 이보다 적은 커뮤니티(오유 등)는 평소에도 이슈링크로 보탠다
+                                # (KST 02~12시 오전 보충 중에는 어제 글이 넉넉했던 커뮤니티를 빼고 — 그 칸은 전날 상위 글이 채운다)
+ISSUELINK_THIN_EVERY_MIN = 30   # 2-b 커뮤니티를 이슈링크에서 다시 받는 간격(분, 2-a가 같이 있어도). 그 사이에는 직전에 받은 글을 다시 쓴다
+ISSUELINK_TIMEOUT = 45          # 이슈링크 호출 hard timeout(초). 모듈 자체 상한(약 20초) 위의 안전망
+ISSUELINK_CACHE_MAX = 1000      # state에 남기는 이슈링크 원본 URL 캐시 항목 상한
+VIA_ORDER = ('tbs', 'direct', 'issuelink')
+MAX_PER_SOURCE = 25             # 커뮤니티당 게시 글 상한 (_assign_ranks)
+
+# 오전 보충(결정 1): 00~02시에 받은 전날 커뮤니티별 상위 글을 state에 두고, 02시 이후 당일 글이
+# MAX_PER_SOURCE개에 못 미치는 커뮤니티 칸만 채운다('어제' 표시, prev_day). 당일 글만으로
+# 19곳·350건이 되거나 KST 12시가 되면 그날은 끝낸다
+PREV_DAY_DONE_SOURCES = 19
+PREV_DAY_DONE_POSTS = 350
+PREV_DAY_END_HOUR = 12
+PREV_DAY_FIELDS = ('title', 'url', 'source', 'source_label', 'source_emoji', 'source_color', 'views', 'likes',
+                   'comments', 'date', 'summary', 'author', 'rank_score', 'via', 'is_food', 'is_beauty',
+                   'is_fashion', 'is_travel', 'is_game', 'is_celeb', 'is_humor', 'is_car')
+
+# 전체 status — ok | partial(TBS가 일부만 옴: 끊김·장애·기대 커뮤니티 여럿 빠짐/멈춤, 예비 경로로 채우고 이전 글 병합)
+# | stale(수집 실패로 이전 목록 유지) | stale-source(TBS 전체 갱신이 HEALTH_STALE_MIN분 넘게 멈춤)
+STATUSES = ('ok', 'partial', 'stale', 'stale-source')
+HEALTH_STATUSES = ('ok', 'degraded', 'missing', 'blocked')
+
+
+# ── 직접 스크래핑 (TBS에서 빠졌거나 멈춘 커뮤니티만) ──────────────────────────
 # 행(row_sel) 단위로 파싱해서 제목·조회수·날짜가 항상 같은 글에서 나오게 한다.
-# 인스티즈(Cloudflare 403)·FMKorea(430 보안 페이지)는 requests로 못 받아서 TBS에만 맡긴다.
+# 인스티즈(Cloudflare 챌린지 'Just a moment')·FMKorea(430 보안 페이지)는 해외 IP(GitHub Actions 등) 기준으로
+# requests로 못 받아서 TBS·이슈링크에 맡긴다. 오유·더쿠·웃대도 해외 IP에서는 막히는 것으로 측정됐지만
+# (403·'보안 검사중'·msg.html, 2026-09-24 GCP·Hetzner 측정) 결정 3(되는 동안은 쓴다)에 따라 남겨 두고,
+# 막히면 source_health에 blocked로 남긴다.
 #   title_sel  행 안의 글 링크(href 사용)      text_sel   링크 안의 제목 요소(없으면 링크 텍스트)
 #   strip_sel  제목에서 지울 요소(댓글 수 등)   date_attr  날짜를 텍스트 대신 속성에서 읽기
 #   date_from_title  날짜 칸이 없어 페이지 <title>의 'YYYY.MM.DD'를 쓴다
@@ -190,14 +275,15 @@ COMMUNITY_SOURCES = [
     {
         'id': 'natekorea',
         'pages': [
-            'https://pann.nate.com/talk/ranking/d',
+            # '톡커들의 선택'(최근 인기글). 일간 랭킹(/talk/ranking/d)은 끝난 날짜만 있어 전날 랭킹을 주고,
+            # ?stdt=<오늘>은 빈 목록이다(2026-09-25 오전 확인). 날짜 칸이 없어 date는 ''
+            'https://pann.nate.com/talk/ranking',
         ],
         'row_sel': 'div.cntList ul li',
         'title_sel': 'dt h2 a[href^="/talk/"]',
         'view_sel': 'dd.info span.count',
         'like_sel': 'dd.info span.rcm',
         'summary_sel': 'dd.txt',
-        'date_from_title': True,   # '명예의 전당 일간 랭킹 : 2026.09.22'
     },
     {
         'id': 'humoruniv',
@@ -244,6 +330,26 @@ COMMUNITY_SOURCES = [
 NOTICE_TITLE_RE = re.compile(r'^\s*[\[【(<]\W{0,3}(공지|필독|이벤트|광고|홍보|AD)')
 NOTICE_URL_RE = re.compile(r'/event/|/annonce/|/rule/|[?&]b=notice|event_notice')
 COMMENT_LINK_RE = re.compile(r'^[\[(]?\d+[\])]?$')   # 댓글 수 링크('[19]', '(5)')
+
+# 직접 스크래핑 차단 페이지 표시 (HTTP 200으로 온다). 정상 목록에도 챌린지 스크립트 흔적이 섞여 있어(오유 국내 응답)
+# 행을 하나도 못 읽었을 때만 이유를 붙이는 데 쓴다
+BLOCK_MARKERS = ('Just a moment', '보안 검사', '보안 시스템')
+BLOCK_REDIRECT_RE = re.compile(rb"""location\.(?:replace|href)\s*\(?\s*=?\s*['"][^'"]*msg\.html""")
+
+
+def detect_block(content: bytes, url: str = '') -> str:
+    """차단·챌린지 페이지로 보이면 그 이유, 아니면 ''. (Cloudflare 'Just a moment', 더쿠 '보안 검사중',
+    웃대 msg.html 리다이렉트 등 — 행 0개와 같이 쓴다)"""
+    if 'msg.html' in (url or ''):
+        return 'msg.html 리다이렉트'
+    head = (content or b'')[:60000]
+    if BLOCK_REDIRECT_RE.search(head):
+        return 'msg.html 리다이렉트'
+    for marker in BLOCK_MARKERS:
+        for enc in ('utf-8', 'cp949'):
+            if marker.encode(enc) in head:
+                return marker
+    return ''
 
 FOOD_WORDS = {
     '맛집', '카페', '음식', '요리', '디저트', '한식', '브런치', '레스토랑', '맛있',
@@ -304,14 +410,20 @@ CATEGORY_EXCLUDE_RE = re.compile('|'.join(map(re.escape, [
     '운동권', '시민운동', '학생운동', '독립운동', '노동운동',
 ])))
 
-HISTORY_SIZE = 6   # post_score_history 라운드 수 (이슈 신규·급상승·+N 판정, post_velocity)
+HISTORY_SIZE = 6   # post_score_history 라운드 수 상한 (이슈 신규·급상승·+N 판정, post_velocity)
+# 점수 이력은 TBS를 끝까지 받은 라운드만 넣고, 직전 칸이 이 시간(분) 안에 시작했으면 새 칸 대신 덮어쓴다.
+# TBS는 커뮤니티마다 매시 :00~:12에 한 번 수집해서, 한 시간에 '몇 곳만 바뀐 라운드 + 전체가 바뀐 라운드'가
+# 연달아 온다. 이를 한 칸으로 묶어 칸 하나 ≈ TBS 갱신 한 번(약 1시간)이 되게 한다
+HISTORY_MERGE_MIN = 40
+HISTORY_MAX_AGE_MIN = 240   # 이보다 오래된 칸은 버린다 (장애 뒤 몇 시간 전 라운드와 비교하지 않게)
 # 튜닝 로그: 결과가 바뀐 빌드의 이슈 요약을 state에 남겨 며칠간 품질을 본다.
 # 한 번에 8개면 약 0.9KB라 개수(72)보다 크기 상한이 먼저 걸린다
 ISSUE_LOG_SIZE = 72
 ISSUE_LOG_MAX_BYTES = 30_000
 LOW_DATA_POSTS = 350   # 원본 글이 이보다 적으면 이슈 보드에 '글이 적은 시간' 안내 (issues.py도 이 값을 쓴다)
 STATE_VERSION = 1
-STATE_DROP_FIELDS = ('board', 'keyword', 'position_score')   # 복원 후 쓰지 않는 필드 - state 크기를 줄인다
+# 복원 후 쓰지 않는 필드 - state 크기를 줄인다 (position_score는 이전 글을 유지할 때 순서로 다시 매긴다)
+STATE_DROP_FIELDS = ('board', 'keyword', 'position_score')
 MIN_OK_POSTS = 20   # 이전 목록이 있는데 이보다 적게 모이면 수집 실패로 보고 이전 목록을 유지
 
 SUMMARY_SELECTORS = {
@@ -329,7 +441,9 @@ SUMMARY_TAIL_RE = re.compile(r'\s*추천\s*\d+\s*공유\s*$')     # 본문 끝 �
 
 def _empty_issues(posts: list, now) -> dict:
     """이슈 계산 전·실패 시의 빈 블록 (프론트는 items가 비면 '퍼진 이슈 없음'을 보여 준다).
-    계산 실패의 대비책이므로 글 필드를 직접 읽지 않는다 (source 없는 글 때문에 실패했을 수도 있다)"""
+    계산 실패의 대비책이므로 글 필드를 직접 읽지 않는다 (source 없는 글 때문에 실패했을 수도 있다).
+    전날 보충 글(prev_day)은 이슈 보드 대상이 아니라 세지 않는다"""
+    posts = [p for p in posts if not (isinstance(p, dict) and p.get('prev_day'))]
     return {'as_of': now.isoformat(timespec='minutes') if now else None, 'posts': len(posts),
             'communities': len({p['source'] for p in posts if p.get('source')}), 'in_issues': 0,
             'low_data': len(posts) < LOW_DATA_POSTS, 'badges': False, 'items': [], 'hot': []}
@@ -352,7 +466,17 @@ class TrendCrawler:
         self._ai_summary_transient = False  # 마지막 실패가 일시적(503·타임아웃 등)이었는지 → 짧은 간격으로 재시도
         self._snapshot = None               # 직전에 반영한 원본 목록의 서명 (같은 목록이면 이력에 넣지 않는다)
         self._tbs_truncated = False         # 이번 TBS 수집이 다음 페이지를 남기고 끊겼는지
-        self._collect_complete = False      # 이번 수집이 끝까지 받은 TBS 목록만으로 충분했는지
+        self._collect_complete = False      # 이번 수집에서 TBS 목록을 끝까지 받았는지
+        self._tbs_stats = None              # 이번 TBS 응답의 커뮤니티별 집계 (_fetch_todaybeststory)
+        self._plan = None                   # 이번 수집의 커뮤니티 판정·예비 경로 계획 (_plan_fill)
+        self._direct_status: dict = {}      # 이번 직접 스크래핑 결과 {source: {status, why, n}}
+        self._page_errors: dict = {}        # _get_page가 None을 돌려준 이유 {url: (status, why)} (스레드마다 다른 url)
+        self._history_times: list = []      # post_score_history 칸마다 시작 시각 (ISO, 모르면 None)
+        self._source_health: dict = {}      # 커뮤니티별 수집 상태 (trends.json source_health)
+        self._prev_day = None               # 전날 커뮤니티별 상위 글 {date, posts, done} (오전 보충)
+        self._il_at = None                  # 이슈링크에서 2-b 커뮤니티를 마지막으로 새로 받은 시각 (2-b 간격용)
+        self._il_sources: set = set()       # 그때 받은 2-b 커뮤니티
+        self._il_cache: dict = {}           # 이슈링크 원본 URL 캐시 (모듈이 cache 인자를 받으면 넘긴다)
 
     def get_data(self) -> dict:
         with self._lock:
@@ -366,6 +490,7 @@ class TrendCrawler:
                 'total': len(self._posts),
                 'crawl_count': self._crawl_count,
                 'sources': list(dict.fromkeys(v[1] for v in COMMUNITY_ID_MAP.values())),
+                'source_health': {s: {**e, 'via': list(e.get('via') or [])} for s, e in self._source_health.items()},
                 'ai_summary': self._ai_summary,
                 'ai_summary_updated': self._ai_summary_updated.isoformat() if self._ai_summary_updated else None,
             }
@@ -375,9 +500,16 @@ class TrendCrawler:
     def export_state(self) -> dict:
         """다음 실행에서 이어받을 상태. JSON으로 바로 직렬화할 수 있는 값만 담는다."""
         with self._lock:
+            prev_day = None
+            if self._prev_day:
+                prev_day = {'date': self._prev_day.get('date'), 'done': self._prev_day.get('done'),
+                            'posts': [{k: p[k] for k in PREV_DAY_FIELDS if k in p}
+                                      for p in self._prev_day.get('posts') or []]}
+            il_cache = dict(list(self._il_cache.items())[-ISSUELINK_CACHE_MAX:])
             return {
                 'version': STATE_VERSION,
                 'post_score_history': [dict(h) for h in self._post_score_history],   # _url_key(url) → rank_score
+                'post_score_times': list(self._history_times),   # 칸마다 시작 시각 (칸 묶기·오래된 칸 버리기)
                 'issue_log': list(self._issue_log),
                 # 다음 크롤이 실패하면 이걸 계속 보여준다
                 'posts': [{k: v for k, v in p.items() if k not in STATE_DROP_FIELDS} for p in self._posts],
@@ -388,8 +520,12 @@ class TrendCrawler:
                 'snapshot': self._snapshot,
                 'crawl_count': self._crawl_count,
                 'last_updated': self._last_updated,
-                # 크롤 없이 다시 렌더링할 때(build.py --no-crawl) 직전 상태(ok/stale)를 그대로 보여 주려고
-                'status': self._status if self._status in ('ok', 'stale') else None,
+                # 크롤 없이 다시 렌더링할 때(build.py --no-crawl) 직전 상태를 그대로 보여 주려고
+                'status': self._status if self._status in STATUSES else None,
+                'source_health': {s: {**e, 'via': list(e.get('via') or [])} for s, e in self._source_health.items()},
+                'prev_day': prev_day,
+                'issuelink': {'at': self._il_at.isoformat(timespec='seconds') if self._il_at else None,
+                              'sources': sorted(self._il_sources), 'cache': il_cache},
             }
 
     def import_state(self, state) -> None:
@@ -406,6 +542,12 @@ class TrendCrawler:
         except (TypeError, ValueError, AttributeError) as e:
             print(f'[State] 크롤러 상태 형식 오류 - 무시: {e}')
             return
+        # 칸마다 시작 시각. 옛 state(시각 없음)나 길이가 안 맞으면 모름(None)으로 채운다
+        raw_times = state.get('post_score_times')
+        times = [t if isinstance(t, str) and _parse_iso_dt(t) else None
+                 for t in (raw_times if isinstance(raw_times, list) else [])]
+        times = times[-len(score_history):] if score_history else []
+        times = [None] * (len(score_history) - len(times)) + times
         log = state.get('issue_log')
         issue_log = [e for e in log if isinstance(e, dict)][-ISSUE_LOG_SIZE:] if isinstance(log, list) else []
         ai_summary = state.get('ai_summary') if isinstance(state.get('ai_summary'), str) else ''
@@ -415,11 +557,20 @@ class TrendCrawler:
         snapshot = state.get('snapshot') if isinstance(state.get('snapshot'), str) else None
         last_updated = state.get('last_updated') if isinstance(state.get('last_updated'), str) else None
         # status가 없는 옛 state는 글이 있으면 ok로 본다 (idle은 '아직 수집 전'이라는 뜻)
-        status = state.get('status') if state.get('status') in ('ok', 'stale') else ('ok' if posts else 'idle')
+        status = state.get('status') if state.get('status') in STATUSES else ('ok' if posts else 'idle')
+        health = self._import_health(state.get('source_health'))
+        prev_day = self._import_prev_day(state.get('prev_day'))
+        il = state.get('issuelink') if isinstance(state.get('issuelink'), dict) else {}
+        il_at = self._parse_iso(il.get('at'))
+        il_sources = ({s for s in il['sources'] if isinstance(s, str)}
+                      if isinstance(il.get('sources'), list) else set())
+        il_cache = {k: v for k, v in il['cache'].items() if isinstance(k, str) and isinstance(v, str)} \
+            if isinstance(il.get('cache'), dict) else {}
         # 이슈 블록은 state에 없으므로 같은 입력(posts, 점수 이력)과 그때 시각(last_updated)으로 다시 계산한다
         issues = self._build_issues(posts, score_history, self._parse_iso(last_updated) or datetime.now(KST))
         with self._lock:
             self._post_score_history = score_history
+            self._history_times = times
             self._posts = posts
             self._issues = issues
             self._issue_log = issue_log
@@ -431,8 +582,46 @@ class TrendCrawler:
             self._crawl_count = crawl_count
             self._last_updated = last_updated
             self._status = status
-        print(f'[State] 복원: posts {len(posts)}, 점수 이력 {len(score_history)}, 이슈 {len(issues["items"])}, '
-              f'이슈 로그 {len(issue_log)}, crawl_count {crawl_count}, status {status}')
+            self._source_health = health
+            self._prev_day = prev_day
+            self._il_at = il_at
+            self._il_sources = il_sources
+            self._il_cache = il_cache
+        n_prev = sum(1 for p in posts if p.get('prev_day'))
+        print(f'[State] 복원: posts {len(posts)}(전날 보충 {n_prev}), 점수 이력 {len(score_history)}, '
+              f'이슈 {len(issues["items"])}, 이슈 로그 {len(issue_log)}, crawl_count {crawl_count}, status {status}, '
+              f'source_health {len(health)}곳, 전날 상위 글 {len((prev_day or {}).get("posts") or [])}')
+
+    @staticmethod
+    def _import_health(raw) -> dict:
+        """state의 source_health 정리 — 형식이 틀린 항목은 버린다."""
+        out = {}
+        if not isinstance(raw, dict):
+            return out
+        for s, e in raw.items():
+            if not isinstance(s, str) or not isinstance(e, dict) or e.get('status') not in HEALTH_STATUSES:
+                continue
+            entry = {'status': e['status'],
+                     'last_update': e.get('last_update') if isinstance(e.get('last_update'), str) else None,
+                     'last_new': e.get('last_new') if isinstance(e.get('last_new'), str) else None,
+                     'n': e.get('n') if isinstance(e.get('n'), int) and e.get('n') >= 0 else 0,
+                     'since': e.get('since') if isinstance(e.get('since'), str) else None,
+                     'via': [v for v in e.get('via') or [] if v in VIA_ORDER] if isinstance(e.get('via'), list) else []}
+            if isinstance(e.get('note'), str) and e.get('note'):
+                entry['note'] = e['note']
+            out[s] = entry
+        return out
+
+    @staticmethod
+    def _import_prev_day(raw):
+        """state의 prev_day 정리 — {date, done, posts}. 형식이 틀리면 None."""
+        if not isinstance(raw, dict) or not isinstance(raw.get('date'), str):
+            return None
+        raw_posts = raw.get('posts') if isinstance(raw.get('posts'), list) else []
+        posts = [dict(p) for p in raw_posts
+                 if isinstance(p, dict) and _is_http_url(p.get('url')) and p.get('title') and p.get('source')]
+        return {'date': raw['date'], 'done': raw.get('done') if isinstance(raw.get('done'), str) else None,
+                'posts': posts}
 
     @staticmethod
     def _parse_iso(value):
@@ -446,13 +635,16 @@ class TrendCrawler:
 
     # ── TodayBestStory ────────────────────────────────────────────────────────
 
-    def _fetch_todaybeststory(self) -> list:
-        now = datetime.now(KST)
+    def _fetch_todaybeststory(self, now=None) -> list:
+        now = now or datetime.now(KST)
         end = now.strftime('%Y-%m-%d')   # TBS targetDate는 KST 기준
         # KST 자정 직후에는 오늘 목록이 아직 작으므로 02시 전까지는 어제 목록도 같이 받는다
-        start = (now - timedelta(days=1)).strftime('%Y-%m-%d') if now.hour < 2 else end
+        start = (now - timedelta(days=1)).strftime('%Y-%m-%d') if now.hour < MERGE_PREV_END_HOUR else end
+        limit = TBS_PAGE_LIMITS[(now.minute // 10) % 2]
         raw_posts = []
         pages_ok = 0
+        totals = []   # 페이지마다 total — 받는 도중 TBS 목록이 바뀌면 달라진다(페이지 경계 중복·누락)
+        self._tbs_stats = None
         # 다음 페이지가 남았는데 멈췄는지. 응답이 조회수순이라 앞 몇 페이지만 받으면 일부 커뮤니티만 남는다
         self._tbs_truncated = True
         deadline = time.monotonic() + TBS_DEADLINE
@@ -465,7 +657,7 @@ class TrendCrawler:
                 try:
                     headers = _random_headers({'Referer': 'https://todaybeststory.com/communities'})
                     r = requests.get(TBS_API_URL, headers=headers,
-                        params={'startDate': start, 'endDate': end, 'page': page, 'limit': TBS_PAGE_LIMIT},
+                        params={'startDate': start, 'endDate': end, 'page': page, 'limit': limit},
                         timeout=15)
                     r.raise_for_status()
                     data = r.json()
@@ -477,14 +669,20 @@ class TrendCrawler:
                 break   # 받은 페이지까지만 쓴다
             pages_ok += 1
             raw_posts.extend(data.get('items') or [])
+            if isinstance(data.get('total'), int):
+                totals.append(data['total'])
             if not data.get('hasNext'):
                 self._tbs_truncated = False
                 break
             time.sleep(random.uniform(0.2, 0.4))
         else:
             print(f'[TodayBestStory] 안전 상한 {TBS_MAX_PAGES}페이지 도달 - 나머지 생략')
+        if len(set(totals)) > 1:
+            print(f'[TodayBestStory] 페이지별 total 불일치 {min(totals)}~{max(totals)} '
+                  f'(받는 도중 목록이 갱신됨 - 페이지 경계 중복·누락 가능)')
         if not raw_posts:
             return []
+        self._tbs_stats = self._tbs_source_stats(raw_posts, limit, pages_ok, len(set(totals)) > 1)
 
         items = []
         seen = set()
@@ -530,10 +728,44 @@ class TrendCrawler:
                 'position_score': max(0.0, 100 - n * 1.5),
                 'rank_score': 0,
                 'rank': 0,
+                # 베스트에 오른 날짜(KST). 작성일(date)이 전날인 글도 당일 목록에 많다 — 전날 상위 글 저장·이전 글 유지 판단용
+                # (state에는 남기고 공개 JSON에는 안 낸다)
+                'target_date': post.get('targetDate') or '',
             })
-        print(f'[TodayBestStory] {start}~{end} {pages_ok}페이지, {len(raw_posts)}개 원본 → {len(items)}개 파싱 완료 '
-              f'({len(src_pos)}개 커뮤니티)')
+        print(f'[TodayBestStory] {start}~{end} limit {limit} {pages_ok}페이지, {len(raw_posts)}개 원본 → '
+              f'{len(items)}개 파싱 완료 ({len(src_pos)}개 커뮤니티)')
         return items
+
+    @staticmethod
+    def _tbs_source_stats(raw_posts: list, limit: int, pages: int, mismatch: bool) -> dict:
+        """TBS 원본 응답의 커뮤니티별 집계 — 마지막 갱신(updateDatetime 최댓값), 마지막 새 글(creationDatetime 최댓값),
+        글 수. TBS는 커뮤니티마다 매시 한 번 목록을 다시 받아 updateDatetime을 고친다."""
+        by_src: dict = {}
+        max_upd = None
+        seen = set()
+        for post in raw_posts:
+            if not isinstance(post, dict):
+                continue
+            pid = post.get('id') or post.get('postUrl')
+            if pid in seen:
+                continue
+            seen.add(pid)
+            cid = post.get('communityId') or ''
+            info = COMMUNITY_ID_MAP.get(cid)
+            if not info and not re.fullmatch(r'[A-Z0-9]{2,5}', cid):
+                continue
+            sid = info[0] if info else cid.lower()
+            st = by_src.setdefault(sid, {'upd': None, 'new': None, 'n': 0})
+            st['n'] += 1
+            upd = _parse_iso_dt(post.get('updateDatetime'))
+            new = _parse_iso_dt(post.get('creationDatetime'))
+            if upd and (st['upd'] is None or upd > st['upd']):
+                st['upd'] = upd
+            if new and (st['new'] is None or new > st['new']):
+                st['new'] = new
+            if upd and (max_upd is None or upd > max_upd):
+                max_upd = upd
+        return {'sources': by_src, 'max_upd': max_upd, 'limit': limit, 'pages': pages, 'mismatch': mismatch}
 
     def _tbs_date(self, post: dict) -> str:
         raw = post.get('postDatetime') or ''
@@ -558,36 +790,204 @@ class TrendCrawler:
     AI_SUMMARY_RETRY = 7200       # 실패 후 재시도까지 (2시간). 10분마다 재시도하면 데일리와 같이 쓰는 무료 일일 한도를 다 쓴다
     AI_SUMMARY_RETRY_TRANSIENT = 1800   # 503·타임아웃 같은 일시적 실패 후 재시도까지 (30분)
 
-    def _collect_all_posts(self, sink: list) -> None:
-        """포스트 수집 전체 단계. 결과를 sink에 바로 넣어서 master timeout이 나도 모은 만큼은 살린다."""
+    def _collect_all_posts(self, sink: list, now=None) -> None:
+        """포스트 수집 전체 단계. 결과를 sink에 바로 넣어서 master timeout이 나도 모은 만큼은 살린다.
+        TBS를 받은 뒤 커뮤니티 단위로 판정(_plan_fill)해서, 빠졌거나 멈춘 커뮤니티만 직접 스크래핑·이슈링크로 채운다."""
+        now = now or datetime.now(KST)
         # TodayBestStory API - 90초 inner hard timeout (DNS/TCP hang 방지)
         api_posts = []
         _tbs_ex = ThreadPoolExecutor(max_workers=1)
         try:
-            api_posts = _tbs_ex.submit(self._fetch_todaybeststory).result(timeout=90)
+            api_posts = _tbs_ex.submit(self._fetch_todaybeststory, now).result(timeout=90)
         except Exception as e:
             print(f'[Refresh] TodayBestStory inner timeout/오류: {e}')
         finally:
             _tbs_ex.shutdown(wait=False)
         sink.extend(api_posts)
 
-        # 끝까지 받았고 글 수와 커뮤니티 수가 둘 다 충분해야 TBS만 쓴다
-        # (몇 페이지만 받고 끊기면 조회수 상위 커뮤니티만 남아 한쪽으로 쏠린다)
-        n_src = len({p['source'] for p in api_posts})
+        # 끝까지 받아야 TBS 목록이 온전하다 (몇 페이지만 받고 끊기면 조회수 상위 커뮤니티만 남아 한쪽으로 쏠린다)
         truncated = bool(api_posts) and getattr(self, '_tbs_truncated', False)
-        if len(api_posts) >= TBS_MIN_POSTS and n_src >= TBS_MIN_SOURCES and not truncated:
-            print(f'[Refresh] TodayBestStory {len(api_posts)}개/{n_src}개 커뮤니티 - 직접 스크래핑 생략')
-            self._collect_complete = True
+        complete = bool(api_posts) and not truncated
+        self._collect_complete = complete
+        plan = self._plan_fill(api_posts, complete, now)
+        self._plan = plan
+        direct = [src for src in COMMUNITY_SOURCES if src['id'] in plan['direct']]
+        il_want = plan['il_urgent'] | plan['thin']
+        n_src = len({p['source'] for p in api_posts})
+        if not direct and not il_want:
+            print(f'[Refresh] TodayBestStory {len(api_posts)}개/{n_src}개 커뮤니티 - 예비 경로 생략')
             return
 
-        why = '중간에 끊김' if truncated else '부족'
-        print(f'[Refresh] TodayBestStory {len(api_posts)}개/{n_src}개 커뮤니티로 {why} - 직접 스크래핑 fallback')
-        # 소스끼리는 병렬, 한 소스 안의 페이지는 순차(간격을 둔다)
-        with ThreadPoolExecutor(max_workers=5) as ex:
-            for items in ex.map(self._scrape_source, COMMUNITY_SOURCES):
-                sink.extend(items)
+        why = '장애' if not api_posts else '중간에 끊김' if truncated else '온전'
+        print(f'[Refresh] TodayBestStory {len(api_posts)}개/{n_src}개 커뮤니티({why}) — '
+              f'갱신 멈춤 {sorted(plan["degraded"]) or "-"}, 빠짐 {sorted(plan["missing"]) or "-"}'
+              f'{", 25개 미만 " + str(sorted(plan["incomplete"])) if plan["incomplete"] else ""} → '
+              f'직접 스크래핑 {[s["id"] for s in direct] or "-"}, 이슈링크 {sorted(il_want) or "-"}')
+        # 이슈링크는 직접 스크래핑과 동시에 (서로 다른 서버)
+        il_ex = ThreadPoolExecutor(max_workers=1)
+        il_future = il_ex.submit(self._issuelink_posts, plan, now) if il_want else None
+        try:
+            # 소스끼리는 병렬, 한 소스 안의 페이지는 순차(간격을 둔다)
+            if direct:
+                with ThreadPoolExecutor(max_workers=5) as ex:
+                    for items in ex.map(self._scrape_source, direct):
+                        for p in items:
+                            p['via'] = 'direct'
+                        sink.extend(items)
+            if il_future is not None:
+                try:
+                    sink.extend(il_future.result(timeout=ISSUELINK_TIMEOUT + 5))
+                except Exception as e:
+                    print(f'[IssueLink] 호출 timeout/오류: {type(e).__name__}: {e}')
+        finally:
+            il_ex.shutdown(wait=False)
 
-    def refresh(self):
+    def _expected_sources(self, now: datetime) -> set:
+        """지금 시각 TBS에 당일 글이 있어야 정상인 커뮤니티 (EXPECTED_BY_HOUR 고정 기대치)."""
+        if now.hour < MERGE_PREV_END_HOUR:   # 전날 목록을 같이 받는 시간
+            return {s for s, h in EXPECTED_BY_HOUR.items() if h is not None}
+        return {s for s, h in EXPECTED_BY_HOUR.items() if h is not None and now.hour >= h}
+
+    @staticmethod
+    def _is_stalled(upd, now: datetime) -> bool:
+        """TBS 갱신이 HEALTH_STALE_MIN분 넘게 멈췄나 (KST 06~24시에만 판정)"""
+        return (upd is not None and now.hour >= HEALTH_FROM_HOUR
+                and (now - upd).total_seconds() > HEALTH_STALE_MIN * 60)
+
+    def _plan_fill(self, api_posts: list, complete: bool, now: datetime) -> dict:
+        """TBS 결과로 커뮤니티를 판정하고 예비 경로 대상을 정한다.
+        - degraded: TBS에 글은 있는데 갱신이 멈춤 / missing: 기대 시각이 지났는데 TBS에 없음
+        - incomplete: TBS가 온전하지 않을 때(장애·끊김·결과 너무 적음) 25개를 못 채운 커뮤니티
+        - 직접 스크래핑: degraded·missing·incomplete 중 COMMUNITY_SOURCES에 있는 곳
+        - 이슈링크: (a) degraded·missing·incomplete, (b) TBS 글이 ISSUELINK_THIN개 미만인 곳(thin).
+          오전 보충 중(02~12시)에는 전날 상위 글이 빈 칸을 다 채울 커뮤니티(_prev_day_covered)를 (b)에서 뺀다 — 새벽에는
+          큰 커뮤니티도 TBS 첫 수집(01~06시) 전이라 당일 글이 몇 건뿐인데, (b)는 평소에도 글이 아주 적은 곳(오유 등)용이다"""
+        stats = (getattr(self, '_tbs_stats', None) or {}) if api_posts else {}
+        src_stats = stats.get('sources') or {}
+        n_by = Counter(p['source'] for p in api_posts)
+        expected = self._expected_sources(now)
+        degraded = {s for s, st in src_stats.items() if n_by.get(s) and self._is_stalled(st.get('upd'), now)}
+        missing = expected - set(n_by)
+        weak = not complete or len(api_posts) < TBS_MIN_POSTS or len(n_by) < TBS_MIN_SOURCES
+        incomplete = ({s for s in set(SOURCE_META) | set(n_by) if n_by.get(s, 0) < MAX_PER_SOURCE} - missing
+                      if weak else set())
+        problems = degraded | missing | incomplete
+        max_upd = stats.get('max_upd')
+        thin = {s for s in SOURCE_META if n_by.get(s, 0) < ISSUELINK_THIN} - problems
+        return {
+            'expected': expected, 'degraded': degraded, 'missing': missing, 'incomplete': incomplete,
+            'direct': problems & {src['id'] for src in COMMUNITY_SOURCES},
+            'il_urgent': problems,
+            'thin': thin - self._prev_day_covered(api_posts, now),
+            'tbs_n': dict(n_by), 'stats': src_stats, 'complete': complete,
+            'tbs_stale': bool(api_posts) and self._is_stalled(max_upd, now), 'max_upd': max_upd,
+        }
+
+    # ── 이슈링크 (2차 소스, sources_issuelink.py) ─────────────────────────────
+
+    def _issuelink_posts(self, plan: dict, now: datetime) -> list:
+        """결정 2의 (a) TBS에서 빠졌거나 멈춘 커뮤니티, (b) TBS 글이 아주 적은 커뮤니티만 이슈링크로 받는다.
+        (a)는 매 실행 새로 받는다. (b)는 (a)가 같이 있어도 ISSUELINK_THIN_EVERY_MIN분 간격으로만 새로 받고, 그 사이에는
+        직전 목록의 이슈링크 글을 다시 쓴다(인스티즈는 거의 매일 저녁 내내 (a)라 (b)까지 10분마다 받게 된다).
+        _il_at·_il_sources는 (b)를 새로 받은 시각·그때의 (b) 커뮤니티다. 모듈이 없거나 실패해도 [] (크롤은 계속)."""
+        try:
+            import sources_issuelink as il   # 사용 지점에서 import - 모듈이 없거나 깨져도 크롤은 계속
+        except Exception as e:
+            print(f'[IssueLink] 모듈 없음/import 실패 - 건너뜀: {type(e).__name__}: {e}')
+            return []
+        mapped = set(getattr(il, 'SOURCE_MAP', {}).values())
+        urgent = plan['il_urgent'] & mapped if mapped else set(plan['il_urgent'])
+        thin = (plan['thin'] & mapped if mapped else set(plan['thin'])) - urgent
+        if not urgent and not thin:
+            return []
+        window = self._date_window(now)
+        reused = []
+        reuse = (bool(thin) and self._il_at is not None and thin <= self._il_sources
+                 and 0 <= (now - self._il_at).total_seconds() < ISSUELINK_THIN_EVERY_MIN * 60)
+        if reuse:
+            with self._lock:
+                prev = [p for p in self._posts if p.get('via') == 'issuelink' and p['source'] in thin
+                        and not p.get('prev_day')]
+            reused = self._clean_external(prev, thin, 'issuelink', window)
+            print(f'[IssueLink] 적음 {sorted(thin)} — {ISSUELINK_THIN_EVERY_MIN}분 안에 받은 글 {len(reused)}개 다시 사용')
+            if not urgent:
+                return reused
+        want = urgent | (set() if reuse else thin)
+        fetch = getattr(il, 'fetch', None)
+        if not callable(fetch):
+            print('[IssueLink] fetch() 없음 - 건너뜀')
+            return reused
+        kwargs = {}
+        try:
+            if 'cache' in inspect.signature(fetch).parameters:
+                kwargs['cache'] = self._il_cache   # 원본 URL 캐시를 실행 사이에 이어 쓴다 (모듈이 받을 때만)
+        except (TypeError, ValueError):
+            pass
+        ex = ThreadPoolExecutor(max_workers=1)
+        try:
+            items = ex.submit(fetch, set(want), now, **kwargs).result(timeout=ISSUELINK_TIMEOUT)
+        except Exception as e:
+            print(f'[IssueLink] 오류/timeout - 건너뜀: {type(e).__name__}: {e}')
+            return reused
+        finally:
+            ex.shutdown(wait=False)
+        if thin and not reuse:
+            self._il_at, self._il_sources = now, set(thin)
+        out = self._clean_external(items, want, 'issuelink', window)
+        got = Counter(p['source'] for p in out)
+        print(f'[IssueLink] 요청 {len(want)}곳(급함 {sorted(urgent) or "-"}, '
+              f'적음 {"-" if reuse else sorted(thin) or "-"}) → '
+              f'{len(out)}개 ({", ".join(f"{s} {n}" for s, n in got.most_common()) or "없음"})')
+        return out + reused
+
+    @staticmethod
+    def _date_window(now: datetime) -> set:
+        """지금 수집 목록의 날짜(KST) — 02시 전에는 어제·오늘, 그 뒤에는 오늘"""
+        today = now.strftime('%Y-%m-%d')
+        return ({today, (now - timedelta(days=1)).strftime('%Y-%m-%d')} if now.hour < MERGE_PREV_END_HOUR
+                else {today})
+
+    def _clean_external(self, items, want: set, via: str, window: set) -> list:
+        """외부 모듈(이슈링크) 결과를 크롤러 글 형식으로 정리한다 — 요청한 커뮤니티·http(s) 링크·지금 날짜 창의 글만.
+        라벨·이모지·색은 SOURCE_META(TBS와 같은 칩)로 맞추고, position_score는 커뮤니티 안 순서로 다시 매긴다."""
+        out, pos = [], Counter()
+        for it in items or []:
+            if not isinstance(it, dict):
+                continue
+            sid = it.get('source')
+            title = re.sub(r'\s+', ' ', str(it.get('title') or '')).strip()
+            url = str(it.get('url') or '').strip()
+            if sid not in want or len(title) < 4 or not _is_http_url(url):
+                continue
+            date = it.get('date') if isinstance(it.get('date'), str) else ''
+            if date and date[:10] not in window:
+                continue
+            label, emoji, color = SOURCE_META.get(sid) or (str(it.get('source_label') or sid), '📝', '#7c6cff')
+            summary = re.sub(r'\s+', ' ', str(it.get('summary') or '')).strip()
+            n = pos[sid]
+            pos[sid] += 1
+            out.append({
+                'source': sid, 'source_label': label, 'source_emoji': emoji, 'source_color': color,
+                'title': title,
+                'summary': summary[:130] + ('…' if len(summary) > 130 else ''),
+                'board': '', 'url': url, 'author': str(it.get('author') or ''), 'date': date,
+                **self._classify(title),
+                'views': 0 if sid in SYNTHETIC_VIEW_SOURCE_IDS else self._as_count(it.get('views')),
+                'likes': self._as_count(it.get('likes')),
+                'comments': self._as_count(it.get('comments')),
+                'position_score': max(0.0, 100 - n * 1.5), 'rank_score': 0, 'rank': 0, 'via': via,
+            })
+        return out
+
+    @staticmethod
+    def _as_count(v) -> int:
+        try:
+            return max(0, int(v or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    def refresh(self, now=None):
+        """크롤 1회. now: 판정 기준 시각(테스트·build.py --now). 없으면 실제 시각."""
         # 이미 크롤 중이면 즉시 반환 (동시 실행 시 요청 폭증·history 압축 방지)
         if not self._refresh_lock.acquire(blocking=False):
             print('[Refresh] 이미 크롤 중 - 건너뜀')
@@ -596,7 +996,7 @@ class TrendCrawler:
             with self._lock:
                 self._status = 'crawling'
             try:
-                self._refresh_body()
+                self._refresh_body(now)
             except Exception as e:
                 print(f'[Refresh] 예외: {e}')
             finally:
@@ -608,82 +1008,111 @@ class TrendCrawler:
         finally:
             self._refresh_lock.release()
 
-    def _refresh_body(self):
-
+    def _refresh_body(self, now_override=None):
+        # 기준 시각은 실행마다 한 번만 정해 수집(TBS 날짜 범위·커뮤니티 판정)·이전 글 유지·전날 보충·저장에 모두 쓴다.
+        # 수집 뒤에 시계를 다시 읽으면 01:59에 시작해 TBS를 받는 동안 02시를 넘긴 실행이 전날+오늘 목록을
+        # '02시 이후 당일 목록'으로 보고 그날 오전 보충을 끝낸다
+        now = (now_override or datetime.now(KST)).replace(microsecond=0)
         # 전체 포스트 수집 - 180초 master hard timeout (DNS/TCP hang 완전 차단)
         sink = []
         self._collect_complete = False
+        self._plan = None
+        self._tbs_stats = None
+        self._direct_status = {}
         _collect_ex = ThreadPoolExecutor(max_workers=1)
         try:
-            _collect_ex.submit(self._collect_all_posts, sink).result(timeout=180)
+            _collect_ex.submit(self._collect_all_posts, sink, now).result(timeout=180)
         except Exception as e:
             print(f'[Refresh] 포스트 수집 master timeout/오류: {e} - 모은 {len(sink)}개로 진행')
         finally:
             _collect_ex.shutdown(wait=False)
         posts = list(sink)
         complete = self._collect_complete
+        # TBS 단계에서 예외로 끝나 계획이 없으면 받은 TBS 글로 다시 판정한다 (온전하지 않은 것으로 본다)
+        plan = self._plan or self._plan_fill([p for p in posts if not p.get('via')], False, now)
+        complete = complete and plan['complete']
 
         # 중복 제거 (같은 글의 URL 변형 포함) + http(s) 링크만
-        seen, unique = set(), []
-        for p in posts:
-            if not _is_http_url(p.get('url')):
-                continue
-            key = _url_key(p['url'])
-            if key not in seen:
-                seen.add(key)
-                unique.append(p)
-
-        snapshot = self._snapshot_sig(unique)
-        unique = self._assign_ranks(unique)
-
+        unique = self._dedup(posts, plan['degraded'])
         with self._lock:
-            kept = len(self._posts)
-            kept_src = len({p['source'] for p in self._posts})
-            same = bool(self._posts) and snapshot == self._snapshot
+            prev_posts = list(self._posts)
+            prev_snapshot = self._snapshot
+        # 커뮤니티별 상태는 채택 여부와 상관없이 갱신한다 (진단·알림용)
+        health = self._update_source_health(plan, unique, now)
+
         n_src = len({p['source'] for p in unique})
-        # 0건이거나, 이전보다 적은 몇 건만 건졌거나, TBS가 온전하지 않아 커뮤니티 수가 이전의 절반도 안 되면
-        # (TBS 장애 + fallback 2곳만 성공 등) 수집 실패로 본다
-        if (not unique or (len(unique) < MIN_OK_POSTS and kept > len(unique))
-                or (not complete and n_src * 2 < kept_src)):
+        kept_n, kept_src = len(prev_posts), len({p['source'] for p in prev_posts})
+        # 0건이거나, 이전보다 적은 몇 건만 건졌거나, TBS가 온전하지 않은데(장애·끊김) 예비 경로까지 합쳐도
+        # 절대 기준(FALLBACK_MIN_SOURCES곳·FALLBACK_MIN_POSTS건)에 못 미치면 수집 실패로 본다
+        reject = ''
+        if not unique:
+            reject = '0건'
+        elif len(unique) < MIN_OK_POSTS and kept_n > len(unique):
+            reject = f'{MIN_OK_POSTS}건 미만'
+        elif not complete and (n_src < FALLBACK_MIN_SOURCES or len(unique) < FALLBACK_MIN_POSTS):
+            reject = f'TBS 없이 {FALLBACK_MIN_SOURCES}곳·{FALLBACK_MIN_POSTS}건 미만'
+        if reject:
             # 이전 posts·trends 유지, history에도 넣지 않는다 (다음 라운드 가짜 급상승 방지)
             with self._lock:
                 self._status = 'stale'
-            print(f'[Refresh] 수집 {len(unique)}건/{n_src}개 커뮤니티 - 이전 데이터 {kept}개/{kept_src}개 유지 (status stale)')
+                self._source_health = health
+            print(f'[Refresh] 수집 {len(unique)}건/{n_src}개 커뮤니티({reject}) - '
+                  f'이전 데이터 {kept_n}개/{kept_src}개 유지 (status stale)')
             return
 
-        now = datetime.now(KST).replace(microsecond=0)
+        # 이번에 빠졌거나 모자란(TBS가 온전하지 않을 때) 커뮤니티는 이전 글을 유지해 병합한다
+        kept = self._kept_posts(prev_posts, unique, complete, now)
+        ranked = self._assign_ranks(unique + kept)
+        # 00~02시: 전날 커뮤니티별 상위 글 저장 / 02~12시: 당일 글이 모자란 칸만 전날 글로 채운다
+        self._save_prev_day(posts, complete, now)
+        extra = self._prev_day_fill(ranked, now)
+        final = ranked + extra
+        snapshot = self._snapshot_sig(unique + kept + extra)
+        status = self._decide_status(plan, complete)
+        same = bool(prev_posts) and snapshot == prev_snapshot
 
         # TBS는 약 1시간마다 갱신된다. 직전과 같은 목록을 다시 받았으면 이력·갱신 시각·crawl_count를 그대로 둔다
         # (같은 목록을 매번 쌓으면 급상승이 3라운드 뒤 사라지고 'n분 전 갱신'이 실제보다 새것처럼 보인다)
         if same:
-            new_summary, transient = (self._generate_ai_summary(unique) if self._ai_summary_due(now)
-                                      else (None, False))
             # 글·이력은 그대로 두고 이슈만 지금 시각으로 다시 계산한다 (신규·잠잠 판정이 시간에 따라 바뀐다)
             with self._lock:
-                posts, score_history = list(self._posts), list(self._post_score_history)
-            issues = self._build_issues(posts, score_history, now)
+                cur_posts, score_history = list(self._posts), list(self._post_score_history)
+            cur_today = [p for p in cur_posts if not p.get('prev_day')]
+            new_summary, transient = (self._generate_ai_summary(cur_today) if self._ai_summary_due(now)
+                                      else (None, False))
+            issues = self._build_issues(cur_posts, score_history, now)
             with self._lock:
-                self._status = 'ok'
+                self._status = status
+                self._source_health = health
                 self._set_issues(issues)
                 self._apply_ai_summary(new_summary, transient, now)
-            print(f'[Refresh] 원본 목록이 직전과 같음 ({len(unique)}건) - 이력·갱신 시각 유지')
+            print(f'[Refresh] 원본 목록이 직전과 같음 ({len(unique)}건) - 이력·갱신 시각 유지 (status {status})')
             return
 
+        today_posts = [p for p in final if not p.get('prev_day')]
         with self._lock:
             prev_post_history = list(self._post_score_history)
+            prev_times = list(self._history_times)
             prev_summary = {_url_key(p['url']): p['summary'] for p in self._posts if p.get('summary')}
-        self._compute_post_velocity(unique, prev_post_history)
-        # 키는 _url_key: 전체 URL보다 짧고(state 크기), ?page= 같은 변형이 바뀌어도 같은 글로 이어진다
-        curr_scores = {_url_key(p['url']): p.get('rank_score', 0.0) for p in unique}
-        score_history = (prev_post_history + [curr_scores])[-HISTORY_SIZE:]
+        self._compute_post_velocity(today_posts, prev_post_history)
+        for p in extra:
+            p['post_velocity'] = 0.0
+        # 점수 이력은 TBS를 끝까지(멈추지 않은 채로) 받은 라운드만 — 예비 경로·이전 글로 메운 라운드를 넣으면
+        # 다음 라운드에 가짜 신규·급상승이 생긴다. 키는 _url_key: 전체 URL보다 짧고(state 크기),
+        # ?page= 같은 변형이 바뀌어도 같은 글로 이어진다
+        if complete and not plan['tbs_stale']:
+            curr_scores = {_url_key(p['url']): p.get('rank_score', 0.0) for p in today_posts}
+            score_history, history_times = self._push_history(prev_post_history, prev_times, curr_scores, now)
+        else:
+            score_history, history_times = prev_post_history, prev_times
 
         # 직전 라운드에서 받아 둔 본문 요약은 재사용 (같은 글을 매번 다시 요청하지 않게)
-        for p in unique:
-            if not p['summary']:
+        for p in final:
+            if not p.get('summary'):
                 p['summary'] = prev_summary.get(_url_key(p['url']), '')
 
         # 상위 포스트 본문 요약 병렬 수집 - 25초 hard timeout
-        to_summarize = [p for p in unique[:SUMMARY_MAX_POSTS]
+        to_summarize = [p for p in today_posts[:SUMMARY_MAX_POSTS]
                         if p['source'] in SUMMARY_SELECTORS and not p['summary']]
         if to_summarize:
             ex = ThreadPoolExecutor(max_workers=4)
@@ -694,22 +1123,277 @@ class TrendCrawler:
             finally:
                 ex.shutdown(wait=False)
 
-        issues = self._build_issues(unique, score_history, now)
+        # 이슈 보드는 전날 보충 글을 빼고 계산한다 (issues.build_issues가 prev_day 글을 거른다)
+        issues = self._build_issues(final, score_history, now)
 
-        # AI 요약 갱신 (성공 후 6시간, 실패 후 2시간·일시적 실패 후 30분 간격)
-        new_summary, transient = (self._generate_ai_summary(unique) if self._ai_summary_due(now)
+        # AI 요약 갱신 (성공 후 6시간, 실패 후 2시간·일시적 실패 후 30분 간격) — 당일 글만
+        new_summary, transient = (self._generate_ai_summary(today_posts) if self._ai_summary_due(now)
                                   else (None, False))
 
         with self._lock:
-            self._posts = unique
+            self._posts = final
             self._post_score_history = score_history
+            self._history_times = history_times
             self._set_issues(issues)
             # 데이터가 바뀐 시각 (같은 목록을 다시 받은 실행에서는 바꾸지 않는다)
             self._last_updated = now.isoformat(timespec='seconds')
             self._crawl_count += 1
             self._snapshot = snapshot
-            self._status = 'ok'
+            self._status = status
+            self._source_health = health
             self._apply_ai_summary(new_summary, transient, now)
+        via = Counter(p.get('via') or 'tbs' for p in today_posts)
+        print(f'[Refresh] status {status} — 게시 {len(final)}건/{len({p["source"] for p in final})}곳 '
+              f'(당일 {len(today_posts)}건: {", ".join(f"{k} {v}" for k, v in via.most_common())}; '
+              f'이전 글 유지 {sum(1 for p in final if p.get("kept"))}, 전날 보충 {len(extra)}), '
+              f'점수 이력 {len(score_history)}칸')
+
+    @staticmethod
+    def _dedup(posts: list, degraded: set) -> list:
+        """중복 제거(같은 글의 URL 변형 포함) + http(s) 링크만. 같은 글이 여러 경로로 오면
+        건강한 TBS → 직접 스크래핑 → 이슈링크 → 갱신이 멈춘 TBS 순으로 고른다(멈춘 커뮤니티는 새 경로의 수치가 맞다).
+        URL이 달라도 다른 경로에서 먼저 고른 같은 커뮤니티·같은 제목(_title_key) 글이면 같은 글로 보고 뺀다
+        (SLR·보배드림은 경로마다 글 번호가 다르다). 한 경로 안에서 제목만 같은 글은 다른 글일 수 있어 둘 다 둔다."""
+        order = {'direct': 1, 'issuelink': 2}
+
+        def prio(i):
+            p = posts[i]
+            via = p.get('via')
+            if via:
+                return order.get(via, 2), i
+            return (3 if p.get('source') in degraded else 0), i
+
+        seen, first_via, unique = set(), {}, []
+        for i in sorted(range(len(posts)), key=prio):
+            p = posts[i]
+            if not _is_http_url(p.get('url')):
+                continue
+            key = _url_key(p['url'])
+            if key in seen:
+                continue
+            via, tk = p.get('via') or 'tbs', _title_key(p)
+            if tk and first_via.setdefault(tk, via) != via:
+                continue
+            seen.add(key)
+            unique.append(p)
+        return unique
+
+    def _kept_posts(self, prev_posts: list, unique: list, complete: bool, now: datetime) -> list:
+        """이번 수집에서 빠진 커뮤니티의 이전 글을 유지한다(kept 표시).
+        - 이번 결과(예비 경로 포함)에 한 글도 없는 커뮤니티 — TBS 당일 목록은 하루 동안 쌓이기만 해서,
+          같은 날 있던 커뮤니티가 통째로 사라지면 수집 장애다
+        - TBS가 온전하지 않으면(장애·끊김): MAX_PER_SOURCE개를 못 채운 커뮤니티도 (같은 글은 새 값 우선 —
+          URL(_url_key)이나 같은 커뮤니티·같은 제목(_title_key)이 이번 결과에 있으면 유지하지 않는다)
+        지금 날짜 창(오늘, 02시 전에는 어제도)의 목록에 든 글만(TBS는 베스트 날짜 target_date, 그 밖에는 작성일) —
+        날이 바뀌면 저절로 빠진다. 전날 보충 글은 유지하지 않는다."""
+        n_new = Counter(p['source'] for p in unique)
+        limit = 1 if complete else MAX_PER_SOURCE
+        targets = {p['source'] for p in prev_posts if n_new.get(p['source'], 0) < limit}
+        if not targets:
+            return []
+        window = self._date_window(now)
+        keys = {_url_key(p['url']) for p in unique}
+        titles = {tk for tk in map(_title_key, unique) if tk}   # 이번에 다른 경로(URL)로 들어온 같은 글
+        out, pos = [], Counter()
+        for p in prev_posts:
+            s = p.get('source')
+            listed = p.get('target_date') or (p.get('date') or '')[:10]
+            if s not in targets or p.get('prev_day') or listed not in window:
+                continue
+            k, tk = _url_key(p['url']), _title_key(p)
+            if k in keys or (tk and tk in titles):
+                continue
+            keys.add(k)
+            q = {f: v for f, v in p.items() if f not in ('rank', 'rank_score', 'post_velocity')}
+            q['kept'] = True
+            q['position_score'] = max(0.0, 100 - pos[s] * 1.5)   # state에는 없다 — 이전 순위 순서로 다시 매긴다
+            pos[s] += 1
+            out.append(q)
+        if out:
+            print(f'[Refresh] 이전 글 유지 {len(out)}개: ' + ', '.join(f'{s} {n}' for s, n in pos.most_common()))
+        return out
+
+    def _decide_status(self, plan: dict, complete: bool) -> str:
+        if plan.get('tbs_stale'):
+            return 'stale-source'
+        if not complete or len(plan['degraded'] | plan['missing']) >= PARTIAL_MIN_PROBLEMS:
+            return 'partial'
+        return 'ok'
+
+    @staticmethod
+    def _push_history(hist: list, times: list, curr: dict, now: datetime) -> tuple:
+        """점수 이력에 이번 라운드를 넣는다. 직전 칸이 HISTORY_MERGE_MIN분 안에 시작했으면 덮어쓰고(같은 TBS 갱신 주기),
+        HISTORY_MAX_AGE_MIN분 넘은 칸은 버린다. 반환: (이력, 칸마다 시작 시각)"""
+        hist = list(hist)
+        times = ([None] * len(hist) + list(times))[-len(hist):] if hist else []
+        last = _parse_iso_dt(times[-1]) if times else None
+        if last is not None and 0 <= (now - last).total_seconds() < HISTORY_MERGE_MIN * 60:
+            hist[-1] = curr
+        else:
+            hist.append(curr)
+            times.append(now.isoformat(timespec='seconds'))
+        keep = []
+        for i, t in enumerate(times):
+            dt = _parse_iso_dt(t)
+            if dt is None or (now - dt).total_seconds() <= HISTORY_MAX_AGE_MIN * 60:
+                keep.append(i)
+        keep = keep[-HISTORY_SIZE:]
+        return [hist[i] for i in keep], [times[i] for i in keep]
+
+    # ── 오전 보충 (전날 상위 글) ──────────────────────────────────────────────
+
+    def _save_prev_day(self, posts: list, complete: bool, now: datetime) -> None:
+        """KST 00~02시(TBS를 전날·오늘 같이 받는 시간)에 전날 베스트의 커뮤니티별 상위 MAX_PER_SOURCE개를 state에 둔다.
+        추가 호출은 없다. 끊긴 TBS 결과로는 이미 저장한 같은 날 목록을 덮어쓰지 않는다."""
+        if now.hour >= MERGE_PREV_END_HOUR:
+            return
+        yday = (now - timedelta(days=1)).strftime('%Y-%m-%d')
+        ys = [dict(p) for p in posts if not p.get('via') and p.get('target_date') == yday]
+        if not ys:
+            return
+        with self._lock:
+            cur = self._prev_day
+        if not complete and cur and cur.get('date') == yday and cur.get('posts'):
+            return
+        ranked = self._assign_ranks(ys)
+        slim = [{k: p[k] for k in PREV_DAY_FIELDS if k in p} for p in ranked]
+        with self._lock:
+            self._prev_day = {'date': yday, 'done': None, 'posts': slim}
+        print(f'[PrevDay] {yday} 커뮤니티별 상위 글 {len(slim)}개/{len({p["source"] for p in slim})}곳 저장')
+
+    def _prev_day_posts(self, now: datetime):
+        """오전 보충에 쓸 전날 상위 글 — KST 02~12시이고 어제 날짜로 저장돼 있을 때만, 아니면 None"""
+        with self._lock:
+            pd = self._prev_day
+        if not pd or not (MERGE_PREV_END_HOUR <= now.hour < PREV_DAY_END_HOUR):
+            return None
+        if pd.get('date') != (now - timedelta(days=1)).strftime('%Y-%m-%d'):
+            return None
+        return pd.get('posts') or None
+
+    @staticmethod
+    def _tbs_today_size(posts: list, today: str) -> tuple:
+        """전날 보충을 멈출지 보는 당일 글 규모 (커뮤니티 수, 커뮤니티당 MAX_PER_SOURCE개까지 센 글 수).
+        TBS 당일 글만 센다 — 이슈링크·직접 수집 글(via)은 TBS 글이 모이면 빠지는 일시적인 글이고,
+        이전 글 유지(kept)는 지난 목록, target_date가 전날인 글은 02시 전 목록이다"""
+        n = Counter(p.get('source') for p in posts
+                    if not p.get('via') and not p.get('kept') and not p.get('prev_day')
+                    and (p.get('target_date') or today) == today)
+        return len(n), sum(min(c, MAX_PER_SOURCE) for c in n.values())
+
+    def _prev_day_covered(self, tbs_posts: list, now: datetime) -> set:
+        """이번 실행에서 오전 보충이 빈 칸을 다 채울 수 있는 커뮤니티 — 저장한 전날 상위 글이 MAX_PER_SOURCE개인 곳,
+        곧 어제는 글이 넉넉했던 곳(새벽에 TBS 첫 수집 전이라 당일 글이 몇 건뿐일 뿐이다).
+        어제도 글이 적었던 곳(오유·인벤·웃대 등, '평소 글이 적은 곳')은 넣지 않는다 — 결정 2-b대로 이슈링크로 보탠다.
+        보충 시간이 아니거나 TBS 당일 글이 이미 멈춤 기준을 넘었으면 빈 집합 (_plan_fill의 (b) 판정용)"""
+        pd = self._prev_day_posts(now)
+        if not pd:
+            return set()
+        n_src, n_posts = self._tbs_today_size(tbs_posts, now.strftime('%Y-%m-%d'))
+        if n_src >= PREV_DAY_DONE_SOURCES and n_posts >= PREV_DAY_DONE_POSTS:
+            return set()
+        return {s for s, c in Counter(p.get('source') for p in pd).items() if s and c >= MAX_PER_SOURCE}
+
+    def _prev_day_fill(self, ranked: list, now: datetime) -> list:
+        """KST 02~12시: 당일 글이 MAX_PER_SOURCE개에 못 미치는 커뮤니티 칸만 전날 상위 글로 채운다(prev_day: True).
+        TBS 당일 글만으로(_tbs_today_size) PREV_DAY_DONE_SOURCES곳·PREV_DAY_DONE_POSTS건이 되면 채우지 않고,
+        12시가 되면 저장한 전날 글을 지워 그날은 끝낸다. 12시 전에는 저장한 글을 지우지 않고 실행마다 다시 판정한다
+        (한 번 잘못 끝내면 그날 오전은 되돌릴 수 없으므로. TBS 당일 목록은 쌓이기만 해서 평소에는 한 번 넘으면 계속 넘는다).
+        반환: 채운 글(순위는 당일 글 뒤에 이어 붙인다)"""
+        with self._lock:
+            pd = self._prev_day
+        if not pd or now.hour < MERGE_PREV_END_HOUR:
+            return []
+        today = now.strftime('%Y-%m-%d')
+        yday = (now - timedelta(days=1)).strftime('%Y-%m-%d')
+        if pd.get('date') != yday:
+            return []
+        if now.hour >= PREV_DAY_END_HOUR:
+            if pd.get('posts'):   # 끝났으면 state를 줄인다
+                with self._lock:
+                    self._prev_day = {'date': yday, 'done': pd.get('done') or today, 'posts': []}
+                print(f'[PrevDay] {PREV_DAY_END_HOUR}시 - 전날 보충 끝')
+            return []
+        if not pd.get('posts'):
+            return []
+        n_src, n_posts = self._tbs_today_size(ranked, today)
+        if n_src >= PREV_DAY_DONE_SOURCES and n_posts >= PREV_DAY_DONE_POSTS:
+            if pd.get('done') != today:   # done: 멈춤 기준을 처음 넘은 날 (로그를 한 번만 남기려고)
+                with self._lock:
+                    self._prev_day = {**pd, 'done': today}
+                print(f'[PrevDay] TBS 당일 글 {n_posts}건/{n_src}곳 - 전날 보충 멈춤 '
+                      f'({PREV_DAY_END_HOUR}시까지 실행마다 다시 판정)')
+            return []
+        counts = Counter(p['source'] for p in ranked)
+        keys = {_url_key(p['url']) for p in ranked}
+        extra = []
+        for p in pd.get('posts') or []:
+            s = p.get('source')
+            if not s or counts[s] >= MAX_PER_SOURCE or not _is_http_url(p.get('url')):
+                continue
+            k = _url_key(p['url'])
+            if k in keys:
+                continue
+            keys.add(k)
+            counts[s] += 1
+            q = dict(p)
+            q['prev_day'] = True
+            q['post_velocity'] = 0.0
+            extra.append(q)
+        for i, q in enumerate(extra, len(ranked) + 1):
+            q['rank'] = i
+        if extra:
+            print(f'[PrevDay] 당일 {len(ranked)}건/{len({p["source"] for p in ranked})}곳(멈춤 판정용 TBS {n_posts}건/{n_src}곳) '
+                  f'+ 전날 상위 글 {len(extra)}개({len({q["source"] for q in extra})}곳)로 빈 칸 보충')
+        return extra
+
+    # ── 커뮤니티별 상태 ───────────────────────────────────────────────────────
+
+    def _update_source_health(self, plan: dict, collected: list, now: datetime) -> dict:
+        """커뮤니티별 수집 상태 (trends.json source_health).
+        {source: {status, last_update, last_new, n, since, via[, note]}}
+        - status는 TBS 기준(ok/degraded/missing). TBS가 못 주는데 직접 수집도 차단이면 blocked(다른 경로로 못 채웠을 때)
+        - last_update/last_new: TBS의 마지막 갱신·새 글 시각(없으면 이전 값 유지), n: 이번에 모은 글 수(모든 경로),
+          since: 지금 status가 시작된 시각, via: 이번에 글을 준 경로"""
+        with self._lock:
+            prev = dict(self._source_health)
+        stats = plan.get('stats') or {}
+        n_by = Counter(p['source'] for p in collected)
+        via_by = defaultdict(set)
+        for p in collected:
+            via_by[p['source']].add(p.get('via') or 'tbs')
+        sids = set(EXPECTED_BY_HOUR) | set(stats) | set(n_by)
+        health = {}
+        for s in sorted(sids):
+            st = stats.get(s) or {}
+            old = prev.get(s) or {}
+            if s in plan['degraded']:
+                status = 'degraded'
+            elif s in plan['missing']:
+                status = 'missing'
+            else:
+                status = 'ok'
+            note = ''
+            d = self._direct_status.get(s)
+            if status != 'ok' and d and d.get('status') != 'ok':
+                note = f"직접 수집 {'차단' if d['status'] == 'blocked' else '실패'}({d.get('why') or '?'})"
+                if d['status'] == 'blocked' and not (via_by[s] - {'tbs'}):
+                    status = 'blocked'
+            entry = {
+                'status': status,
+                'last_update': _fmt_dt(st['upd']) if st.get('upd') else old.get('last_update'),
+                'last_new': _fmt_dt(st['new']) if st.get('new') else old.get('last_new'),
+                'n': n_by.get(s, 0),
+                'since': old.get('since') if old.get('status') == status and old.get('since') else _fmt_dt(now),
+                'via': [v for v in VIA_ORDER if v in via_by[s]],
+            }
+            if note:
+                entry['note'] = note
+            health[s] = entry
+        bad = {s: e['status'] for s, e in health.items() if e['status'] != 'ok'}
+        if bad:
+            print('[Health] ' + ', '.join(f'{s} {st}' for s, st in sorted(bad.items())))
+        return health
 
     @staticmethod
     def _snapshot_sig(posts: list) -> str:
@@ -813,23 +1497,37 @@ class TrendCrawler:
     # ── 직접 스크래핑 ─────────────────────────────────────────────────────────
 
     def _scrape_source(self, src: dict) -> list:
-        """한 소스의 페이지를 순서대로 받는다. 한 페이지라도 차단되면 나머지 페이지는 건너뛴다."""
+        """한 소스의 페이지를 순서대로 받는다. 한 페이지라도 차단되면 나머지 페이지는 건너뛴다.
+        결과(ok·blocked·error와 이유)는 self._direct_status[source]에 남긴다 (source_health의 blocked 판정).
+        HTTP 200이어도 행을 하나도 못 읽으면 차단(챌린지·보안 검사·msg.html) 또는 선택자 고장으로 본다."""
         items = []
+        status, why = 'ok', ''
         for i, url in enumerate(src['pages']):
             time.sleep(random.uniform(0.5, 1.5) if i == 0 else random.uniform(1.0, 2.0))
             html = self._get_page(src, url)
             if html is None:
+                status, why = self._page_errors.get(url) or ('error', '응답 없음')
                 break
             try:
-                items.extend(self._parse_rows(src, url, html, len(items)))
+                rows = self._parse_rows(src, url, html, len(items))
             except Exception as e:
                 print(f'[{src["id"]}] {url} 파싱 오류: {e}')
-        print(f'[{src["id"]}] 직접 스크래핑 {len(items)}개')
+                rows = []
+            if not rows:
+                reason = detect_block(html)
+                status, why = 'blocked', reason or '0행(차단 또는 선택자 고장)'
+                print(f'[{src["id"]}] {url} 행 0개 - {why}')
+                break
+            items.extend(rows)
+        if items and status != 'ok':
+            status, why = 'ok', f'일부 페이지만({why})'
+        self._direct_status[src['id']] = {'status': status, 'why': why, 'n': len(items)}
+        print(f'[{src["id"]}] 직접 스크래핑 {len(items)}개' + (f' ({status}: {why})' if status != 'ok' or why else ''))
         return items
 
     def _get_page(self, src: dict, url: str):
         """HTML bytes 또는 None. 4xx(403 Cloudflare, 429, 430 보안 페이지 등)는 차단으로 보고 재시도하지 않는다.
-        연결 오류·타임아웃·5xx만 2초 뒤 1회 재시도."""
+        연결 오류·타임아웃·5xx만 2초 뒤 1회 재시도. None이면 이유를 self._page_errors[url]에 남긴다."""
         u = urlparse(url)
         err = ''
         for attempt in range(2):
@@ -839,13 +1537,19 @@ class TrendCrawler:
                 err = str(e)
             else:
                 if r.status_code < 400:
+                    if 'msg.html' in (r.url or ''):   # 리다이렉트로 안내 페이지에 떨어짐 (웃대)
+                        self._page_errors[url] = ('blocked', 'msg.html 리다이렉트')
+                        print(f'[{src["id"]}] {url} → {r.url} - 차단으로 보고 건너뜀')
+                        return None
                     return r.content
                 if r.status_code < 500:
+                    self._page_errors[url] = ('blocked', f'HTTP {r.status_code}')
                     print(f'[{src["id"]}] {url} HTTP {r.status_code} - 차단/거부로 보고 건너뜀')
                     return None
                 err = f'HTTP {r.status_code}'
             if attempt == 0:
                 time.sleep(2)
+        self._page_errors[url] = ('error', err[:80])
         print(f'[{src["id"]}] {url} 오류: {err}')
         return None
 
@@ -1048,11 +1752,12 @@ class TrendCrawler:
             like_score    = norm(p.get('likes', 0),      mx['likes'])
             comment_score = norm(p.get('comments', 0),   mx['comments'])
 
+            position = p.get('position_score', 50.0)   # 외부·복원 글에 없으면 중간값
             if src_has_views.get(src):
                 engagement  = view_score * 0.60 + like_score * 0.25 + comment_score * 0.15
-                base_score  = p['position_score'] * 0.35 + engagement * 0.65
+                base_score  = position * 0.35 + engagement * 0.65
             else:
-                base_score  = p['position_score']
+                base_score  = position
 
             decay = math.exp(-self._age_days(p.get('date', '')) / self.DECAY_TAU)
             p['rank_score'] = round(base_score * decay, 1)
@@ -1067,7 +1772,6 @@ class TrendCrawler:
         sorted_posts = sorted(sorted_posts, key=lambda x: x['rank_score'], reverse=True)
 
         DAMPEN = 0.65
-        MAX_PER_SOURCE = 25
         src_counts: dict = {}
         diversity: dict = {}
         for p in sorted_posts:

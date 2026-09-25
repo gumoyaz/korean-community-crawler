@@ -1,0 +1,59 @@
+# 크롤링 소스 실측 프로브 — 수동 실행 전용(Actions 탭 → Source probe → Run workflow).
+# GitHub 호스팅 러너(Azure 해외 IP)에서 TBS·fallback·이슈링크·후보 URL의 상태·바이트·<title>·차단 여부·파싱 행 수를 재서
+# Step Summary(표)와 아티팩트(JSON·MD)로 남긴다. 크롤·state·커밋·배포는 하지 않는다.
+name: Source probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: '그룹만 실행 (쉼표로: tbs,fallback,issuelink,candidates). 비우면 전부'
+        type: string
+        default: ''
+
+# 권한은 잡마다 필요한 것만 준다
+permissions: {}
+
+concurrency:
+  group: source-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read   # 체크아웃만
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # 요청은 순차(요청 사이 1~1.5초, 이슈링크는 0.5초 안팎)라 전체 약 2~3분
+      - name: Probe sources
+        env:
+          ONLY: ${{ inputs.only }}
+          PYTHONUNBUFFERED: '1'
+        run: |
+          args=(--out "$RUNNER_TEMP/probe/probe_sources.json")
+          if [ -n "$ONLY" ]; then
+            args+=(--only "$ONLY")
+          fi
+          python tools/probe_sources.py "${args[@]}"
+
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: source-probe-${{ github.run_id }}
+          path: ${{ runner.temp }}/probe/
+          if-no-files-found: warn
+          retention-days: 30

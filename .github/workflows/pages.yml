@@ -37,6 +37,17 @@ jobs:
     outputs:
       skip: ${{ steps.build.outputs.skip }}
       daily_created: ${{ steps.build.outputs.daily_created }}
+      # 수집 상태(크롤한 실행만, build.py _health). health: ok|degraded|stale, health_streak: 알림 대상 문제가 이어진 횟수
+      # (아니면 0), health_alert: 그 횟수가 3번 이상(KST 00~06시 판정을 쉬며 직전 상태를 이어 둔 실행은 false),
+      # health_changed: 알림 대상(상태·문제 커뮤니티 목록)이 직전 크롤과 다름, health_notify: 열린 이슈에 코멘트할 실행
+      # (알림 중 + 바뀜 또는 그 장애의 첫 알림), health_close: 열린 이슈를 닫을 실행(알림 중이던 문제가 없어진 뒤 3번)
+      health: ${{ steps.build.outputs.health }}
+      health_detail: ${{ steps.build.outputs.health_detail }}
+      health_streak: ${{ steps.build.outputs.health_streak }}
+      health_alert: ${{ steps.build.outputs.health_alert }}
+      health_changed: ${{ steps.build.outputs.health_changed }}
+      health_notify: ${{ steps.build.outputs.health_notify }}
+      health_close: ${{ steps.build.outputs.health_close }}
     steps:
       # 이벤트 시점 SHA가 아니라 잡이 시작될 때의 브랜치 끝을 받는다.
       # concurrency로 대기하던 실행도 직전 실행이 커밋한 데일리 리포트를 봐야 중복 생성하지 않는다.
@@ -176,6 +187,76 @@ jobs:
           commit=$(git commit-tree "$tree" -m "audio: ${AUDIO_DATES}")
           unset GIT_INDEX_FILE
           git push --force-with-lease="refs/heads/audio:${AUDIO_BASE}" origin "${commit}:refs/heads/audio"
+
+  # 수집 이상 알림: 알림 대상 문제가 3번(build.py HEALTH_ALERT_STREAK) 연속이면 'source-health' 라벨 이슈를 연다.
+  # 알림 대상 = stale·stale-source·partial, 또는 커뮤니티 missing·blocked·(이슈링크·직접 수집으로도 못 채우는) degraded.
+  # 열린 뒤에는 상태가 바뀌었거나 새 장애의 첫 알림일 때만(health_notify) 코멘트하고, 알림 대상이 없어지면 닫는다.
+  # 닫기는 알림 중이던 문제가 없어진 뒤 3번의 실행(health_close)에서 시도한다 — 한 번 실패해도 다음 실행이 닫는다.
+  # KST 00~06시에는 크롤러가 갱신 멈춤을 판정하지 않으므로 이 시간의 '문제 없음'으로는 닫지 않는다(build.py _health).
+  # GitHub가 이메일·앱 알림을 보낸다. 문제가 이어지는 동안(alert)이나 닫기 실행에만 돈다. 실패해도 배포와 무관하다
+  health:
+    needs: build
+    if: >-
+      needs.build.outputs.skip != 'true' && needs.build.outputs.health != '' &&
+      (needs.build.outputs.health_alert == 'true' || needs.build.outputs.health_close == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write     # 이슈·라벨 만들기, 코멘트, 닫기
+      contents: read
+    steps:
+      - name: Open, comment or close source-health issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          HEALTH: ${{ needs.build.outputs.health }}
+          HEALTH_DETAIL: ${{ needs.build.outputs.health_detail }}
+          HEALTH_STREAK: ${{ needs.build.outputs.health_streak }}
+          HEALTH_ALERT: ${{ needs.build.outputs.health_alert }}
+          HEALTH_NOTIFY: ${{ needs.build.outputs.health_notify }}
+          HEALTH_CLOSE: ${{ needs.build.outputs.health_close }}
+        run: |
+          set -euo pipefail
+          label=source-health
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          stamp=$(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M KST')
+          body="$RUNNER_TEMP/health-body.md"
+          gh label create "$label" --color D93F0B --description '크롤링 소스 수집 상태 알림 (자동)' 2>/dev/null || true
+          open=$(gh issue list --label "$label" --state open --limit 1 --json number --jq '.[0].number // empty')
+
+          # 알림 대상이 없어짐 — health가 ok이거나, 남은 문제가 다른 경로로 채워지는 갱신 멈춤뿐.
+          # 닫은 다음에 코멘트한다: 닫기가 실패하면 다음 닫기 실행이 다시 시도하고, 코멘트가 두 번 붙지 않는다
+          if [ "$HEALTH_CLOSE" = "true" ]; then
+            if [ -n "$open" ]; then
+              gh issue close "$open" --reason completed
+              {
+                printf '회복: 알림 대상 문제가 없어졌습니다 (수집 상태 %s, %s).\n\n' "$HEALTH" "$stamp"
+                if [ "$HEALTH" != "ok" ]; then
+                  printf '남은 표시(알림 대상 아님):\n'
+                  printf '%s\n' "$HEALTH_DETAIL" | sed 's/ · /\n/g' | sed 's/^/- /'
+                  printf '\n'
+                fi
+                printf '실행: %s\n' "$run_url"
+              } > "$body"
+              gh issue comment "$open" --body-file "$body"
+            fi
+            exit 0
+          fi
+          [ "$HEALTH_ALERT" = "true" ] || exit 0
+
+          {
+            printf '수집 상태: **%s** (연속 %s번, %s)\n\n' "$HEALTH" "$HEALTH_STREAK" "$stamp"
+            # detail은 ' · '로 이은 한 줄 — 항목마다 줄을 나눈다
+            printf '%s\n' "$HEALTH_DETAIL" | sed 's/ · /\n/g' | sed 's/^/- /'
+            printf '\n커뮤니티별 표는 실행 요약(Step Summary)에 있습니다: %s\n' "$run_url"
+          } > "$body"
+          if [ -z "$open" ]; then
+            gh issue create --title "수집 이상: $HEALTH ($stamp)" --label "$label" --body-file "$body"
+          elif [ "$HEALTH_NOTIFY" = "true" ]; then
+            gh issue comment "$open" --body-file "$body"
+          else
+            echo "이슈 #$open 열려 있음 - 상태 그대로라 코멘트 생략"
+          fi
 
   deploy:
     needs: build

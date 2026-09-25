@@ -68,6 +68,11 @@
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
   [hidden] { display: none !important; }
+  /* 눈에는 안 보이고 스크린리더만 읽는 글자 (부모에 position 이 있어야 가로 스크롤을 만들지 않는다) */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
 
   body {
     background: var(--bg);
@@ -120,7 +125,8 @@
   .header-right {
     display: flex; align-items: center; gap: 10px;
   }
-  /* 갱신 상태 배지 — 이슈 보드 머리줄 맨 앞 */
+  /* 갱신 상태 배지 — 이슈 보드 머리줄 맨 앞.
+     문구가 줄 폭보다 길 때만(좁은 화면 + '일부 커뮤니티 수집 지연' 등) 배지 안에서 줄을 바꾼다 → 가로 스크롤 없음 */
   .status-badge {
     display: inline-flex; align-items: center; gap: 6px;
     font-size: 12px; color: var(--text-dim);
@@ -128,9 +134,10 @@
     padding: 2px 9px; border-radius: 20px;
     border: 1px solid var(--border);
     margin-right: 6px;
-    white-space: nowrap;
+    max-width: 100%;
     vertical-align: 1px;
   }
+  .status-dot { flex-shrink: 0; }
   .status-badge.stale { color: #8a4b00; background: #fff7e6; border-color: #f5c77e; }
   .status-dot {
     width: 7px; height: 7px; border-radius: 50%;
@@ -414,6 +421,7 @@
     padding: 4px 0 8px;
   }
   .src-chip {
+    position: relative;   /* 안의 .sr-only 가 칩 줄(가로 스크롤 상자) 밖으로 나가 페이지를 넓히지 않게 */
     display: flex; align-items: center; gap: 5px;
     padding: 7px 14px;
     border: 1px solid var(--border);
@@ -443,6 +451,21 @@
     padding: 1px 5px; border-radius: 8px;
   }
   .src-chip.active .chip-count { background: rgba(255,255,255,0.25); }
+  /* 원본 수집이 멈춘 커뮤니티 (trends.json source_health 가 degraded·missing·blocked) — 뜻은 점의 title(마우스)과
+     칩 안 숨은 글자(스크린리더)로 전한다. 흰 테두리는 칩이 선택돼 소스색 배경일 때도 점이 보이게 */
+  .src-chip .chip-warn {
+    position: relative;
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+    background: #d97706; box-shadow: 0 0 0 1.5px #fff;
+  }
+  .src-chip .chip-warn::after { content: ''; position: absolute; inset: -6px; }   /* title 을 띄우는 마우스 영역만 넓힌다 */
+  .src-chip .chip-warn.off { background: #c92a2a; }   /* 수집 안 됨·접속 차단 */
+
+  /* 고른 커뮤니티의 수집이 멈췄을 때 카드 위 안내 한 줄 (점의 title 은 모바일에서 안 보이므로) */
+  .src-note {
+    font-size: 12.5px; line-height: 1.6; color: var(--warn-text); background: var(--warn-bg);
+    border-radius: 8px; padding: 7px 10px; margin-bottom: 12px; word-break: keep-all; overflow-wrap: anywhere;
+  }
 
   /* 소스 아이콘 */
   .src-naver {
@@ -517,6 +540,15 @@
     white-space: nowrap;
     flex-shrink: 0;
   }
+  /* 오전에 당일 글이 모자란 칸을 채운 전날 인기글 (post.prev_day) */
+  .day-tag {
+    font-size: 10px; font-weight: 700; color: var(--warn-text);
+    background: var(--warn-bg); border: 1px solid #f0dc9c;
+    padding: 1px 6px; border-radius: 4px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  /* 이슈링크를 거쳐 모은 글 (post.via === 'issuelink') — 출처 배지 옆 작은 글자 */
+  .via-tag { font-size: 10px; color: var(--text-dim); white-space: nowrap; flex-shrink: 0; }
 
   .card-title {
     font-size: 14px; font-weight: 700;
@@ -729,53 +761,68 @@
       <button type="button" class="src-chip active" data-src="" aria-pressed="true">
         전체 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="fmkorea" data-color="#ff6b35" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="fmkorea" data-color="#ff6b35" data-label="FMKorea" aria-pressed="false">
         🔥 FMKorea <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="todayhumor" data-color="#2ecc71" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="todayhumor" data-color="#2ecc71" data-label="오늘의유머" aria-pressed="false">
         😂 오늘의유머 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="ruliweb" data-color="#3498db" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="ruliweb" data-color="#3498db" data-label="루리웹" aria-pressed="false">
         🎮 루리웹 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="clien" data-color="#9b59b6" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="clien" data-color="#9b59b6" data-label="클리앙" aria-pressed="false">
         💻 클리앙 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="theqoo" data-color="#e91e8c" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="theqoo" data-color="#e91e8c" data-label="더쿠" aria-pressed="false">
         💗 더쿠 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="mlbpark" data-color="#1565c0" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="mlbpark" data-color="#1565c0" data-label="MLB파크" aria-pressed="false">
         ⚾ MLB파크 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="instiz" data-color="#ff7675" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="instiz" data-color="#ff7675" data-label="인스티즈" aria-pressed="false">
         💬 인스티즈 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="bobaedream" data-color="#fdcb6e" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="bobaedream" data-color="#fdcb6e" data-label="보배드림" aria-pressed="false">
         🚗 보배드림 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="natekorea" data-color="#e17055" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="natekorea" data-color="#e17055" data-label="네이트판" aria-pressed="false">
         💁 네이트판 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="humoruniv" data-color="#f9ca24" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="humoruniv" data-color="#f9ca24" data-label="웃긴대학" aria-pressed="false">
         🤣 웃긴대학 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="arcalive" data-color="#00b4d8" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="arcalive" data-color="#00b4d8" data-label="아카라이브" aria-pressed="false">
         🌊 아카라이브 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="dcinside" data-color="#0066cc" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="dcinside" data-color="#0066cc" data-label="디시인사이드" aria-pressed="false">
         🎭 디시인사이드 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="dogdrip" data-color="#00b894" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="dogdrip" data-color="#00b894" data-label="개드립" aria-pressed="false">
         🐶 개드립 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="inven" data-color="#d35400" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="inven" data-color="#d35400" data-label="인벤" aria-pressed="false">
         ⚔️ 인벤 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="ppomppu" data-color="#27ae60" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="ppomppu" data-color="#27ae60" data-label="뽐뿌" aria-pressed="false">
         💰 뽐뿌 <span class="chip-count">0</span>
       </button>
-      <button type="button" class="src-chip" data-src="ddanzi" data-color="#6c5ce7" aria-pressed="false">
+      <button type="button" class="src-chip" data-src="ddanzi" data-color="#6c5ce7" data-label="딴지일보" aria-pressed="false">
         📰 딴지일보 <span class="chip-count">0</span>
+      </button>
+      <button type="button" class="src-chip" data-src="etoland" data-color="#fd79a8" data-label="이토랜드" aria-pressed="false">
+        🎯 이토랜드 <span class="chip-count">0</span>
+      </button>
+      <button type="button" class="src-chip" data-src="ygosu" data-color="#8e44ad" data-label="와이고수" aria-pressed="false">
+        🎲 와이고수 <span class="chip-count">0</span>
+      </button>
+      <button type="button" class="src-chip" data-src="slrclub" data-color="#2980b9" data-label="SLR클럽" aria-pressed="false">
+        📷 SLR클럽 <span class="chip-count">0</span>
+      </button>
+      <button type="button" class="src-chip" data-src="cook82" data-color="#e74c3c" data-label="82쿡" aria-pressed="false">
+        👩‍🍳 82쿡 <span class="chip-count">0</span>
+      </button>
+      <button type="button" class="src-chip" data-src="gasengi" data-color="#e84393" data-label="가생이닷컴" aria-pressed="false">
+        🌏 가생이닷컴 <span class="chip-count">0</span>
       </button>
     </div>
   </div>
@@ -785,6 +832,9 @@
     <span id="filter-text"></span>
     <button type="button" data-action="clear-issue" aria-label="이슈 필터 해제">✕ 해제</button>
   </div>
+
+  <!-- 고른 커뮤니티의 수집이 멈췄을 때 안내 (source_health) -->
+  <p class="src-note" id="src-note" role="status" hidden></p>
 
   <div id="card-container"></div>
   </section>
@@ -826,6 +876,11 @@ const ISSUE_LIMIT_WIDE = 5;     // 넓은 화면 기본 표시 개수 (오른쪽
 const ISSUE_LIMIT_NARROW = 3;   // 모바일 기본 표시 개수 — 첫 피드 카드가 첫 화면에서 너무 밀리지 않게
 const WIDE_MQ = window.matchMedia('(min-width: 820px)');   // CSS 의 넓은 화면 기준과 같게
 
+// 커뮤니티별 수집 상태 (trends.json source_health) — 'ok' 가 아닌 곳만 칩에 점으로 알린다
+const HEALTH_BAD = { degraded: '갱신 멈춤', missing: '수집 안 됨', blocked: '접속 차단됨' };
+// source_health.via 중 보충 경로 이름과 뒤에 붙는 조사 ('tbs' 는 평소 경로라 말하지 않는다)
+const VIA_NAME = { issuelink: ['이슈링크', '로'], direct: ['직접 수집', '으로'] };
+
 let fullData = null;        // 항상 필터 없는 전체 JSON — 필터는 클라이언트에서만 적용
 let currentTab = 'all';
 let currentSrc = '';
@@ -840,6 +895,8 @@ let hotOpen = null;         // '여기서만 뜨거운 글' 펼침 — 첫 렌�
 let lastPanelHtml = '';     // 상세 패널·필터 막대는 내용이 바뀔 때만 다시 쓴다 (포커스·스크린리더 재낭독 방지)
 let lastFilterHtml = '';
 let lastGoneHtml = '';
+let lastSrcNote = '';
+let sourceHealth = Object.create(null);   // 수집이 멈춘 커뮤니티만 {source: {status, text, ago, via, label}} (healthMap)
 let nextRefresh = Date.now() + REFRESH_MS;
 let lastFetchAt = 0;
 let loadPromise = null;     // 진행 중인 요청 (중복 요청 방지)
@@ -947,6 +1004,7 @@ function loadCounts(posts) {
   }
 
   // ── 기존 칩 카운트 갱신 + 0개 칩 숨김 (선택 중인 칩은 유지) ──
+  // 수집이 멈춘 커뮤니티는 글이 0개여도 칩을 남겨 점으로 알린다. 이슈 필터 중에는 '누르면 나오는 카드 수'와 맞추려고 숨긴다
   const container = document.getElementById('src-chips');
   const knownSrcs = new Set();
   container.querySelectorAll('.src-chip').forEach(btn => {
@@ -957,8 +1015,10 @@ function loadCounts(posts) {
       return;
     }
     const cnt = srcCounts[src] || 0;
+    const bad = sourceHealth[src] || null;
     if (cc) cc.textContent = cnt;
-    btn.style.display = (cnt > 0 || src === currentSrc) ? '' : 'none';
+    btn.style.display = (cnt > 0 || src === currentSrc || (bad && !activeIssue)) ? '' : 'none';
+    paintChipHealth(btn, bad);
     knownSrcs.add(src);
   });
 
@@ -970,9 +1030,96 @@ function loadCounts(posts) {
     btn.className = 'src-chip';
     btn.dataset.src   = src;
     btn.dataset.color = meta.color;
+    btn.dataset.label = meta.label;
     btn.setAttribute('aria-pressed', 'false');
     btn.innerHTML = `${escHtml(meta.emoji)} ${escHtml(meta.label)} <span class="chip-count">${srcCounts[src]}</span>`;
+    paintChipHealth(btn, sourceHealth[src] || null);
     container.appendChild(btn);
+  }
+}
+
+// ── 커뮤니티 수집 상태 (source_health) ────────────────────────────────────────
+
+// trends.json source_health → 'ok' 가 아닌 커뮤니티만 {source: {status, text, ago, via, label}}.
+// 형식이 어긋난 항목은 버린다. 'n시간 전'은 원본 마지막 갱신(last_update) 기준이고, 없으면 시각을 말하지 않는다
+// (since 는 '이 상태를 처음 본 시각'이라 마지막 갱신이 아니다 — 배포 직후 첫 수집이면 '방금 전'이 된다).
+// 프로토타입 없는 객체 — 'constructor'·'__proto__' 같은 소스 id 가 Object 기본 속성과 섞이지 않게
+function healthMap() {
+  const out = Object.create(null);
+  const h = fullData && fullData.source_health;
+  if (!h || typeof h !== 'object' || Array.isArray(h)) return out;
+  const now = Date.now();
+  for (const [src, v] of Object.entries(h)) {
+    if (!src || !v || typeof v !== 'object' || !Object.prototype.hasOwnProperty.call(HEALTH_BAD, v.status)) continue;
+    const t = parseIsoMs(v.last_update);
+    const ago = t !== null ? agoLabel(t, now) : '';
+    const via = [...new Set(Array.isArray(v.via) ? v.via : [])]
+      .filter(x => typeof x === 'string' && Object.prototype.hasOwnProperty.call(VIA_NAME, x));
+    let text = HEALTH_BAD[v.status];
+    if (ago) text += v.status === 'degraded' ? ` · ${ago}` : ` · 마지막 갱신 ${ago}`;
+    if (via.length) text += ` · ${viaPhrase(via)} 보충 중`;
+    out[src] = { status: v.status, text, ago, via, label: srcLabel(src) };
+  }
+  return out;
+}
+
+// ['issuelink', 'direct'] → '이슈링크·직접 수집으로' (조사는 마지막 이름에 맞춘다)
+function viaPhrase(via) {
+  return via.map(x => VIA_NAME[x][0]).join('·') + VIA_NAME[via[via.length - 1]][1];
+}
+
+// 커뮤니티 이름: 지금 글에 있는 라벨 → 칩의 data-label → id
+function srcLabel(src) {
+  const fromPosts = issueData && issueData.src[src];
+  if (fromPosts && fromPosts.label) return fromPosts.label;
+  const chip = Array.from(document.querySelectorAll('#src-chips .src-chip')).find(b => b.dataset.src === src);
+  return (chip && chip.dataset.label) || src;
+}
+
+// 칩에 작은 점 + 스크린리더용 숨은 글자(버튼 이름 뒤에 읽힘). 마우스용 title 은 점(aria-hidden)에만 단다 —
+// 버튼에 달면 이름(숨은 글자)과 설명(title)에 같은 문구가 들어가 스크린리더가 두 번 읽는다. 정상(bad=null)이면 모두 뗀다
+function paintChipHealth(btn, bad) {
+  let dot = btn.querySelector('.chip-warn');
+  let sr = btn.querySelector('.chip-health');
+  if (!bad) {
+    if (dot) dot.remove();
+    if (sr) sr.remove();
+    return;
+  }
+  if (!dot) {
+    dot = document.createElement('span');
+    dot.setAttribute('aria-hidden', 'true');
+    btn.insertBefore(dot, btn.querySelector('.chip-count'));
+  }
+  dot.className = bad.status === 'degraded' ? 'chip-warn' : 'chip-warn off';
+  if (dot.title !== bad.text) dot.title = bad.text;
+  if (!sr) {
+    sr = document.createElement('span');
+    sr.className = 'sr-only chip-health';
+    btn.appendChild(sr);
+  }
+  const say = `, ${bad.text}`;
+  if (sr.textContent !== say) sr.textContent = say;
+}
+
+// 고른 커뮤니티의 수집이 멈췄으면 카드 위에 한 줄로 알린다 (칩 점의 title 뜻이 모바일에서는 안 보이므로)
+function renderSrcNote() {
+  const el = document.getElementById('src-note');
+  const bad = currentSrc ? sourceHealth[currentSrc] : null;
+  let text = '';
+  if (bad) {
+    const last = bad.ago ? ` 마지막 갱신은 ${bad.ago}이에요.` : '';
+    text = bad.status === 'degraded'
+      ? `⚠️ ${bad.label} 원본 목록이 ${bad.ago ? `${bad.ago}부터` : '한동안'} 갱신되지 않고 있어요. 순위·댓글 수가 그때 그대로일 수 있어요.`
+      : bad.status === 'blocked'
+        ? `⚠️ ${bad.label} 사이트가 지금 수집을 막고 있어요.${last}`
+        : `⚠️ 지금 ${bad.label} 글을 받아오지 못하고 있어요.${last}`;
+    if (bad.via.length) text += ` ${viaPhrase(bad.via)} 보충한 글을 함께 보여 줘요.`;
+  }
+  el.hidden = !text;
+  if (text !== lastSrcNote) {   // role=status — 바뀔 때만 다시 쓴다
+    el.textContent = text;
+    lastSrcNote = text;
   }
 }
 
@@ -1014,6 +1161,7 @@ function applyFilters() {
   const posts = filterPosts(fullData.posts, currentTab, currentSrc, activeIssue);
   renderCards(posts);
   renderIssueFilterBar(posts);
+  renderSrcNote();
 }
 
 // 필터 막대: '이슈: 이름 · 글 N개 · C곳 [✕ 해제]'. N 은 아래 카드 수와 항상 같다
@@ -1064,6 +1212,7 @@ function paintSelection() {
 
 function renderAll() {
   prepareIssues();
+  sourceHealth = healthMap();   // 라벨을 글에서 찾으므로 prepareIssues 뒤
   renderIssues();
   renderAiLine();
   applyFilters();      // 현재 탭·소스·이슈 필터를 새 데이터에 다시 적용 (탭·칩 숫자 포함)
@@ -1418,12 +1567,18 @@ function renderCards(posts) {
     const dateStr  = formatDate(post.date);
     const likes    = Number(post.likes)    > 0 ? `<span class="card-stat">❤️ ${fmtNum(post.likes)}</span>` : '';
     const comments = Number(post.comments) > 0 ? `<span class="card-stat">💬 ${fmtNum(post.comments)}</span>` : '';
+    // 이슈링크를 거쳐 모은 글은 출처 옆에 작게, 오전 빈 칸을 채운 전날 인기글은 '어제'
+    const via = post.via === 'issuelink'
+      ? '<span class="via-tag" title="이슈링크(issuelink.co.kr)를 거쳐 모은 글이에요">(이슈링크)</span>' : '';
+    const prevDay = post.prev_day === true
+      ? '<span class="day-tag" title="어제 인기글 — 오늘 글이 아직 적은 오전에 빈 칸을 채워요">어제</span>' : '';
 
     // 배지 글자는 소스색을 어둡게(×0.5) 만든 색, 소스색은 틴트 배경·테두리에만
     card.innerHTML = `
       <div class="card-body">
         <div class="card-meta">
           <span class="source-badge" style="background:${color}22;color:${darken(color)};border:1px solid ${color}44">${escHtml(emoji)} ${escHtml(label)}</span>
+          ${via}${prevDay}
           ${catBadge ? `<span class="keyword-tag">${catBadge}</span>` : ''}
           ${rankLabel ? `<span class="${rankClass}">${rankLabel}</span>` : ''}
         </div>
@@ -1459,8 +1614,11 @@ function renderLoadError() {
 // ── 상태 업데이트 ─────────────────────────────────────────────────────────────
 
 // 'n분 전 갱신'은 데이터가 바뀐 시각(last_updated). 원본 목록은 약 1시간마다 바뀌므로 수십 분 전이 정상이다.
-// '수집 지연': status 'stale'(수집 실패로 이전 데이터 유지), 마지막 확인(checked_at)이 주기의 3배 넘게 멈춤,
-// 또는 데이터가 DATA_STALE_MS 넘게 그대로(원본 갱신이 멈춤)
+// 뒤에 붙는 말은 무거운 것 하나만 (모두 같은 주황 배지):
+//  '수집 지연'              status 'stale'(수집 실패로 이전 데이터 유지) 또는 마지막 확인(checked_at)이 주기의 3배 넘게 멈춤
+//  '원본 갱신 멈춤'          status 'stale-source' — 수집은 도는데 원본(TBS) 목록 전체가 갱신을 멈춤
+//  '수집 지연'              데이터가 DATA_STALE_MS 넘게 그대로 (stale-source 를 모르는 예전 데이터용 판정)
+//  '일부 커뮤니티 수집 지연'  status 'partial' — 몇몇 커뮤니티가 빠지거나 멈춤 (어디인지는 칩의 점·배지 title)
 function updateStatus() {
   if (!fullData) return;
   const badge = document.getElementById('status-badge');
@@ -1471,20 +1629,28 @@ function updateStatus() {
   const checked = parseIsoMs(fullData.checked_at);
   const rel = formatDate(fullData.last_updated);
   const now = Date.now();
-  const tooOld = (checked !== null && now - checked > REFRESH_MS * 3) ||
-                 (t !== null && now - t > (checked !== null ? DATA_STALE_MS : REFRESH_MS * 3));
-  const stale = fullData.status === 'stale' || tooOld;
+  const st = fullData.status;
+  const checkedOld = checked !== null && now - checked > REFRESH_MS * 3;
+  const dataOld = t !== null && now - t > (checked !== null ? DATA_STALE_MS : REFRESH_MS * 3);
+  const note = st === 'stale' || checkedOld ? '수집 지연'
+    : st === 'stale-source' ? '원본 갱신 멈춤'
+    : dataOld ? '수집 지연'
+    : st === 'partial' ? '일부 커뮤니티 수집 지연'
+    : '';
 
   let text = rel ? `${rel} 갱신` : '갱신 시각 알 수 없음';
-  if (stale) text += ' · 수집 지연';
+  if (note) text += ` · ${note}`;
   if (txt.textContent !== text) txt.textContent = text;
 
-  badge.classList.toggle('stale', stale);
-  dot.classList.toggle('stale', stale);
+  badge.classList.toggle('stale', !!note);
+  dot.classList.toggle('stale', !!note);
   const tips = [];
   if (t !== null) tips.push(`데이터 갱신: ${kstDateTimeStr(t)}`);
   if (checked !== null) tips.push(`마지막 확인: ${kstDateTimeStr(checked)}`);
-  badge.title = tips.length ? `${tips.join(' · ')} (KST)` : '';
+  let title = tips.length ? `${tips.join(' · ')} (KST)` : '';
+  const bad = Object.values(sourceHealth).map(h => `${h.label}(${h.text})`);
+  if (bad.length) title += `${title ? '\n' : ''}수집이 멈춘 커뮤니티: ${bad.join(', ')}`;
+  if (badge.title !== title) badge.title = title;
   updateAiSummaryTime();
 }
 
@@ -1755,6 +1921,15 @@ function formatDate(s, now = Date.now()) {
   if (diff < 3600000) return `${Math.floor(diff / 60000)}분 전`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}시간 전`;
   return md;
+}
+
+// epoch ms → '방금 전' / '25분 전' / '30시간 전'(이틀 안) / '3일 전' — 커뮤니티 수집이 멈춘 지 얼마나 됐는지
+function agoLabel(t, now = Date.now()) {
+  const m = Math.max(0, Math.floor((now - t) / 60000));
+  if (m < 1) return '방금 전';
+  if (m < 60) return `${m}분 전`;
+  if (m < 48 * 60) return `${Math.floor(m / 60)}시간 전`;
+  return `${Math.floor(m / 1440)}일 전`;
 }
 
 // 이슈 시작 시각 → '25분 전 시작' / '14시간째' / '2일째' (날짜만 있는 값은 '')

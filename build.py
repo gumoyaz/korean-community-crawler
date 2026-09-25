@@ -6,6 +6,8 @@
 3. 데일리 음성(Gemini TTS) — TTS_ENABLED일 때 한 실행에 최대 1개
    (데일리 생성을 시도한 실행(성공·실패)과 시작 후 TTS_START_BUDGET_SEC가 지난 실행은 제외)
 4. _site/ 에 정적 사이트 렌더링 (index, daily, audio, trends.json, state.json, sitemap, robots, llms.txt, 404)
+5. 수집 상태(health) — GITHUB_OUTPUT health·health_detail 등과 Step Summary. pages.yml health 잡이 알림 대상 문제가
+   HEALTH_ALERT_STREAK번 연속이면 'source-health' 이슈를 열고, 풀리면 닫는다(연속 횟수는 state.json 'health')
 
 로컬 미리보기:
     python build.py --base "" --out _site --no-crawl   # 운영 state.json으로 렌더링만 (부작용 없음)
@@ -59,7 +61,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape  # noqa: E40
 import daily  # noqa: E402
 import gemini  # noqa: E402
 import tts  # noqa: E402
-from crawler import TrendCrawler  # noqa: E402
+from crawler import HEALTH_FROM_HOUR, MERGE_PREV_END_HOUR, SOURCE_META, TrendCrawler  # noqa: E402
 
 DEFAULT_SITE_URL = 'https://gumoyaz.github.io/korean-community-crawler'
 REFRESH_INTERVAL = 600      # 프론트가 trends.json을 다시 읽는 주기(초)
@@ -70,7 +72,7 @@ DAILY_HOUR_KST = 12         # 이 시각 이전에는 오늘 리포트를 만들
 # 정오본은 그날 오전까지의 인기글만 본다. 다음 날 00:10~01:59(크롤러가 전날 목록을 같이 받는 시간)에
 # 전날 리포트를 하루 전체 목록으로 다시 만든다(없으면 백필). generated_at 날짜가 리포트 날짜보다 뒤면 최종본.
 DAILY_FINAL_START = (0, 10)   # (시, 분) KST
-DAILY_FINAL_END_HOUR = 2      # crawler._fetch_todaybeststory가 전날 목록을 같이 받는 마지막 시각
+DAILY_FINAL_END_HOUR = MERGE_PREV_END_HOUR   # 크롤러가 전날 목록을 같이 받는 마지막 시각(이 시각 전까지)과 같게
 # 데일리 생성이 실패하면 이 간격(분)을 두고 재시도한다. 매 실행(10분)마다 재시도하면 같은 입력으로
 # 계속 실패할 때(SAFETY 차단 등) 크롤러 AI 요약과 같이 쓰는 무료 일일 한도(RPD)를 몇 시간 만에 다 쓴다.
 DAILY_RETRY_MIN = 30
@@ -85,12 +87,28 @@ TTS_START_BUDGET_SEC = 420
 
 # trends.json에 내보내는 키 — get_data()에서 프론트가 쓰는 것만.
 # issues는 '지금 뜨는 이슈' 블록(글은 posts[].rank로 참조), trends는 카테고리 글 수만 남은 공개 JSON 호환용
+# status: ok | partial | stale | stale-source (crawler.STATUSES), source_health: 커뮤니티별 수집 상태
 TREND_KEYS = ('posts', 'issues', 'trends', 'last_updated', 'status', 'total', 'crawl_count',
-              'sources', 'ai_summary', 'ai_summary_updated')
+              'sources', 'source_health', 'ai_summary', 'ai_summary_updated')
+# prev_day: 전날 보충 글('어제' 표시, 있을 때만 true), via: 'direct'|'issuelink'(없으면 TBS),
+# kept: 이번 수집에서 빠진 커뮤니티라 이전 글을 유지한 것(있을 때만 true)
 POST_FIELDS = ('title', 'url', 'source', 'source_label', 'source_emoji', 'source_color',
                'views', 'likes', 'comments', 'date', 'summary', 'author', 'rank',
                'rank_score', 'post_velocity', 'is_food', 'is_beauty', 'is_fashion',
-               'is_travel', 'is_game', 'is_celeb', 'is_humor', 'is_car')
+               'is_travel', 'is_game', 'is_celeb', 'is_humor', 'is_car', 'prev_day', 'via', 'kept')
+# 수집 상태 알림: 알림 대상 문제가 이 횟수만큼 연속이면 pages.yml health 잡이 이슈를 연다.
+# 알림 대상 = health stale, status partial, 또는 커뮤니티의 missing·blocked·'채우는 경로가 없는' degraded.
+# 이슈링크·직접 수집 글이 들어오고 있는 degraded(TBS 갱신만 멈춤)는 사이트에 글이 계속 들어오므로 칩 표시만 하고
+# 알리지 않는다 — 인스티즈는 TBS 갱신이 거의 매일 낮·저녁부터 자정 뒤까지 멈춰서(2026-09-22~25) 매일 이슈가 열리고 닫힌다.
+# 하루 넘게 멈추면 날이 바뀐 뒤 당일 글이 없어 missing이 되므로 그때 알린다. 크롤러가 판정을 쉬는 KST 00~06시에는
+# 알림 상태를 그대로 두므로(_health의 held) 자정 전부터 이어진 장애는 같은 이슈에 코멘트로 이어진다
+HEALTH_ALERT_STREAK = 3
+# 알림 중이던(연속 HEALTH_ALERT_STREAK번 이상) 문제가 없어진 실행부터 이 횟수의 실행 동안 health 잡이 열린 이슈 닫기를
+# 시도한다(없으면 그냥 끝). 닫는 실행 한 번이 실패해도(gh API 오류, build 잡 실패로 health 잡이 건너뜀) 이슈가 남지 않게
+HEALTH_CLOSE_RUNS = 3
+HEALTH_LABEL = {'degraded': '갱신 멈춤', 'missing': '빠짐', 'blocked': '차단'}
+# source_health.via 중 TBS 대신 채운 경로 — (이름, 뒤에 붙는 조사). 조사는 마지막 이름에 맞춘다(프론트 VIA_NAME과 같다)
+HEALTH_FILL_VIA = {'direct': ('직접 수집', '으로'), 'issuelink': ('이슈링크', '로')}
 
 # robots.txt에서 명시적으로 허용을 선언하는 AI 크롤러 ('*'와 같은 그룹)
 AI_BOTS = ('GPTBot', 'OAI-SearchBot', 'ChatGPT-User', 'ClaudeBot', 'Claude-SearchBot',
@@ -267,7 +285,8 @@ def _load_state(state_file: str | None, state_url: str) -> dict:
 
 # ── 크롤 · 데일리 ────────────────────────────────────────────────────────────
 
-def _crawl(state: dict, no_crawl: bool) -> TrendCrawler:
+def _crawl(state: dict, no_crawl: bool, now: datetime | None = None) -> TrendCrawler:
+    """now: --now로 준 시각(테스트). 크롤러의 커뮤니티 판정·오전 보충·TBS 날짜가 이 시각을 따른다. 없으면 실제 시각."""
     crawler = TrendCrawler()
     try:
         crawler.import_state(state.get('crawler'))
@@ -279,7 +298,7 @@ def _crawl(state: dict, no_crawl: bool) -> TrendCrawler:
         return crawler
     t0 = time.time()
     try:
-        crawler.refresh()
+        crawler.refresh(now=now)
     except Exception as e:
         # 크롤이 실패해도 이전 데이터로 사이트는 계속 띄운다
         _log(f'[Crawl] 오류: {type(e).__name__}: {e} — 이전 데이터로 렌더링')
@@ -300,7 +319,9 @@ def _maybe_generate_daily(posts: list, now: datetime,
     """조건을 만족하면 리포트를 만든다.
     - KST 12시 이후: 오늘 리포트가 없으면 만든다(오전까지의 인기글 기준).
     - 다음 날 00:10~01:59: 전날 리포트가 최종본이 아니면(정오본이거나 없으면) 하루 전체 목록으로 다시 만든다.
+    전날 보충 글(prev_day — 크롤러가 02~12시에 당일 글이 모자란 칸을 채운 '어제' 글)은 입력에서 뺀다.
     반환: (만든 날짜 또는 None, 마지막 생성 실패 시각 — state.json에 남겨 재시도 간격 계산에 쓴다)"""
+    posts = [p for p in posts if not p.get('prev_day')]
     today = now.strftime('%Y-%m-%d')
     if DAILY_FINAL_START <= (now.hour, now.minute) and now.hour < DAILY_FINAL_END_HOUR:
         target = (now - timedelta(days=1)).strftime('%Y-%m-%d')
@@ -474,6 +495,121 @@ def _maybe_generate_audio(now: datetime, created: str | None,
         _log(f'[TTS] {date} 음성 생성 실패({err}) — '
              f'{TTS_QUOTA_RETRY_MIN if err == "quota_day" else TTS_RETRY_MIN}분 뒤 재시도, 그동안 브라우저 음성')
     return changed, state
+
+
+# ── 수집 상태 (health) ────────────────────────────────────────────────────────
+
+def _health(data: dict, prev, now: datetime) -> tuple[dict, dict]:
+    """이번 크롤 결과의 수집 상태와 연속 횟수.
+    health: ok | degraded(status partial이거나 커뮤니티 하나라도 degraded·missing·blocked) | stale(stale·stale-source)
+    streak: 알림 대상 문제(HEALTH_ALERT_STREAK 위 주석)가 이어진 횟수 — 알림 대상이 아니면 0 (health가 degraded여도)
+    반환: (state.json 'health' {status, streak, key, since, detail, close_left}, GITHUB_OUTPUT 값)
+    key는 알림 대상 문제(health·status·커뮤니티 목록), 없으면 'ok'.
+    - health_notify: 열린 이슈에 코멘트할 실행 — 알림 중(streak ≥ HEALTH_ALERT_STREAK)이고 key가 바뀌었거나 이번이
+      그 장애의 첫 알림 실행(연속 횟수가 막 HEALTH_ALERT_STREAK에 닿음, 이전 이슈가 닫히지 않고 남아 있을 때도 알리게)
+    - health_close: 열린 이슈를 닫을 실행 — 알림 중이던 문제가 없어진 실행과 그 뒤 HEALTH_CLOSE_RUNS-1번(close_left)
+    - KST 00~06시(crawler.HEALTH_FROM_HOUR 전)에는 크롤러가 degraded·stale-source를 판정하지 않고 00~02시에는 전날 목록도
+      같이 본다. 알림 중(연속 HEALTH_ALERT_STREAK번 이상)이던 상태에서 이 시간의 '알림 대상 없음'은 회복으로 세지 않고
+      직전 연속 횟수·key를 그대로 둔다(held) — 저녁부터 이어진 장애의 이슈가 00시대에 닫혔다가 02시 뒤 missing으로
+      새로 열리지 않게. 이 시간에 실제로 회복했으면 06시 뒤에 닫힌다."""
+    prev = prev if isinstance(prev, dict) else {}
+    status = str(data.get('status') or '')
+    sh = data.get('source_health') if isinstance(data.get('source_health'), dict) else {}
+    problems = {s: e for s, e in sh.items() if isinstance(e, dict) and e.get('status') in HEALTH_LABEL}
+    if status in ('stale', 'stale-source'):
+        health = 'stale'
+    elif status == 'partial' or problems:
+        health = 'degraded'
+    else:
+        health = 'ok'
+
+    def filled(e) -> list:
+        # source_health.via 순서(crawler.VIA_ORDER: 직접 수집 → 이슈링크)대로 — 프론트 안내 문구와 같은 순서
+        return [v for v in dict.fromkeys(e.get('via') or []) if v in HEALTH_FILL_VIA]
+
+    # TBS 갱신만 멈췄고 다른 경로로 글이 들어오는 커뮤니티는 알림에서 뺀다
+    alert_problems = {s: e for s, e in problems.items() if not (e['status'] == 'degraded' and filled(e))}
+    alerting = health == 'stale' or status == 'partial' or bool(alert_problems)
+    key = (f'{health}|{status}|' + ','.join(f'{s}={e["status"]}' for s, e in sorted(alert_problems.items()))
+           if alerting else 'ok')
+    prev_streak = prev.get('streak') if isinstance(prev.get('streak'), int) and prev['streak'] >= 0 else 0
+    prev_key = prev.get('key') if isinstance(prev.get('key'), str) else None
+    prev_close = prev.get('close_left') if isinstance(prev.get('close_left'), int) and prev['close_left'] > 0 else 0
+    # 알림 중(이슈가 열렸을 연속 횟수)일 때만 이어 둔다 — 아직 알리기 전(1~2번)이면 닫을 이슈가 없어 이어 둘 까닭이 없고,
+    # 이어 두면 밤사이 새로 생긴 다른 문제가 한 번만 나와도 곧바로 알림 횟수에 닿는다
+    held = (not alerting and prev_streak >= HEALTH_ALERT_STREAK and prev_key is not None
+            and now.hour < HEALTH_FROM_HOUR)
+    if held:
+        streak, key = prev_streak, prev_key
+    else:
+        streak = prev_streak + 1 if alerting else 0
+    changed = key != prev_key
+    notify = streak >= HEALTH_ALERT_STREAK and (changed or prev_streak < HEALTH_ALERT_STREAK)
+    if streak:
+        close, close_left = False, 0
+    elif prev_streak >= HEALTH_ALERT_STREAK:   # 알림 중이던 문제가 막 없어진 실행 (알리기 전 1~2번이면 열린 이슈가 없다)
+        close, close_left = True, HEALTH_CLOSE_RUNS - 1
+    else:
+        close, close_left = prev_close > 0, max(0, prev_close - 1)
+    since = prev.get('since') if prev.get('status') == health and isinstance(prev.get('since'), str) else _iso(now)
+
+    parts = [f'status {status or "?"}']
+    for s, e in sorted(problems.items(), key=lambda kv: (kv[1]['status'], kv[0])):
+        label = SOURCE_META.get(s, (s,))[0]
+        last = _parse_iso(e.get('last_update'))
+        ago = f', 마지막 갱신 {(now - last).total_seconds() / 3600:.1f}시간 전' if last else ''
+        note = f', {e["note"]}' if isinstance(e.get('note'), str) and e.get('note') else ''
+        fv = filled(e)
+        fill = (f', {"·".join(HEALTH_FILL_VIA[v][0] for v in fv)}{HEALTH_FILL_VIA[fv[-1]][1]} 보충' if fv else '')
+        parts.append(f'{HEALTH_LABEL[e["status"]]}: {label}({s}{ago}{note}{fill})')
+    if held:
+        parts.append(f'KST {HEALTH_FROM_HOUR:02d}시 전이라 판정을 쉬는 시간 - 직전 알림 상태 유지(연속 {streak}회)')
+    # GITHUB_OUTPUT은 한 줄 key=value — 줄바꿈이 들어가면 다음 출력이 깨진다
+    detail = re.sub(r'[\r\n]+', ' ', ' · '.join(parts))[:1500]
+    state = {'status': health, 'streak': streak, 'key': key, 'since': since, 'detail': detail,
+             'close_left': close_left}
+    # held 실행은 판정을 쉬는 것이라 health 잡을 돌리지 않는다(alert false) — 06시 뒤 판정으로 이어서 알리거나 닫는다
+    outputs = {'health': health, 'health_detail': detail, 'health_streak': str(streak),
+               'health_alert': 'true' if streak >= HEALTH_ALERT_STREAK and not held else 'false',
+               'health_changed': 'true' if changed else 'false',
+               'health_notify': 'true' if notify else 'false',
+               'health_close': 'true' if close else 'false'}
+    return state, outputs
+
+
+def _health_summary(data: dict, hstate: dict, now: datetime) -> str:
+    """GITHUB_STEP_SUMMARY용 마크다운 — 커뮤니티별 상태 표 (문제 있는 곳 먼저)."""
+    sh = data.get('source_health') if isinstance(data.get('source_health'), dict) else {}
+    lines = [f'### 수집 상태: {hstate["status"]} (status {data.get("status")}, 알림 대상 연속 {hstate["streak"]}회)', '',
+             f'{hstate["detail"]}', '',
+             '| 커뮤니티 | 상태 | 마지막 갱신 | 마지막 새 글 | 글 | 경로 | 비고 |',
+             '|---|---|---|---|---:|---|---|']
+
+    def when(v):
+        dt = _parse_iso(v)
+        if not dt:
+            return '-'
+        return f'{dt.astimezone(KST):%m-%d %H:%M} ({(now - dt).total_seconds() / 3600:.1f}시간 전)'
+
+    for s, e in sorted(sh.items(), key=lambda kv: (kv[1].get('status') == 'ok', kv[0])):
+        if not isinstance(e, dict):
+            continue
+        label = SOURCE_META.get(s, (s,))[0]
+        note = str(e.get('note') or '').replace('|', '/')
+        lines.append(f'| {label} ({s}) | {e.get("status")} | {when(e.get("last_update"))} | '
+                     f'{when(e.get("last_new"))} | {e.get("n", 0)} | {"·".join(e.get("via") or []) or "-"} | {note} |')
+    return '\n'.join(lines) + '\n'
+
+
+def _write_step_summary(text: str):
+    path = os.environ.get('GITHUB_STEP_SUMMARY')
+    if not path:
+        return
+    try:
+        with open(path, 'a', encoding='utf-8') as f:
+            f.write(text)
+    except OSError as e:
+        _log(f'[Health] Step Summary 기록 실패: {e}')
 
 
 # ── 렌더링 ────────────────────────────────────────────────────────────────────
@@ -660,7 +796,7 @@ def _site_audio(out: Path, date: str, summary_md: str, base: str) -> dict | None
 
 def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: TrendCrawler,
             last_run: str | None, daily_failed_at: datetime | None = None,
-            tts_state: dict | None = None):
+            tts_state: dict | None = None, health_state: dict | None = None):
     today = now.strftime('%Y-%m-%d')
     build_time = _iso(now)
     data = crawler.get_data()
@@ -684,6 +820,7 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
                 {'version': 1, 'last_run': last_run,
                  'daily_failed_at': _iso(daily_failed_at) if daily_failed_at else None,
                  'tts': tts_state or {},
+                 'health': health_state or {},   # 수집 상태 연속 횟수 (알림용)
                  'crawler': crawler.export_state()})
 
     # 데일리 — 목록, 날짜별 상세(전체), 오늘 리포트가 없으면 대기 페이지
@@ -762,8 +899,24 @@ def main(argv=None) -> int:
             _gh_output(skip='true', daily_created='false', audio_changed='false')
             return 0
 
-    crawler = _crawl(state, args.no_crawl)
+    crawler = _crawl(state, args.no_crawl, now if args.now else None)
     last_run = state.get('last_run') if args.no_crawl else _iso(now)
+
+    # 수집 상태 — 크롤한 실행만 연속 횟수를 센다(--no-crawl은 직전 값을 그대로 넘긴다)
+    health_state = state.get('health') if isinstance(state.get('health'), dict) else {}
+    health_out: dict = {}
+    if not args.no_crawl:
+        try:
+            data = crawler.get_data()
+            health_state, health_out = _health(data, health_state, now)
+            acts = [w for k, w in (('health_changed', '바뀜'), ('health_notify', '이슈 알림'),
+                                   ('health_close', '이슈 닫기')) if health_out.get(k) == 'true']
+            _log(f'[Health] {health_state["status"]} (연속 {health_state["streak"]}회'
+                 f'{"".join(", " + w for w in acts)}) — {health_state["detail"]}')
+            _write_step_summary(_health_summary(data, health_state, now))
+        except Exception as e:
+            _log(f'[Health] 오류: {type(e).__name__}: {e} — 상태 알림 없이 계속')
+            health_out = {}
 
     created = None
     daily_failed = False
@@ -795,7 +948,7 @@ def main(argv=None) -> int:
             _log(f'[TTS] 오류: {type(e).__name__}: {e} — 음성 없이 계속')
 
     out = _prepare_out(Path(args.out))
-    _render(out, Path(args.templates), cfg, now, crawler, last_run, failed_at, tts_state)
+    _render(out, Path(args.templates), cfg, now, crawler, last_run, failed_at, tts_state, health_state)
 
     # 크롤 없이 렌더링했는데 복원한 글이 없으면(첫 배포 전 push 등) 빈 사이트를 배포하지 않는다.
     # 로컬 미리보기용 _site는 그대로 만든다.
@@ -803,9 +956,10 @@ def main(argv=None) -> int:
     if skip:
         _log('[Build] --no-crawl인데 복원한 게시글이 없음 — 배포 생략(skip=true), 다음 크롤 실행이 배포한다')
     # audio_changed면 pages.yml 'Publish audio'가 .audio/를 audio 브랜치에 부모 없는 커밋 1개로 올린다
+    # health*: pages.yml health 잡이 source-health 이슈를 열고·코멘트하고·닫는 데 쓴다(크롤한 실행만)
     _gh_output(skip='true' if skip else 'false', daily_created='true' if created else 'false',
                audio_changed='true' if audio_changed else 'false', audio_dates=' '.join(audio_changed),
-               **({'daily_date': created} if created else {}))
+               **({'daily_date': created} if created else {}), **health_out)
     return 0
 
 

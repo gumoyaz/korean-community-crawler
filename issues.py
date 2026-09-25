@@ -3,6 +3,7 @@
 
 build_issues(posts, ps_history, now) → trends.json 의 issues 블록
   posts       crawler가 랭킹한 글 목록(rank는 1..N 유일). 블록은 제목을 복사하지 않고 rank로 글을 가리킨다.
+              전날 보충 글(prev_day)은 보드에 쓰지 않는다.
   ps_history  crawler의 post_score_history(라운드별 _url_key → rank_score). 연속으로 같은 라운드는 하나로 친다.
 LLM 호출 없음, 새 의존성 없음(형태소 분석기 대신 규칙 토크나이저).
 
@@ -645,13 +646,15 @@ def _iso(dt):
 # ── 본체 ──────────────────────────────────────────────────────────────────────
 
 def build_issues(posts: list, ps_history: list, now: datetime) -> dict:
-    """trends.json의 issues 블록. 글은 posts[].rank로 가리킨다."""
+    """trends.json의 issues 블록. 글은 posts[].rank로 가리킨다.
+    전날 보충 글(prev_day: KST 02~12시에 당일 글이 모자란 칸을 채운 '어제' 글)은 보드 전체(묶기·신규·급상승·+N·
+    여기서만 뜨거운 글)에서 뺀다 — 보드의 글·커뮤니티 수와 low_data도 당일 글 기준."""
     rounds = []                                   # 서로 다른 라운드 (같은 글 목록이 이어지면 하나로)
     for r in ps_history or []:
         if not rounds or set(r) != set(rounds[-1]):
             rounds.append(r)
     L = len(rounds)
-    posts_all = posts
+    posts_all = [p for p in posts if not p.get('prev_day')]
     posts = [p for p in posts_all if not DEAL_RE.search(p['title'])]
     cposts = [dict(p, title=_norm_title(p['title'])) for p in posts]   # 묶기용 사본
     feats = _features(cposts)

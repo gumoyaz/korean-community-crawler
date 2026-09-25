@@ -10,13 +10,15 @@
 |---|---|
 | `build.py` | 진입점. 상태 복원 → 간격 가드 → 크롤 → 데일리 생성 → 데일리 음성 → `_site/` 렌더링 (sitemap·robots·llms.txt·404·audio 포함) |
 | `tts.py` | 데일리 음성(Gemini TTS). 대본 → 합성 1회(+예비 모델) → 섹션 경계 → MP3(lameenc) → `AUDIO_DIR`(기본 `.audio/`)에 `{date}.mp3`·`{date}.json` |
-| `crawler.py` | `TrendCrawler`: todaybeststory API 전량 수집 + 직접 스크래핑 예비 경로, 랭킹, 이슈 블록·튜닝 로그 반영, `export_state`/`import_state` |
+| `crawler.py` | `TrendCrawler`: todaybeststory API 전량 수집, 커뮤니티별 상태(`source_health`)·전체 `status` 판정, 빠지거나 멈춘 커뮤니티만 직접 스크래핑·이슈링크로 채우기, 오전 전날 글 보충, 랭킹, 이슈 블록·튜닝 로그 반영, `export_state`/`import_state` |
+| `sources_issuelink.py` | 이슈링크 2차 소스. `fetch(sources, now, cache=…)` → crawler 글 스키마(`via: 'issuelink'`), `SOURCE_MAP`(이슈링크 15곳 → source id). 어떤 실패도 예외로 올리지 않는다 |
 | `issues.py` | '지금 뜨는 이슈' 계산. `build_issues(posts, ps_history, now)` → trends.json의 `issues` 블록. 손으로 관리하는 단어 목록(`STOP_WORDS`·`GENERIC`·`LINK_STOP`·`ALIAS` 등)은 모듈 상단 상수 |
 | `daily.py` | 데일리 리포트 선정·프롬프트·저장 (`data/daily/YYYY-MM-DD.json`) |
 | `gemini.py` | Gemini REST 호출. 모델 세대별 thinking 설정, 5xx 백오프, 예비 모델 체인(`GEMINI_FALLBACK_MODEL`, 쉼표 구분) |
 | `templates/index.html` | 메인. JS가 `{base}/data/trends.json`을 읽어 이슈 보드와 피드를 렌더링 |
 | `templates/daily.html` | 데일리 목록·상세·대기 페이지 (빌드 시 서버 렌더링). 상세의 읽어주기 플레이어(음성 파일 재생, 실패하면 브라우저 음성) |
-| `.github/workflows/pages.yml` | 빌드·배포 워크플로 |
+| `.github/workflows/pages.yml` | 빌드·배포 워크플로 (+ 수집 이상 알림 `health` 잡) |
+| `.github/workflows/source-probe.yml` · `tools/probe_sources.py` | 수동 실행 전용 소스 실측 프로브(러너 IP에서 TBS·직접 스크래핑·이슈링크·후보 URL의 상태·차단·행 수). 배포·state 없음 |
 | `tools/import_daily_db.py` | 옛 SQLite `daily.db` → JSON 변환 |
 | `data/daily/` | **커밋되는** 데일리 리포트 아카이브 (Actions 봇이 커밋) |
 
@@ -26,10 +28,11 @@
 2. `Fetch audio`(checkout 바로 뒤): `audio` 브랜치(음성 스냅숏)를 얕게 받아 `.audio/`에 푼다. 브랜치가 없으면(`ls-remote` 종료 코드 2) 첫 실행으로 보고 `base=''`로 계속한다. 원격 접근 실패 등 그 밖의 실패면 `ok`가 없어 TTS·publish가 꺼진다(렌더링은 계속). 브랜치 확인은 `ls-remote origin refs/heads/audio`(전체 이름)로 한다. `--heads origin audio`는 이름 끝 일치라서 `feature/audio`가 있으면 fetch가 실패한다
 3. `Install dependencies` 다음 `Install audio encoder`: `lameenc`(선택 의존성)는 `requirements.txt`가 아니라 이 스텝에서 휠로만 설치한다(`continue-on-error`). 실패해도 크롤·배포는 계속하고, 음성은 TTS 호출 전에 `encode_failed`로 멈춘다
 4. `actions/cache`로 직전 `state.json` 복원. 캐시가 없으면 `STATE_URL`(사이트의 `data/state.json`), 404면 빈 상태로 시작
-5. `build.py`가 `GITHUB_OUTPUT`에 `skip`, `daily_created`, `daily_date`, `audio_changed`, `audio_dates`를 쓴다. `TTS_ENABLED`는 `Fetch audio` 성공이고 push 이벤트가 아닐 때만 `true`다
+5. `build.py`가 `GITHUB_OUTPUT`에 `skip`, `daily_created`, `daily_date`, `audio_changed`, `audio_dates`를 쓴다. 크롤한 실행은 `health`(ok|degraded|stale), `health_detail`, `health_streak`, `health_alert`, `health_changed`, `health_notify`, `health_close`도 쓰고 Step Summary에 커뮤니티별 상태 표를 남긴다. `TTS_ENABLED`는 `Fetch audio` 성공이고 push 이벤트가 아닐 때만 `true`다
 6. `skip != true`이면 state를 캐시에 저장하고 `_site` 업로드 → deploy 잡이 Pages에 배포
 7. `daily_created == true`이면 `data/daily/`만 커밋·푸시 (봇 정체성, `pull --rebase` 후 push)
 8. `audio_changed == true`이면 `Publish audio`(마지막 스텝): `.audio/`를 부모 없는 커밋 1개로 만들어 `audio` 브랜치를 교체한다(`--force-with-lease`, 실패해도 배포는 진행). push 트리거가 `main`만 보므로 이 push는 워크플로를 다시 띄우지 않는다
+9. `health` 잡(`issues: write`, gh CLI): `health_alert == true`(알림 대상 문제 3번 연속)이면 `source-health` 라벨 이슈를 열거나(라벨이 없으면 만든다) `health_notify`(상태가 바뀜, 또는 새 장애의 첫 알림 — 이전 이슈가 남아 있어도 알리게)일 때만 코멘트한다. `health_close`(알림 중이던 문제가 없어진 실행과 그 뒤 2번, `build.HEALTH_CLOSE_RUNS`)이면 열린 이슈를 닫고 회복 코멘트를 단다(닫은 다음에 코멘트 — 닫기가 실패하면 다음 실행이 다시 닫고 코멘트가 두 번 붙지 않는다). 값은 `env:`로만 넘긴다(`run:`에 `${{ }}` 없음). 실패해도 배포와 무관하다
 
 ## 주요 설계 결정
 
@@ -40,7 +43,13 @@
   - 계산이 실패하면 `crawler._empty_issues`로 빈 블록을 내고 빌드는 계속한다. `LOW_DATA_POSTS`(350)는 빈 블록도 같은 기준을 쓰도록 `crawler.py`에 두고 `issues.py`가 가져다 쓴다. `issues.py`가 `crawler`를 import하므로 `crawler`는 `_build_issues` 안에서 `issues`를 import한다(순환 import 방지).
   - 실험 시안을 옮기면서 두 가지를 고쳤다. (1) 한 커뮤니티 안에서만 퍼나른 글은 4개 이상이어도 보드에 올리지 않는다(연재물·경기 중계처럼 제목이 비슷한 글이 한 베스트에 몰린 경우). (2) '런던'은 어미 규칙('~던')에서 보호하고 `GENERIC`에도 넣었다.
   - 프론트(`templates/index.html`): 펼침·선택·'모두 보기' 필터를 이슈 id로 갱신 사이에 유지한다. 필터 중이던 이슈가 빠지면 마지막으로 본 글 주소로 계속 거르고, 보던 이슈가 빠지면 보드에 알린다(조용히 1위로 바꾸지 않는다). 이슈 필터 중에는 탭·칩 숫자도 그 이슈 글로 센다. 머리줄 기준 시각은 배지와 같은 `last_updated`를 쓴다. `issues.as_of`는 원본 목록이 그대로여도 실행마다 바뀌어서 `last_updated`가 없을 때만 쓴다.
-- **stale 처리**: 수집이 0건이거나 커뮤니티 수가 급감하면 이전 글을 유지하고 `status: 'stale'`로 둔다. 이 경우 이력에는 추가하지 않는다.
+- **수집 상태·예비 경로 (2026-09-25)**: 기준은 '직전 게시 목록'이 아니라 커뮤니티별 고정 기대치다.
+  - `source_health[source] = {status: ok|degraded|missing|blocked, last_update, last_new, n, since, via[], note?}`. degraded는 TBS 갱신이 90분 넘게 없음(06~24시), missing은 `EXPECTED_BY_HOUR`의 시각이 지났는데 TBS에 당일 글 없음(오유·가생이·인벤은 판정 안 함), blocked는 TBS에서 빠졌거나 멈췄는데 직접 스크래핑도 막혔고(4xx·챌린지·msg.html·0행) 이슈링크로도 못 채움. `EXPECTED_BY_HOUR`는 09-22~25 4일치 첫 수집 시각에 여유를 둔 값이다(매일 같은 곳 2~3시간, 크게 흔들리는 곳 4시간). 3일치 + 2시간으로 잡았던 인스티즈·와이고수 06시는 09-25 06시대 첫 수집에서 missing 오탐이 나서 10시로 늦췄다. 오탐이 또 나면 운영 로그로 조정한다.
+  - 전체 `status`: `ok` / `partial`(TBS 끊김·장애, 또는 missing+degraded 3곳 이상) / `stale`(TBS가 온전하지 않은데 예비 경로까지 6곳·150건 미만 → 이전 목록 유지, 이력에 안 넣음) / `stale-source`(TBS 전체 max updateDatetime이 90분 넘게 과거, 같은 목록 분기에서도, degraded처럼 06~24시에만). 예외로 끝나면 안전망이 `stale`로 둔다. 기준 시각은 `_refresh_body`에서 한 번만 정해 수집·판정·유지·보충에 같이 쓴다(01:59에 시작해 02시를 넘긴 실행이 전날+오늘 목록을 02시 이후 목록으로 보지 않게).
+  - 예비 경로는 커뮤니티 단위다. 직접 스크래핑은 degraded·missing(·TBS가 온전하지 않을 때 25개 미만)인 곳만. 이슈링크는 (a) 같은 곳(매 실행) + (b) TBS 당일 글 5건 미만인 곳((a)가 같이 있어도 30분 간격, 사이에는 직전 글 재사용 — `_il_at`·`_il_sources`는 (b) 기준). 오전 보충 중(02~12시)에는 저장한 전날 상위 글이 25개인 곳(어제는 글이 넉넉했던 곳)을 (b)에서 빼서, 새벽에 TBS 첫 수집 전인 큰 커뮤니티 칸은 전날 글이 채우고 (b)는 오유·인벤·웃대처럼 어제도 적었던 곳만 받는다(`_prev_day_covered`). 중복은 `_url_key`로 없애고 건강한 TBS → 직접 → 이슈링크 → 멈춘 TBS 순으로 고른다. SLR·보배드림은 TBS(베스트 게시판 번호)와 이슈링크(원래 게시판 번호)의 주소가 달라서, 다른 경로에서 먼저 고른 같은 커뮤니티·같은 제목(`_title_key`, 공백·기호 뺀 5자 이상) 글도 뺀다(같은 경로 안에서 제목만 같은 글은 둘 다 둔다). 이번 결과에 한 글도 없는 커뮤니티(TBS가 온전하지 않으면 25개 미만인 곳)는 날짜 창 안의 이전 글을 `kept: true`로 병합한다. 날짜 판정에 TBS `targetDate`를 `target_date`로 state에 남긴다(공개 JSON에는 안 냄).
+  - 점수 이력은 TBS를 끝까지(멈추지 않은 채로) 받은 라운드만 넣고, 40분 안의 라운드는 한 칸으로 덮어쓰며, 240분 넘은 칸은 버린다(칸 시각은 `post_score_times`). TBS limit은 실행마다 100/99를 번갈아 쓴다(URL별 약 10분 캐시).
+  - 오전 보충: 00~02시(`MERGE_PREV_END_HOUR`, build.py `DAILY_FINAL_END_HOUR`도 같은 값) 실행이 전날 커뮤니티별 상위 25개를 `state.json`의 `crawler.prev_day`에 두고(이 동안 state.json이 평소 약 370KB에서 약 600KB로 커진다), 02~12시에 당일 글이 25개 미만인 칸만 `prev_day: true`로 채운다. 멈춤 판정은 TBS 당일 글만 센다(`_tbs_today_size`: via·kept·전날 target_date 제외, 커뮤니티당 25개까지). 19곳·350건이면 채우지 않고, 12시 전에는 저장한 전날 글을 지우지 않고 실행마다 다시 판정한다(이슈링크 (b) 글까지 세면 09-25 02:10 재현에서 첫 실행에 보충이 끝나고 전날 글이 지워졌다 — 되돌릴 수 없다). 12시에 저장 글을 비운다. `prev_day.done`은 멈춤 기준을 처음 넘은 날(로그용)이다. 이슈 보드 전체·AI 요약·정오본 데일리 입력에서 뺀다.
+  - 알림(`build._health`): health는 ok|degraded|stale 그대로 내되, 연속 횟수는 알림 대상(stale·stale-source·partial, missing·blocked, 다른 경로로 못 채우는 degraded)만 센다. 이슈링크·직접 수집으로 채워지는 degraded는 칩 표시만 한다(인스티즈가 거의 매일 낮·저녁부터 TBS 갱신이 멈춰서 매일 이슈가 열리고 닫히지 않게). 하루 넘게 멈추면 날이 바뀐 뒤 missing이 되어 알린다. 알림 중(연속 3번 이상)이던 상태에서 KST 00~06시(`HEALTH_FROM_HOUR` 전)의 '알림 대상 없음'은 회복으로 세지 않고 직전 연속 횟수·key를 그대로 둔다(held, `health_alert` false라 잡도 안 돈다. 알리기 전 1~2번이면 평소처럼 0으로 돌린다) — 크롤러가 이 시간에 degraded·stale-source를 판정하지 않고 00~02시에는 전날 목록도 보기 때문에, 그대로 두면 저녁부터 이어진 장애가 00:10에 '회복'으로 닫혔다가 02시 뒤 missing으로 새 이슈가 열린다(09-23~24 개드립 사례 재현). 그래서 자정 전 장애는 같은 이슈에 코멘트로 이어지고, 00~06시의 진짜 회복은 06시 뒤에 닫힌다. `state.health`에 `close_left`(남은 닫기 실행 수)가 있다.
 - **시간대 계약**: `post.date`는 `YYYY-MM-DDTHH:MM:SS+09:00` / `YYYY-MM-DD`(날짜만) / `''` 셋 중 하나다. KST 시각을 `Z`로 저장하지 않는다.
 - **데일리 타이밍**: KST 12시 이전에는 만들지 않는다(정오본). 다음 날 00:10~01:59에 하루 전체 목록으로 최종본을 덮어쓴다. 실패하면 다음 실행에서 재시도한다.
 - **데일리 프롬프트**: 입력(제목·본문)에 있는 사실만 쓴다. 소속·직함·반응을 추측하면 사실 오류가 난 적이 있다(2026-09-23).
@@ -50,7 +59,7 @@
   - 음성 정보는 `<script type="application/json" id="ttsAudioData">{{ summary.audio | tojson }}</script>`로 넣는다(`tojson`이 `<`·`>`·`&`·`'`를 이스케이프한다). 값이 있으면 JSON-LD에 `AudioObject`도 넣는다.
   - 사용자가 멈췄는지는 `aWant`로 따로 기억한다. 크롬은 오류로 멈출 때 페이지의 `error` 처리보다 먼저 `audio.paused`를 true로 바꾸기 때문이다. 재생 중 실패는 그 섹션부터 브라우저 음성으로 바로 이어 읽는다. 일시정지 중 실패는 소리 없이 기다렸다가(`speechFrom`) 다음 ▶에 읽는다.
   - 브라우저 음성은 기기마다 다르다. Windows 기본 Heami는 기계음에 가깝고, rate를 1.5로 올려도 약 10%만 빨라졌다(실측). 음성 파일 경로를 따로 둔 이유다.
-- **소스 간 원시 조회수 비교 금지**: FM코리아 조회수는 API의 합성값이라 0으로 둔다. 선정은 소스별로 정규화된 `rank_score`로 한다.
+- **소스 간 원시 조회수 비교 금지**: FM코리아 조회수는 API의 합성값이라 0으로 둔다(이슈링크로 받은 FM코리아 글도 0 — 한 커뮤니티에 실제 조회수 글이 섞이면 TBS 글이 뒤로 밀린다). 선정은 소스별로 정규화된 `rank_score`로 한다.
 - **보안**: 데일리 HTML은 `markdown` → `nh3`로 정화한다. 프론트는 외부 텍스트에 `escHtml`, 링크에 `safeUrl`(http/https만)을 쓴다.
 - **내부 링크는 `{{ base }}`로 시작**한다. base는 `SITE_URL`의 경로(`/korean-community-crawler`)에서 나온다.
 
@@ -65,9 +74,11 @@ pip install -r requirements.txt
 python build.py --base "" --out _site --no-crawl     # 운영 state로 렌더링만
 python build.py --base "" --out _site --force        # 직접 크롤
 python -m http.server -d _site 8000
+python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측(한국 IP). 결과 파일은 임시 폴더(--out으로 바꿈)
 ```
 
 - 테스트할 때는 `DAILY_DIR`을 임시 폴더로 두어 `data/daily/`를 오염시키지 않는다. 음성도 `AUDIO_DIR`을 임시 폴더로 둔다.
+- `--now ISO`는 크롤러 판정 시각(TBS 조회 날짜·`EXPECTED_BY_HOUR`·오전 보충·알림 held)에도 쓰인다. 크롤하면 이슈링크((b) 적은 곳은 거의 매번)와, 멈추거나 빠진 커뮤니티가 있으면 직접 스크래핑 요청도 나간다. 실제 요청 없이 확인할 때는 `requests.Session.request`를 가짜로 바꿔 기록한 응답을 돌려주는 식으로 한다(2026-09-25 검증 방식).
 - 로컬 기본값은 `TTS_ENABLED` 미설정, 곧 **음성을 만들지 않는다**. 렌더링은 `AUDIO_DIR`에 맞는 음성이 있으면 싣는다. `--no-crawl`이면 `TTS_ENABLED=true`여도 만들지 않는다. 음성을 직접 만들어 볼 때만 `pip install lameenc==1.8.4`를 따로 설치한다(선택 의존성, pages.yml과 같은 버전).
 - Windows에서는 `PYTHONUTF8=1`로 실행한다(콘솔 인코딩).
 - `_site/`, `.state/`, `.audio/`, `.env`, `*.db`는 gitignore 대상이다.
@@ -79,7 +90,10 @@ python -m http.server -d _site 8000
   - 헤더에 `User-Agent`가 없으면 GitHub가 403을 준다.
   - 토큰은 이 리포만 선택한 fine-grained PAT이고, 권한은 Actions: Read and write다. 만료되면 GitHub에서 재발급해 cron-job.org 헤더를 교체한다. 교체하기 전까지는 백업 `schedule`만 돈다.
 - Gemini 무료 한도는 모델마다 따로 있고, 태평양 자정(KST 16~17시)에 리셋된다. 3.8 Flash는 503(high demand)이 잦아서 예비 모델 체인이 자주 쓰인다.
-- 상태 확인: `data/state.json`의 `last_run`, `daily_failed_at`과 `data/trends.json`의 `status`, `crawl_count`를 본다.
+- 상태 확인: `data/state.json`의 `last_run`, `daily_failed_at`과 `data/trends.json`의 `status`, `crawl_count`, `source_health`를 본다. 실행 요약(Step Summary)에 커뮤니티별 상태 표가 있고, 알림 연속 횟수는 `state.json`의 `health`(`status, streak, key, since, detail, close_left`)에 있다. 로그 줄은 `[Health]`, `[IssueLink]`, `[PrevDay]`, `[Refresh] … → 직접 스크래핑 …, 이슈링크 …`.
+- 수집 이상 이슈: `source-health` 라벨. 연속 3번 알림 대상이면 열리고 풀리면 닫힌다(KST 00~06시에는 닫지 않고 06시 뒤 판정으로 닫는다). 소음이 크면 `build.HEALTH_ALERT_STREAK`나 알림 대상 규칙(`_health`)을 조정한다.
+- 소스 실측: Actions → **Source probe** → Run workflow(`only`로 그룹 선택: tbs,fallback,issuelink,candidates, 비우면 전부 약 2~3분). 결과는 Step Summary와 아티팩트 `source-probe-<run_id>`(JSON·MD, 30일)에 남는다. 러너(해외 IP)에서 직접 스크래핑이 막히는지 이 결과로 판단한다. 판정 `blocked`는 차단 상태 코드·챌린지·msg.html, `empty`는 200인데 파서 0행(선택자 고장일 수 있음)이다.
+- 오전 보충·이슈링크 상태: `state.json`의 `crawler.prev_day`(`date, done, posts`), `crawler.issuelink`(`at`·`sources` = (b)를 마지막으로 새로 받은 시각·커뮤니티, `cache` = 원본 주소 캐시 최대 1000개).
 - 이슈 품질 확인: `data/state.json`의 `crawler.issue_log`에 결과가 바뀐 빌드의 이슈 요약(`t, posts, communities, items[id,name,kind,status,n,c]`)이 최대 72건·30KB까지 쌓인다. 한 건이 약 0.9KB라서 실제로는 30KB 상한에 먼저 걸린다(약 30건). 크롤 없는 푸시 빌드(`--no-crawl`)는 기록하지 않는다.
 - 음성 확인: 빌드 로그의 `[TTS]` 줄(합성 길이·응답 시간·경계 방법, 429면 `[한도: ...]`), `data/state.json`의 `tts`(`failed_at, error, day, attempts, date, pending, publish_fails`), `audio` 브랜치의 `YYYY-MM-DD.json`을 본다.
   - 경계 방법: `snap`은 모두 무음에 맞춘 것, `partial`은 일부만 맞춘 것, `estimate`는 하나도 못 맞춰 전부 글자 수 추정값인 것이다. `estimate`가 이어지면 모델 운율이 바뀐 것일 수 있다.
@@ -111,9 +125,13 @@ python -m http.server -d _site 8000
 
 - [x] ~~(1순위) 키워드 영역 통합.~~ 급상승 띠·급상승 키워드·인기 단어 구름을 '🔥 지금 뜨는 이슈' 보드 하나로 바꿨다(2026-09-24, `issues.py`). 단어 빈도 이력과 `trends.rising`·`trends.top`·`trends.keywords`도 없앴다.
 - [ ] **이슈 보드 튜닝.** `issue_log`로 며칠간 아침·저녁 정밀도를 확인하고, `GENERIC` 목록을 보강하고, 2글짜리 작은 이슈를 어떻게 다룰지 정한다. 09-24 실데이터에서 '결혼한 결혼'·'전장연 절대'(오전), '즉각 조사 거부 추석'·'포로 한국 보내'(저녁)처럼 어색한 이름이 나왔다.
-- [ ] **(2순위) 크롤링 소스 안정화.** 지금은 todaybeststory API 하나에 거의 전부를 의존한다(단일 장애점). 예비 경로인 직접 스크래핑은 해외(Actions) IP에서 검증되지 않았다. 소스 다중화, 소스별 상태 추적, 장애 감지를 넣는다. 오전에는 원본의 당일 목록이 작아서(09-24 08시 원본 593건 → 게시 265건·17곳) 피드가 얇다. 전날 목록을 몇 시까지 함께 쓸지도 여기서 정한다(지금은 KST 02시까지만).
-- [ ] Actions(해외 IP)에서 직접 스크래핑 예비 경로 성공률 확인. TBS가 실패해 fallback이 도는 날의 로그를 본다.
-- [ ] TBS가 부분적으로 실패하고 fallback까지 전부 실패하면 커뮤니티 수가 적은 목록이 `ok`로 통과한다. stale 판정을 보강한다.
+- [x] ~~(2순위) 크롤링 소스 안정화.~~ 커뮤니티별 상태(`source_health`)와 `status` 4종, 커뮤니티 단위 예비 경로, 이슈링크 2차 소스, 오전 전날 글 보충('어제'), 수집 이상 알림(`source-health` 이슈), 소스 실측 프로브를 넣었다(2026-09-25). 일베 매핑을 빼고 네이트판 예비 URL을 '톡커들의 선택'으로 바꿨다. 부분 실패 + fallback 실패도 절대 기준(6곳·150건)과 `partial`로 판정한다.
+- [ ] **소스 안정화 첫 운영 확인.**
+  - (1) Source probe를 한 번 수동 실행해 러너(해외 IP)에서 직접 스크래핑·이슈링크가 되는지 본다. 로컬(한국 IP)에서는 인스티즈 `/pt`만 403이었다.
+  - (2) `health` 잡 첫 실행에서 `gh label create`·`gh issue close --reason completed`가 되는지 본다. YAML은 파서로, 셸 로직은 가짜 gh로만 확인했다. 리포 Issues는 켜져 있다(2026-09-25 공개 API `has_issues: true`, 열린 이슈 0).
+  - (3) 며칠간 `[Health]` 로그로 `EXPECTED_BY_HOUR` missing 오탐과 `source-health` 이슈 빈도를 본다.
+  - (4) 이슈링크 약관의 수집 금지 여부는 확인하지 못했다(robots.txt는 `Allow:/`). `/go/` HEAD가 이슈링크 클릭 집계에 잡히는지도 모른다. 원본 URL 캐시로 요청을 줄였다.
+  - (5) 오전 이슈링크 (b)는 어제도 글이 적었던 곳(09-24 목록 기준 오유·인벤·웃대 3곳)만 받도록 줄였다(09-25 02:10 재현은 9곳이었다). 전날 상위 글을 저장하지 못한 날(00~02시 실행 실패 등)은 예전처럼 TBS 5건 미만인 곳 전부가 (b)다.
 - [ ] 이슈 묶기 단어와 '함께 나온 말'에 조사 '이/가'가 붙은 형태(예: "승무원이")가 남는다. 같은 라운드에 어근이 따로 없으면 '승무원'과 다른 단어로 본다(이름에서는 끝 조사를 뗀다). "불꽃놀이"처럼 원래 '이'로 끝나는 명사를 깨지 않는 방법을 찾는다.
 - [ ] Gemini 모델 운용을 점검한다. 3.8 Flash의 503·일일 한도 빈도를 보고 기본 모델과 체인 순서를 조정한다.
 - [ ] **데일리 음성 첫 Actions 실행 확인.**
