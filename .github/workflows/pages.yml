@@ -28,10 +28,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # 최악 경로(수집 180초 + AI 요약 130초 + 데일리 약 250초 + 설치·렌더)가 10분을 넘을 수 있다
+    # 최악 경로(수집 180초 + AI 요약 130초 + 데일리 약 250초 + 설치·렌더)가 10분을 넘을 수 있다.
+    # 음성(TTS 최대 150초 × 2모델)은 데일리 생성을 시도한 실행(성공·실패 모두)과 build.py 시작 후
+    # 7분(TTS_START_BUDGET_SEC)이 지난 실행에서는 하지 않으므로 이 경로와 겹치지 않는다
     timeout-minutes: 15
     permissions:
-      contents: write   # 데일리 리포트(data/daily/) 커밋
+      contents: write   # 데일리 리포트(data/daily/) 커밋, audio 브랜치 push
     outputs:
       skip: ${{ steps.build.outputs.skip }}
       daily_created: ${{ steps.build.outputs.daily_created }}
@@ -42,6 +44,25 @@ jobs:
         with:
           ref: ${{ github.ref }}
 
+      # audio 브랜치(음성 스냅숏, 커밋 1개)를 .audio/ 로. 실패하면 TTS·publish를 끈다
+      # (빈 .audio/ 로 생성·push하면 기존 음성이 지워지므로). 렌더링은 .audio/에 있는 것만 싣는다
+      - name: Fetch audio
+        id: audio
+        continue-on-error: true
+        run: |
+          mkdir -p .audio
+          # 전체 ref 이름으로 찾는다('--heads origin audio'는 이름 끝 일치라 feature/audio 같은 브랜치도 잡힌다)
+          if git ls-remote --exit-code origin refs/heads/audio >/dev/null; then
+            git fetch --depth=1 --no-tags origin +refs/heads/audio:refs/remotes/origin/audio
+            git archive refs/remotes/origin/audio | tar -x -C .audio
+            echo "base=$(git rev-parse refs/remotes/origin/audio)" >> "$GITHUB_OUTPUT"
+          else
+            rc=$?
+            [ "$rc" -eq 2 ] || exit "$rc"   # 2 = 브랜치 없음(첫 실행)
+            echo "base=" >> "$GITHUB_OUTPUT"
+          fi
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -49,6 +70,12 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      # 음성 MP3 인코더(선택 의존성). 휠만 받고(소스 빌드 안 함), 실패해도 크롤·배포는 계속한다
+      # — 없으면 tts.py가 TTS 호출 전에 encode_failed로 멈추고 페이지는 브라우저 음성으로 읽는다
+      - name: Install audio encoder
+        continue-on-error: true
+        run: pip install --only-binary=lameenc lameenc==1.8.4
 
       # 직전 실행의 state.json. Pages CDN은 쿼리스트링을 무시하고 최대 10분 캐시하므로
       # 사이트의 data/state.json(STATE_URL)은 캐시가 없을 때만 쓴다. restore-keys는 가장 최근 캐시를 고른다.
@@ -67,6 +94,11 @@ jobs:
           GEMINI_FALLBACK_MODEL: ${{ vars.GEMINI_FALLBACK_MODEL }}   # 비우면 gemini.py 기본값, 'none'이면 끔
           SITE_URL: ${{ vars.SITE_URL }}
           GSC_VERIFICATION: ${{ vars.GSC_VERIFICATION }}
+          # 데일리 음성(Gemini TTS): audio 브랜치를 받았고 코드 푸시(--no-crawl)가 아닐 때만 생성·정리
+          TTS_ENABLED: ${{ steps.audio.outputs.ok == 'true' && github.event_name != 'push' }}
+          TTS_MODEL: ${{ vars.TTS_MODEL }}                     # 비우면 tts.py 기본값(gemini-3.8-flash-tts)
+          TTS_FALLBACK_MODEL: ${{ vars.TTS_FALLBACK_MODEL }}   # 비우면 gemini-3.8-flash-lite-tts, 'none'이면 끔
+          TTS_VOICE: ${{ vars.TTS_VOICE }}                     # 비우면 Kore
           FORCE_INPUT: ${{ inputs.force }}
           PYTHONUNBUFFERED: '1'
         run: |
@@ -125,6 +157,25 @@ jobs:
             sleep 5
           done
           exit 1
+
+      # 음성 스냅숏을 부모 없는 커밋 1개로 교체(히스토리 안 쌓임). 실패해도 배포는 진행 — 다음 실행이 다시 만든다
+      # fetch 이후 누가 audio 브랜치를 바꿨으면 --force-with-lease가 거부한다
+      - name: Publish audio
+        if: steps.audio.outputs.ok == 'true' && steps.build.outputs.audio_changed == 'true'
+        continue-on-error: true
+        env:
+          AUDIO_BASE: ${{ steps.audio.outputs.base }}
+          AUDIO_DATES: ${{ steps.build.outputs.audio_dates }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          export GIT_INDEX_FILE="$RUNNER_TEMP/audio-index"
+          rm -f "$GIT_INDEX_FILE"
+          git --work-tree="$PWD/.audio" add -A
+          tree=$(git write-tree)
+          commit=$(git commit-tree "$tree" -m "audio: ${AUDIO_DATES}")
+          unset GIT_INDEX_FILE
+          git push --force-with-lease="refs/heads/audio:${AUDIO_BASE}" origin "${commit}:refs/heads/audio"
 
   deploy:
     needs: build

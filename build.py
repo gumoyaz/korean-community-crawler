@@ -3,12 +3,16 @@
 
 1. 이전 상태 복원(Actions 캐시 → --state-file, 없으면 STATE_URL) → 간격 가드
 2. 크롤링 1회 + 데일리 리포트 생성 (KST 12시 이후 오늘 정오본, 다음 날 00:10~02시 전날 최종본)
-3. _site/ 에 정적 사이트 렌더링 (index, daily, trends.json, state.json, sitemap, robots, llms.txt, 404)
+3. 데일리 음성(Gemini TTS) — TTS_ENABLED일 때 한 실행에 최대 1개
+   (데일리 생성을 시도한 실행(성공·실패)과 시작 후 TTS_START_BUDGET_SEC가 지난 실행은 제외)
+4. _site/ 에 정적 사이트 렌더링 (index, daily, audio, trends.json, state.json, sitemap, robots, llms.txt, 404)
 
 로컬 미리보기:
     python build.py --base "" --out _site --no-crawl   # 운영 state.json으로 렌더링만 (부작용 없음)
     python build.py --base "" --out _site --force      # 직접 크롤까지 (12시 이후면 data/daily에 리포트가 생길 수 있음)
     python -m http.server -d _site 8000
+    음성: AUDIO_DIR(기본 <repo>/.audio)에 지금 리포트와 맞는 {date}.mp3·{date}.json이 있으면 싣는다.
+          생성은 TTS_ENABLED=true일 때만 한다(로컬 기본값은 생성 안 함).
 """
 import argparse
 import json
@@ -29,7 +33,8 @@ KST = timezone(timedelta(hours=9))
 # Actions의 ${{ vars.X }}는 미설정이면 ''로 들어온다 → 빈 문자열은 미설정으로 취급.
 # crawler/daily/gemini가 import 시점에 환경변수를 읽으므로 import 전에 정리한다.
 _ENV_KEYS = ('SITE_URL', 'BASE', 'STATE_URL', 'GSC_VERIFICATION', 'MIN_INTERVAL_MIN',
-             'GOOGLE_API_KEY', 'GEMINI_MODEL', 'GEMINI_FALLBACK_MODEL', 'DAILY_DIR')
+             'GOOGLE_API_KEY', 'GEMINI_MODEL', 'GEMINI_FALLBACK_MODEL', 'DAILY_DIR',
+             'TTS_ENABLED', 'TTS_MODEL', 'TTS_FALLBACK_MODEL', 'TTS_VOICE', 'AUDIO_DIR')
 
 
 def _drop_empty_env():
@@ -53,6 +58,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape  # noqa: E40
 
 import daily  # noqa: E402
 import gemini  # noqa: E402
+import tts  # noqa: E402
 from crawler import TrendCrawler  # noqa: E402
 
 DEFAULT_SITE_URL = 'https://gumoyaz.github.io/korean-community-crawler'
@@ -68,6 +74,14 @@ DAILY_FINAL_END_HOUR = 2      # crawler._fetch_todaybeststory가 전날 목록�
 # 데일리 생성이 실패하면 이 간격(분)을 두고 재시도한다. 매 실행(10분)마다 재시도하면 같은 입력으로
 # 계속 실패할 때(SAFETY 차단 등) 크롤러 AI 요약과 같이 쓰는 무료 일일 한도(RPD)를 몇 시간 만에 다 쓴다.
 DAILY_RETRY_MIN = 30
+# 데일리 음성(Gemini TTS). 한 실행에 최대 1개, 최근 tts.BACKFILL_DAYS일 리포트 중 음성이 없거나 옛 내용인 것을
+# 최신 날짜부터. TTS 무료 한도(RPM·RPD)는 문서에 없어(2026-09 기준) 하루 시도 횟수로 막는다.
+TTS_RETRY_MIN = 30              # 실패 후 재시도 간격(분). Publish audio 실패가 처음이면 이 간격
+TTS_QUOTA_RETRY_MIN = 180       # 일일 한도 소진(429 quota_day)이면 이 간격(분)
+TTS_MAX_ATTEMPTS_PER_DAY = 6    # KST 하루 생성 시도 상한 (정오본·최종본 2회 + 백필·재시도)
+# build.py 시작 후 이 시간(초)이 지났으면 음성을 만들지 않는다. 잡 타임아웃 15분(900초)에서
+# TTS 최악 300초(150초 × 2모델)와 build.py 앞뒤 스텝(설치·업로드·push 약 3분)을 뺀 값에 여유를 둔 것
+TTS_START_BUDGET_SEC = 420
 
 # trends.json에 내보내는 키 — get_data()에서 프론트가 쓰는 것만.
 # issues는 '지금 뜨는 이슈' 블록(글은 posts[].rank로 참조), trends는 카테고리 글 수만 남은 공개 JSON 호환용
@@ -334,6 +348,134 @@ def _maybe_generate_daily(posts: list, now: datetime,
     return target, None
 
 
+def _tts_state(raw) -> dict:
+    """state.json 'tts' 값 정리 — {failed_at, error, day, attempts, date, pending, publish_fails}."""
+    s = raw if isinstance(raw, dict) else {}
+    attempts = s.get('attempts')
+    pending = s.get('pending')
+    fails = s.get('publish_fails')
+    return {
+        'failed_at': s.get('failed_at') if isinstance(s.get('failed_at'), str) else None,
+        'error': str(s.get('error') or ''),          # 마지막 실패 종류(tts.last_error 또는 'publish_failed')
+        'day': str(s.get('day') or ''),              # attempts를 센 KST 날짜
+        'attempts': attempts if isinstance(attempts, int) and attempts >= 0 else 0,
+        'date': str(s.get('date') or ''),            # 마지막으로 시도한 리포트 날짜
+        # 직전에 만든 음성 {date, sha} — 다음 실행의 AUDIO_DIR(audio 브랜치)에 없으면 Publish audio가 실패한 것
+        'pending': ({'date': pending['date'], 'sha': pending['sha']}
+                    if isinstance(pending, dict) and isinstance(pending.get('date'), str)
+                    and isinstance(pending.get('sha'), str) else None),
+        'publish_fails': fails if isinstance(fails, int) and fails >= 0 else 0,   # Publish audio 연속 실패 수
+    }
+
+
+def _tts_targets(today: str) -> list[tuple[str, str]]:
+    """음성이 없거나 옛 내용(source_sha 불일치)인 최근 tts.BACKFILL_DAYS일 리포트 [(날짜, summary_md)] — 최신순."""
+    oldest = (datetime.strptime(today, '%Y-%m-%d')
+              - timedelta(days=tts.BACKFILL_DAYS - 1)).strftime('%Y-%m-%d')
+    out = []
+    for s in daily.list_summaries(limit=None):   # 최신순
+        d = s.get('date', '')
+        if d > today or not daily.is_valid_date(d):
+            continue
+        if d < oldest:
+            break
+        record = daily.get_summary(d)
+        if not record:
+            continue
+        md = record['summary_md']
+        if tts.is_current(tts.read_meta(d), md):
+            continue
+        if len(tts.speech_script(md, d)['text']) > tts.MAX_SCRIPT_CHARS:
+            _log(f'[TTS] {d} 대본이 {tts.MAX_SCRIPT_CHARS}자를 넘음 — 음성 생략(브라우저 음성)')
+            continue
+        out.append((d, md))
+    return out
+
+
+def _maybe_generate_audio(now: datetime, created: str | None,
+                          tts_state: dict, busy: str = '') -> tuple[list[str], dict]:
+    """데일리 음성 — 조건을 만족하면 최신 대상 1개를 만든다.
+    순서: tts.enabled() → tts.prune(today) → 이번 실행에서 데일리를 만들었거나 busy면 생략
+    → 직전 실행 음성의 publish 실패 확인 → 재시도 간격·하루 상한 → 최신순 첫 대상 1개 tts.generate().
+    busy: created 말고 이번 실행에서 음성을 만들지 않을 이유(데일리 생성 실패로 시간을 씀, 시간 예산 초과 등).
+    반환: (audio 브랜치에서 바뀐 것 ['2026-09-24', 'prune:2026-09-10', ...], 새 tts_state)"""
+    if not tts.enabled():
+        _log('[TTS] 꺼짐 (TTS_ENABLED 아님 또는 GOOGLE_API_KEY 없음) — 음성 생성·정리 안 함')
+        return [], tts_state
+    state = _tts_state(tts_state)
+    today = now.strftime('%Y-%m-%d')
+    changed = [f'prune:{d}' for d in tts.prune(today)]
+    if changed:
+        _log(f'[TTS] {tts.KEEP_DAYS}일 지난 음성 삭제: {" ".join(changed)}')
+    if created or busy:
+        # 한 실행에 Gemini 긴 작업은 하나만(15분 타임아웃). 음성은 다음 실행(약 10분 뒤)에 만든다
+        _log(f'[TTS] 이번 실행에서 {busy or f"{created} 데일리를 만듦"} — 음성은 다음 실행에서')
+        return changed, state
+
+    if state['day'] != today:
+        state['day'], state['attempts'] = today, 0
+    targets = _tts_targets(today)
+
+    # 직전 실행이 만든 음성(같은 내용)이 아직 대상이면 audio 브랜치에 올라가지 않은 것 — Publish audio 실패
+    # (브랜치 규칙의 강제 push 금지·lease 거부 등). 그대로 두면 매 실행 같은 음성을 다시 합성해 하루 상한을 다 쓴다
+    pend, state['pending'] = state['pending'], None
+    if pend:
+        if any(d == pend['date'] and tts.source_sha(md) == pend['sha'] for d, md in targets):
+            state['publish_fails'] += 1
+            state.update(failed_at=_iso(now), error='publish_failed', date=pend['date'])
+            _log(f'[TTS] 직전 실행에서 만든 {pend["date"]} 음성이 audio 브랜치에 없음 — Publish audio 실패로 봄 '
+                 f'(연속 {state["publish_fails"]}번, pages.yml 로그·브랜치 규칙 확인)')
+        else:
+            state['publish_fails'] = 0
+    if not targets:
+        _log(f'[TTS] 최근 {tts.BACKFILL_DAYS}일 리포트 음성 모두 최신')
+        return changed, state
+    # 직전 실패가 일시적이지 않으면(차단·음성 이상 등 같은 입력으로 또 실패할 수 있는 것)
+    # 그 날짜를 뒤로 미뤄 다른 날짜가 막히지 않게 한다. publish 실패는 날짜 탓이 아니므로 최신순 그대로
+    if state['error'] not in ('', 'transient', 'quota_day', 'publish_failed') and len(targets) > 1:
+        targets.sort(key=lambda t: t[0] == state['date'])   # 안정 정렬 — 나머지는 최신순 유지
+
+    failed_at = _parse_iso(state['failed_at'])
+    if (state['error'] == 'publish_failed' and state['publish_fails'] >= 2 and failed_at
+            and failed_at.astimezone(KST).strftime('%Y-%m-%d') == today):
+        # 한 번 다시 만들어도 또 못 올렸으면 설정 문제일 가능성이 크다 → 그날(KST)은 더 부르지 않는다
+        _log(f'[TTS] skip: Publish audio 연속 {state["publish_fails"]}번 실패 — 오늘(KST)은 다시 만들지 않음 '
+             f'(대기 {len(targets)}개)')
+        return changed, state
+    wait = TTS_QUOTA_RETRY_MIN if state['error'] == 'quota_day' else TTS_RETRY_MIN
+    if failed_at:
+        waited = (now - failed_at).total_seconds() / 60
+        if 0 <= waited < wait:
+            _log(f'[TTS] skip: {waited:.0f}분 전 실패({state["error"]}) — {wait}분 간격으로 재시도 '
+                 f'(대기 {len(targets)}개)')
+            return changed, state
+    if state['attempts'] >= TTS_MAX_ATTEMPTS_PER_DAY:
+        _log(f'[TTS] skip: 오늘(KST) 시도 {state["attempts"]}회 — 하루 상한 {TTS_MAX_ATTEMPTS_PER_DAY}회 '
+             f'(대기 {len(targets)}개)')
+        return changed, state
+
+    date, md = targets[0]
+    state['attempts'] += 1
+    _log(f'[TTS] {date} 음성 생성 (오늘 {state["attempts"]}/{TTS_MAX_ATTEMPTS_PER_DAY}번째 시도, '
+         f'대기 {len(targets)}개: {" ".join(d for d, _ in targets)})')
+    try:
+        meta = tts.generate(date, md, now)
+        err = tts.last_error
+    except Exception as e:
+        _log(f'[TTS] {date} 오류: {type(e).__name__}: {e}')
+        meta, err = None, 'exception'
+    if meta:
+        # pending: 다음 실행이 이 음성이 audio 브랜치에 올라갔는지 확인한다(publish_fails는 확인될 때까지 유지)
+        state.update(failed_at=None, error='', date=date, pending={'date': date, 'sha': tts.source_sha(md)})
+        changed.append(date)
+    else:
+        err = err or 'unknown'
+        state.update(failed_at=_iso(now), error=err, date=date)
+        _log(f'[TTS] {date} 음성 생성 실패({err}) — '
+             f'{TTS_QUOTA_RETRY_MIN if err == "quota_day" else TTS_RETRY_MIN}분 뒤 재시도, 그동안 브라우저 음성')
+    return changed, state
+
+
 # ── 렌더링 ────────────────────────────────────────────────────────────────────
 
 def _prepare_out(out: Path):
@@ -500,8 +642,25 @@ def _not_found_html(base: str) -> str:
 """
 
 
+def _site_audio(out: Path, date: str, summary_md: str, base: str) -> dict | None:
+    """지금 리포트 내용과 맞는(source_sha 일치) 음성이 AUDIO_DIR에 있으면 _site/audio/로 복사하고
+    템플릿용 summary.audio를 돌려준다. 옛 내용의 음성(최종본으로 바뀌기 전 정오본 음성 등)은 섹션이
+    안 맞으므로 싣지 않는다 — 그 페이지는 브라우저 음성으로 읽는다. 어떤 오류도 렌더링을 막지 않는다."""
+    try:
+        audio = tts.public_audio(date, summary_md, base)
+        if audio:
+            dst = out / 'audio' / f'{date}.mp3'
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(tts.mp3_path(date), dst)
+        return audio
+    except Exception as e:
+        _log(f'[TTS] {date} 음성 싣기 실패: {type(e).__name__}: {e} — 브라우저 음성으로 대체')
+        return None
+
+
 def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: TrendCrawler,
-            last_run: str | None, daily_failed_at: datetime | None = None):
+            last_run: str | None, daily_failed_at: datetime | None = None,
+            tts_state: dict | None = None):
     today = now.strftime('%Y-%m-%d')
     build_time = _iso(now)
     data = crawler.get_data()
@@ -524,6 +683,7 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
     _write_json(out / 'data' / 'state.json',
                 {'version': 1, 'last_run': last_run,
                  'daily_failed_at': _iso(daily_failed_at) if daily_failed_at else None,
+                 'tts': tts_state or {},
                  'crawler': crawler.export_state()})
 
     # 데일리 — 목록, 날짜별 상세(전체), 오늘 리포트가 없으면 대기 페이지
@@ -534,7 +694,7 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
 
     render('daily/index.html', 'daily.html', **{**blank, 'view': 'list', 'summaries': summaries})
 
-    written = []
+    written, with_audio = [], []
     for i, d in enumerate(dates):
         record = daily.get_summary(d)
         if not record:
@@ -544,6 +704,9 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
         record['summary_html'] = _md_to_html(record.get('summary_md', ''))
         record['date_kr'] = _format_date_kr(d)
         record['is_final'] = _is_final(record, d)
+        record['audio'] = _site_audio(out, d, record['summary_md'], cfg['base'])
+        if record['audio']:
+            with_audio.append(d)
         render(f'daily/{d}/index.html', 'daily.html', **{
             **blank, 'view': 'detail', 'summary': record, 'date': d, 'date_kr': record['date_kr'],
             'prev_date': dates[i + 1] if i + 1 < len(dates) else None,  # 더 이전 날짜
@@ -568,6 +731,7 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
     _write(out / '.nojekyll', '')
 
     _log(f'[Render] {out} — 게시글 {len(data.get("posts") or [])}개, 데일리 {len(written)}개'
+         f' (음성 {len(with_audio)}개{": " + " ".join(with_audio) if with_audio else ""})'
          f'{"" if today in dates else f", {today} 대기 페이지"}')
 
 
@@ -580,6 +744,7 @@ def main(argv=None) -> int:
         except (AttributeError, ValueError):
             pass
 
+    t_start = time.monotonic()
     args = _parse_args(argv)
     cfg = _settings(args)
     now = _now(args.now)
@@ -594,30 +759,52 @@ def main(argv=None) -> int:
         if 0 <= elapsed < cfg['min_interval']:
             _log(f'[Guard] 마지막 실행 {elapsed:.1f}분 전 (< {cfg["min_interval"]:g}분) — '
                  f'크롤·배포 건너뜀 (--force 로 무시 가능)')
-            _gh_output(skip='true', daily_created='false')
+            _gh_output(skip='true', daily_created='false', audio_changed='false')
             return 0
 
     crawler = _crawl(state, args.no_crawl)
     last_run = state.get('last_run') if args.no_crawl else _iso(now)
 
     created = None
+    daily_failed = False
     failed_at = _parse_iso(state.get('daily_failed_at'))
     if args.no_crawl:
         _log('[Daily] --no-crawl — 생성하지 않음')
     else:
         # --force면 데일리 재시도 간격도 무시한다(수동 실행으로 바로 다시 시도할 수 있게)
-        created, failed_at = _maybe_generate_daily(crawler.get_data().get('posts') or [], now,
-                                                   None if args.force else failed_at)
+        prev_failed_at = None if args.force else failed_at
+        created, failed_at = _maybe_generate_daily(crawler.get_data().get('posts') or [], now, prev_failed_at)
+        # 실패 시각이 새로 찍혔으면 이번 실행에서 생성을 시도했다가 실패한 것(Gemini 긴 호출을 이미 씀)
+        daily_failed = failed_at is not None and failed_at != prev_failed_at
+
+    # 데일리 음성 — 어떤 실패도 크롤·데일리·사이트 배포를 막지 않는다(음성이 없으면 브라우저 음성으로 읽는다)
+    tts_state = state.get('tts') if isinstance(state.get('tts'), dict) else {}
+    audio_changed: list[str] = []
+    if args.no_crawl:
+        _log('[TTS] --no-crawl — 음성 생성 안 함')
+    else:
+        # 한 실행에 Gemini 긴 작업은 하나만 — 데일리 생성에 실패한 실행도 약 250초를 이미 썼을 수 있다.
+        # 크롤이 비정상적으로 오래 걸린 실행도 음성(최악 300초)을 더하면 잡 타임아웃(15분)에 걸릴 수 있다
+        spent = time.monotonic() - t_start
+        busy = ('데일리 생성을 시도함(실패)' if daily_failed
+                else f'시작 후 {spent:.0f}초 지남(음성은 {TTS_START_BUDGET_SEC}초 안에만 시작)'
+                if spent > TTS_START_BUDGET_SEC else '')
+        try:
+            audio_changed, tts_state = _maybe_generate_audio(now, created, tts_state, busy)
+        except Exception as e:
+            _log(f'[TTS] 오류: {type(e).__name__}: {e} — 음성 없이 계속')
 
     out = _prepare_out(Path(args.out))
-    _render(out, Path(args.templates), cfg, now, crawler, last_run, failed_at)
+    _render(out, Path(args.templates), cfg, now, crawler, last_run, failed_at, tts_state)
 
     # 크롤 없이 렌더링했는데 복원한 글이 없으면(첫 배포 전 push 등) 빈 사이트를 배포하지 않는다.
     # 로컬 미리보기용 _site는 그대로 만든다.
     skip = args.no_crawl and not crawler.get_data().get('posts')
     if skip:
         _log('[Build] --no-crawl인데 복원한 게시글이 없음 — 배포 생략(skip=true), 다음 크롤 실행이 배포한다')
+    # audio_changed면 pages.yml 'Publish audio'가 .audio/를 audio 브랜치에 부모 없는 커밋 1개로 올린다
     _gh_output(skip='true' if skip else 'false', daily_created='true' if created else 'false',
+               audio_changed='true' if audio_changed else 'false', audio_dates=' '.join(audio_changed),
                **({'daily_date': created} if created else {}))
     return 0
 

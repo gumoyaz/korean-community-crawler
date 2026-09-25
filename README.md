@@ -11,12 +11,13 @@
 ```
 cron-job.org (10분마다) ──▶ GitHub Actions: Build and deploy
 schedule (백업, :07/:22/:37/:52)      │
-                                     ├─ 1. 직전 상태 복원 (Actions 캐시 → 없으면 사이트의 data/state.json)
+                                     ├─ 1. 직전 상태 복원 (Actions 캐시 → 없으면 사이트의 data/state.json), audio 브랜치의 음성 파일 받기
                                      ├─ 2. 크롤링 1회 (todaybeststory API, 부족하면 직접 스크래핑) → 지금 뜨는 이슈 묶기
                                      ├─ 3. 메인 AI 요약 (6시간마다) / 데일리 리포트 (정오본·최종본)
-                                     ├─ 4. _site/ 에 정적 사이트 렌더링 (build.py)
-                                     ├─ 5. 새 데일리 리포트가 있으면 data/daily/*.json 을 main 에 커밋
-                                     └─ 6. GitHub Pages 에 배포
+                                     ├─ 4. 데일리 음성 (Gemini TTS, 데일리 생성을 시도하지 않은 실행에서 최대 1개)
+                                     ├─ 5. _site/ 에 정적 사이트 렌더링 (build.py)
+                                     ├─ 6. 새 데일리 리포트가 있으면 data/daily/*.json 을 main 에 커밋, 음성이 바뀌었으면 audio 브랜치 교체
+                                     └─ 7. GitHub Pages 에 배포
 ```
 
 - 사이트 자체는 정적 파일이라, 크롤이 실패해도 마지막으로 배포된 화면이 그대로 떠 있습니다.
@@ -55,7 +56,7 @@ API 결과가 50건 미만이거나 커뮤니티가 8곳 미만이면 아래 10�
 - **카테고리 탭** — 전체 / 게임·IT / 연예·아이돌 / 유머 / 음식·카페 / 뷰티·패션 / 자동차
 - **커뮤니티 칩** — 사이트별 필터 (글 수 표시)
 - **카드 피드** — 출처 배지, 본문 요약, 시각, 조회·추천·댓글. 클릭하면 원글로 이동
-- **데일리 리포트** (`/daily/`) — 날짜별 아카이브, 이전/다음 이동, 읽어주기(TTS)
+- **데일리 리포트** (`/daily/`) — 날짜별 아카이브, 이전/다음 이동, 읽어주기(아래 [읽어주기](#읽어주기) 참고)
 
 ## 데일리 리포트
 
@@ -69,6 +70,25 @@ API 결과가 50건 미만이거나 커뮤니티가 8곳 미만이면 아래 10�
 - 프롬프트는 제목·본문에 있는 사실만 쓰게 합니다. 입력에 없는 소속·직함·반응은 추측하지 않습니다.
 - 모델은 `gemini-3.8-flash`입니다. 실패하면 예비 모델 `gemini-3.6-flash` → `gemini-3.5-flash` → `gemini-3.5-flash-lite`를 차례로 한 번씩 시도합니다(모델마다 503이 나는 시간대가 달라서). 모두 환경변수로 바꿀 수 있습니다.
 - 저장 형식은 `data/daily/YYYY-MM-DD.json`입니다. 필드는 `date, generated_at, model, post_count, analyzed_count, summary_md, posts`입니다.
+
+### 읽어주기
+
+데일리 상세 페이지 위쪽 플레이어가 요약을 소리 내어 읽습니다. 버튼은 ⏮ 이전 섹션 / ▶·⏸ / ■ 정지 / ⏭ 다음 섹션이고, 속도는 0.85·1·1.2·1.5×입니다. 지금 읽는 섹션의 제목을 강조합니다.
+
+- **음성 파일 재생** — 페이지에 음성 파일 정보(`summary.audio`: 주소·길이·섹션 시작 시각)가 있으면 `<audio>`로 재생합니다.
+  - 속도는 `playbackRate`로 바꾸고 음높이는 유지합니다. 진행 막대 옆에 경과·전체 시간이 나옵니다.
+  - ⏮/⏭는 섹션 시작 시각으로 옮깁니다. ⏮는 지금 섹션을 3초 넘게 들었으면 그 섹션 처음으로 갑니다.
+  - ▶를 누르기 전에는 파일을 받지 않습니다(`preload="none"`). 섹션 수가 본문 제목 수와 다르면 섹션 이동·강조 없이 재생만 합니다. 잠금 화면·알림의 미디어 컨트롤용 정보(Media Session)도 등록합니다(지원 브라우저만, 실기기 확인 전).
+- **브라우저 음성(대체 경로)** — 음성 파일이 없거나 불러오지 못하면(404·디코드 실패·재생 중 끊김) 브라우저 음성(Web Speech)으로 읽습니다.
+  - 재생 중에 실패하면 그 섹션부터 바로 이어 읽습니다. 일시정지해 둔 상태였다면 소리 없이 기다렸다가 다음 ▶ 때 그 섹션부터 읽습니다. 전환 안내는 플레이어 아래에 한 줄로 나옵니다.
+  - 한국어 음성은 Edge 신경망(`Natural`·`Online`) → `Google` → Apple(`Yuna`·`Siri`·`Premium`·`Enhanced`) → 기타 → Windows 기본 `Heami` 순으로 고릅니다.
+  - 한국어 음성이 둘 이상이면 음성 고르기 메뉴가 나옵니다. 고른 음성은 그 브라우저에 기억합니다(localStorage `kt.ttsVoice`).
+- **음성 파일 만들기** — Actions가 리포트마다 Gemini TTS(`gemini-3.8-flash-tts`, 목소리 `Kore`)로 리포트 전체를 한 번에 합성해 MP3(48kbps, 2분에 약 0.8MB)로 만듭니다.
+  - 리포트를 만든 다음 실행(약 10분 뒤)에 음성이 나옵니다. 그 전이나 실패했을 때는 브라우저 음성으로 읽습니다. 최종본으로 바뀐 리포트는 음성을 다시 만듭니다.
+  - 한 실행에 최대 1개, 최근 7일 리포트까지 만듭니다. 실패하면 30분(일일 한도 소진이면 180분) 뒤에 다시 시도하고, 하루(KST) 최대 6회까지 시도합니다.
+  - 만든 음성이 `audio` 브랜치에 올라가지 않으면(브랜치 규칙 등) 다음 실행이 알아채고 `state.json`의 `tts.error`에 `publish_failed`를 남깁니다. 30분 뒤 한 번 더 만들고, 또 실패하면 그날은 더 만들지 않습니다.
+  - 음성 파일은 main이 아니라 `audio` 브랜치에 최근 14일치만 둡니다(매번 커밋 1개로 교체해 히스토리가 쌓이지 않음). 빌드가 받아서 사이트의 `/audio/`로 함께 배포합니다.
+  - 자세한 설계(섹션 경계 찾기, 저장 방식)는 CLAUDE.md의 '데일리 음성 파일(Gemini TTS)'에 있습니다.
 
 ## 랭킹 로직
 
@@ -154,6 +174,8 @@ python -m http.server -d _site 8000
 - `--state-file PATH` — 상태를 파일에서 읽습니다.
 - `--now ISO` — 현재 시각을 주입합니다(테스트용).
 - KST 12시 이후에 `--force`로 크롤하면 `data/daily/`에 오늘 리포트가 생길 수 있습니다. 테스트할 때는 `DAILY_DIR`을 임시 폴더로 지정하세요.
+- 로컬에서는 음성을 만들지 않습니다(`TTS_ENABLED` 미설정). `AUDIO_DIR`(기본 `.audio/`)에 지금 리포트와 맞는 `YYYY-MM-DD.mp3`·`.json`이 있으면 페이지에 싣습니다.
+- 음성 MP3 인코더 `lameenc`는 선택 의존성이라 `requirements.txt`에 없습니다. 음성을 직접 만들어 볼 때만 `pip install lameenc==1.8.4`로 설치합니다. Actions는 별도 스텝에서 설치하고, 설치에 실패해도 사이트는 배포됩니다.
 
 ## 환경변수
 
@@ -161,7 +183,7 @@ python -m http.server -d _site 8000
 
 | 변수 | 기본값 | 설명 |
 |---|---|---|
-| `GOOGLE_API_KEY` | (없음) | Gemini API 키. 없으면 AI 요약·데일리 리포트만 꺼짐 |
+| `GOOGLE_API_KEY` | (없음) | Gemini API 키. 없으면 AI 요약·데일리 리포트·음성만 꺼짐 |
 | `GEMINI_MODEL` | `gemini-3.8-flash` | 기본 모델 |
 | `GEMINI_FALLBACK_MODEL` | `gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite` | 예비 모델(쉼표로 여러 개, 순서대로 시도). `none`이면 끔 |
 | `SITE_URL` | `https://gumoyaz.github.io/korean-community-crawler` | canonical·sitemap·llms.txt의 기준 주소. 경로 부분이 내부 링크의 base가 됨 |
@@ -169,6 +191,11 @@ python -m http.server -d _site 8000
 | `STATE_URL` | `{SITE_URL}/data/state.json` | Actions 캐시가 없을 때 상태를 받아올 주소 |
 | `MIN_INTERVAL_MIN` | `7` | 이 시간(분) 안에 다시 호출되면 크롤·배포를 건너뜀 |
 | `DAILY_DIR` | `data/daily` | 데일리 리포트 저장 폴더 |
+| `TTS_MODEL` | `gemini-3.8-flash-tts` | 데일리 음성 모델 |
+| `TTS_FALLBACK_MODEL` | `gemini-3.8-flash-lite-tts` | 음성 예비 모델(1회). `none`이면 끔 |
+| `TTS_VOICE` | `Kore` | 음성 목소리. 바꾸면 최근 7일 음성을 다시 만듦 |
+| `AUDIO_DIR` | `.audio` | 음성 파일·메타 폴더 (Actions에서는 audio 브랜치 스냅숏) |
+| `TTS_ENABLED` | (없음) | `true`일 때만 음성을 만든다. Actions가 직접 계산하므로 Variables에 넣지 않음 |
 
 ## 배포 설정 (최초 1회)
 
@@ -181,6 +208,7 @@ python -m http.server -d _site 8000
    - 헤더: `Authorization: Bearer <fine-grained PAT>`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`
    - 본문: `{"ref":"main"}` (성공하면 204)
    - PAT 권한: 이 리포만 선택, Repository permissions → **Actions: Read and write**
+6. 음성 파일용 `audio` 브랜치는 음성을 처음 만든 실행이 자동으로 만듭니다. 따로 설정할 것은 없습니다(권한은 워크플로의 `contents: write`). 다만 브랜치 보호 규칙이나 rulesets를 모든 브랜치에 걸었다면 `audio` 브랜치의 강제 push(Actions 봇)를 허용해야 합니다. '강제 push 금지' 규칙은 브랜치를 처음 만드는 push는 막지 않고 두 번째 교체 push부터 막습니다. 그래서 첫 실행만 보고 판단하면 안 됩니다.
 
 ## 산출물
 
@@ -190,6 +218,7 @@ python -m http.server -d _site 8000
 | `/data/trends.json` | 게시글, 지금 뜨는 이슈(`issues`), 카테고리별 글 수, AI 요약, 갱신 시각 |
 | `/data/state.json` | 다음 실행이 이어받을 상태 (점수 이력, 직전 글 목록, AI 요약, 이슈 튜닝 로그) |
 | `/daily/`, `/daily/YYYY-MM-DD/` | 데일리 목록·상세 (서버 렌더링) |
+| `/audio/YYYY-MM-DD.mp3` | 데일리 음성 (지금 리포트 내용과 맞는 것만, 최근 14일) |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt`, `/404.html` | SEO·AI 크롤러용 |
 
 ## SEO / AI 검색
