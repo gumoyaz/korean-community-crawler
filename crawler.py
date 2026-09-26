@@ -175,6 +175,11 @@ ISSUELINK_TIMEOUT = 45          # 이슈링크 호출 hard timeout(초). 모듈 
 ISSUELINK_CACHE_MAX = 1000      # state에 남기는 이슈링크 원본 URL 캐시 항목 상한
 VIA_ORDER = ('tbs', 'direct', 'issuelink')
 MAX_PER_SOURCE = 25             # 커뮤니티당 게시 글 상한 (_assign_ranks)
+# 전체 순위(_assign_ranks·_popularity): 실제로 많이 본 글 순 + 커뮤니티 균형 (2026-09-26 사용자 원칙)
+RANK_VIEWS_PER_COMMENT = 100    # 조회수 없는 글의 추정 조회수 = 댓글 × 이 값 (댓글이 많은 커뮤니티 디시·더쿠·클리앙·SLR의 중앙값 91~125)
+RANK_VIEWS_PER_LIKE = 100       # 댓글도 없으면 추천 × 이 값
+RANK_HALF_LIFE_H = 24           # 신선도 반감기(시간)
+RANK_SOURCE_PENALTY = 0.6       # 같은 커뮤니티 k번째 글에서 log10 점수를 0.6×k 뺀다 (≈ 조회수 ÷4). 09-26 데이터로 상위 25개에 18곳·곳당 최대 2개
 
 # 오전 보충(결정 1): 00~02시에 받은 전날 커뮤니티별 상위 글을 state에 두고, 02시 이후 당일 글이
 # MAX_PER_SOURCE개에 못 미치는 커뮤니티 칸만 채운다('어제' 표시, prev_day). 당일 글만으로
@@ -1850,25 +1855,59 @@ class TrendCrawler:
                 seen_src.add(p['source'])
         sorted_posts = sorted(sorted_posts, key=lambda x: x['rank_score'], reverse=True)
 
-        DAMPEN = 0.65
-        src_counts: dict = {}
-        diversity: dict = {}
-        for p in sorted_posts:
-            n = src_counts.get(p['source'], 0)
-            diversity[id(p)] = p['rank_score'] * (DAMPEN ** n)
-            src_counts[p['source']] = n + 1
+        # rank_score(커뮤니티 안 상대 점수)는 이슈 보드 급상승·데일리 선정이 그대로 쓴다. 전체 순서(rank)만 아래 인기 점수로 정한다
+        pop = self._popularity(sorted_posts)
 
-        src_included: dict = {}
+        # 커뮤니티 균형: 같은 커뮤니티의 k번째(0부터) 글은 log10 점수에서 RANK_SOURCE_PENALTY×k를 뺀다(RANK_SOURCE_PENALTY).
+        # 큰 커뮤니티가 위쪽을 독점하지 않고, 작은 커뮤니티 1등도 비슷한 조회수 글 사이에 들어온다
+        by_src: dict = {}
+        for p in sorted(sorted_posts, key=lambda x: pop[id(x)], reverse=True):
+            by_src.setdefault(p['source'], []).append(p)
         capped: list = []
-        for p in sorted(sorted_posts, key=lambda x: diversity[id(x)], reverse=True):
-            cnt = src_included.get(p['source'], 0)
-            if cnt < MAX_PER_SOURCE:
+        balanced: dict = {}
+        for items in by_src.values():
+            for k, p in enumerate(items[:MAX_PER_SOURCE]):
+                balanced[id(p)] = pop[id(p)] - RANK_SOURCE_PENALTY * k
                 capped.append(p)
-                src_included[p['source']] = cnt + 1
+        capped.sort(key=lambda x: balanced[id(x)], reverse=True)
 
         for i, p in enumerate(capped):
             p['rank'] = i + 1
         return capped
+
+    def _popularity(self, posts: list) -> dict:
+        """전체 순위용 인기 점수 {id(post): log10(1 + 추정 조회수 × 신선도)} — '실제로 많이 본 글'이 원칙.
+        - 조회수가 있으면 그대로. FM코리아(합성값이라 0으로 둠)·개드립(조회수 없음)처럼 없으면 댓글·추천으로 추정한다
+          (댓글·추천 1개당 100회 — 09-26 운영 데이터에서 265로 두면 FM코리아가 상위를 독차지했다. 댓글이 많은 커뮤니티의 비율 91~125에 맞췄다).
+        - 셋 다 없으면(82쿡 '많이 읽은 글'·이토랜드 순위 직접 수집 등) 같은 커뮤니티 추정 조회수 중앙값(없으면 전체 중앙값)에
+          목록 순서(position_score)를 곱한다.
+        - 신선도는 반감기 RANK_HALF_LIFE_H시간 — 조회수는 시간이 지날수록 쌓이므로 오래된 글이 앞서지 않게 한다."""
+        def est(p):
+            if p.get('views', 0) > 0:
+                return float(p['views'])
+            if p.get('comments', 0) > 0:
+                return RANK_VIEWS_PER_COMMENT * p['comments']
+            if p.get('likes', 0) > 0:
+                return RANK_VIEWS_PER_LIKE * p['likes']
+            return 0.0
+
+        raw = {id(p): est(p) for p in posts}
+        known: dict = {}
+        for p in posts:
+            if raw[id(p)] > 0:
+                known.setdefault(p['source'], []).append(raw[id(p)])
+        all_known = sorted(v for vs in known.values() for v in vs)
+        overall = all_known[len(all_known) // 2] if all_known else 1000.0
+        out = {}
+        for p in posts:
+            v = raw[id(p)]
+            if v <= 0:
+                vs = sorted(known.get(p['source']) or [])
+                base = vs[len(vs) // 2] if vs else overall
+                v = base * max(0.2, p.get('position_score', 50.0) / 100) * 1.5
+            fresh = 0.5 ** (self._age_days(p.get('date', '')) * 24 / RANK_HALF_LIFE_H)
+            out[id(p)] = math.log10(1 + v * fresh)
+        return out
 
     # ── 이슈 · 카테고리 ───────────────────────────────────────────────────────
 
