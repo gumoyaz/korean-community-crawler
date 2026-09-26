@@ -257,6 +257,12 @@ def _robots_allowed() -> bool:
     if r.status_code >= 500:
         _log(f'robots.txt HTTP {r.status_code} - 이번 실행은 건너뜀')
         return False
+    head = r.text[:2000].lower() if r.status_code < 400 else ''
+    if '<html' in head or 'cupid.js' in head or 'tonumbers(' in head:
+        # 해외 IP(GitHub Actions 러너)에는 robots.txt 대신 JS 쿠키 봇 확인 페이지가 온다(2026-09-25 Source probe, 목록도
+        # 같은 이유로 0행). 이 확인을 풀지 않는다 — 봇 차단 우회라서. 이 HTML을 robots로 읽으면 규칙이 없어 '허용'이 된다
+        _log('robots.txt 대신 봇 확인 페이지를 받음(해외 IP 차단으로 보임) - 이번 실행은 건너뜀')
+        return False
     if r.status_code >= 400:
         allowed = True
     else:

@@ -49,7 +49,7 @@
   - 예비 경로는 커뮤니티 단위다. 직접 스크래핑은 degraded·missing(·TBS가 온전하지 않을 때 25개 미만)인 곳만. 이슈링크는 (a) 같은 곳(매 실행) + (b) TBS 당일 글 5건 미만인 곳((a)가 같이 있어도 30분 간격, 사이에는 직전 글 재사용 — `_il_at`·`_il_sources`는 (b) 기준). 오전 보충 중(02~12시)에는 저장한 전날 상위 글이 25개인 곳(어제는 글이 넉넉했던 곳)을 (b)에서 빼서, 새벽에 TBS 첫 수집 전인 큰 커뮤니티 칸은 전날 글이 채우고 (b)는 오유·인벤·웃대처럼 어제도 적었던 곳만 받는다(`_prev_day_covered`). 중복은 `_url_key`로 없애고 건강한 TBS → 직접 → 이슈링크 → 멈춘 TBS 순으로 고른다. SLR·보배드림은 TBS(베스트 게시판 번호)와 이슈링크(원래 게시판 번호)의 주소가 달라서, 다른 경로에서 먼저 고른 같은 커뮤니티·같은 제목(`_title_key`, 공백·기호 뺀 5자 이상) 글도 뺀다(같은 경로 안에서 제목만 같은 글은 둘 다 둔다). 이번 결과에 한 글도 없는 커뮤니티(TBS가 온전하지 않으면 25개 미만인 곳)는 날짜 창 안의 이전 글을 `kept: true`로 병합한다. 날짜 판정에 TBS `targetDate`를 `target_date`로 state에 남긴다(공개 JSON에는 안 냄).
   - 점수 이력은 TBS를 끝까지(멈추지 않은 채로) 받은 라운드만 넣고, 40분 안의 라운드는 한 칸으로 덮어쓰며, 240분 넘은 칸은 버린다(칸 시각은 `post_score_times`). TBS limit은 실행마다 100/99를 번갈아 쓴다(URL별 약 10분 캐시).
   - 오전 보충: 00~02시(`MERGE_PREV_END_HOUR`, build.py `DAILY_FINAL_END_HOUR`도 같은 값) 실행이 전날 커뮤니티별 상위 25개를 `state.json`의 `crawler.prev_day`에 두고(이 동안 state.json이 평소 약 370KB에서 약 600KB로 커진다), 02~12시에 당일 글이 25개 미만인 칸만 `prev_day: true`로 채운다. 멈춤 판정은 TBS 당일 글만 센다(`_tbs_today_size`: via·kept·전날 target_date 제외, 커뮤니티당 25개까지). 19곳·350건이면 채우지 않고, 12시 전에는 저장한 전날 글을 지우지 않고 실행마다 다시 판정한다(이슈링크 (b) 글까지 세면 09-25 02:10 재현에서 첫 실행에 보충이 끝나고 전날 글이 지워졌다 — 되돌릴 수 없다). 12시에 저장 글을 비운다. `prev_day.done`은 멈춤 기준을 처음 넘은 날(로그용)이다. 이슈 보드 전체·AI 요약·정오본 데일리 입력에서 뺀다.
-  - 알림(`build._health`): health는 ok|degraded|stale 그대로 내되, 연속 횟수는 알림 대상(stale·stale-source·partial, missing·blocked, 다른 경로로 못 채우는 degraded)만 센다. 이슈링크·직접 수집으로 채워지는 degraded는 칩 표시만 한다(인스티즈가 거의 매일 낮·저녁부터 TBS 갱신이 멈춰서 매일 이슈가 열리고 닫히지 않게). 하루 넘게 멈추면 날이 바뀐 뒤 missing이 되어 알린다. 알림 중(연속 3번 이상)이던 상태에서 KST 00~06시(`HEALTH_FROM_HOUR` 전)의 '알림 대상 없음'은 회복으로 세지 않고 직전 연속 횟수·key를 그대로 둔다(held, `health_alert` false라 잡도 안 돈다. 알리기 전 1~2번이면 평소처럼 0으로 돌린다) — 크롤러가 이 시간에 degraded·stale-source를 판정하지 않고 00~02시에는 전날 목록도 보기 때문에, 그대로 두면 저녁부터 이어진 장애가 00:10에 '회복'으로 닫혔다가 02시 뒤 missing으로 새 이슈가 열린다(09-23~24 개드립 사례 재현). 그래서 자정 전 장애는 같은 이슈에 코멘트로 이어지고, 00~06시의 진짜 회복은 06시 뒤에 닫힌다. `state.health`에 `close_left`(남은 닫기 실행 수)가 있다.
+  - 알림(`build._health`): health는 ok|degraded|stale 그대로 내되, 연속 횟수는 알림 대상(stale·stale-source·partial, missing·blocked)만 센다. degraded(갱신 멈춤)는 채워지든 아니든 칩 표시만 한다 — 원본의 커뮤니티 수집이 멈춘 것이라 고칠 수 없고, 인스티즈가 거의 매일 몇 시간씩 멈춰서 첫 운영 하루(09-25~26)에 이슈가 4번 열렸다. 하루 넘게 멈추면 날이 바뀐 뒤 기대 시각에 missing이 되어 알리고, 여러 곳이 같이 멈추면 partial로 알린다. 알림 중(연속 3번 이상)이던 상태에서 KST 00~06시(`HEALTH_FROM_HOUR` 전)의 '알림 대상 없음'은 회복으로 세지 않고 직전 연속 횟수·key를 그대로 둔다(held, `health_alert` false라 잡도 안 돈다. 알리기 전 1~2번이면 평소처럼 0으로 돌린다) — 크롤러가 이 시간에 degraded·stale-source를 판정하지 않고 00~02시에는 전날 목록도 보기 때문에, 그대로 두면 저녁부터 이어진 장애가 00:10에 '회복'으로 닫혔다가 02시 뒤 missing으로 새 이슈가 열린다(09-23~24 개드립 사례 재현). 그래서 자정 전 장애는 같은 이슈에 코멘트로 이어지고, 00~06시의 진짜 회복은 06시 뒤에 닫힌다. `state.health`에 `close_left`(남은 닫기 실행 수)가 있다.
 - **시간대 계약**: `post.date`는 `YYYY-MM-DDTHH:MM:SS+09:00` / `YYYY-MM-DD`(날짜만) / `''` 셋 중 하나다. KST 시각을 `Z`로 저장하지 않는다.
 - **데일리 타이밍**: KST 12시 이전에는 만들지 않는다(정오본). 다음 날 00:10~01:59에 하루 전체 목록으로 최종본을 덮어쓴다. 실패하면 다음 실행에서 재시도한다.
 - **데일리 프롬프트**: 입력(제목·본문)에 있는 사실만 쓴다. 소속·직함·반응을 추측하면 사실 오류가 난 적이 있다(2026-09-23).
@@ -59,13 +59,14 @@
   - 음성 정보는 `<script type="application/json" id="ttsAudioData">{{ summary.audio | tojson }}</script>`로 넣는다(`tojson`이 `<`·`>`·`&`·`'`를 이스케이프한다). 값이 있으면 JSON-LD에 `AudioObject`도 넣는다.
   - 사용자가 멈췄는지는 `aWant`로 따로 기억한다. 크롬은 오류로 멈출 때 페이지의 `error` 처리보다 먼저 `audio.paused`를 true로 바꾸기 때문이다. 재생 중 실패는 그 섹션부터 브라우저 음성으로 바로 이어 읽는다. 일시정지 중 실패는 소리 없이 기다렸다가(`speechFrom`) 다음 ▶에 읽는다.
   - 브라우저 음성은 기기마다 다르다. Windows 기본 Heami는 기계음에 가깝고, rate를 1.5로 올려도 약 10%만 빨라졌다(실측). 음성 파일 경로를 따로 둔 이유다.
+- **해외 러너에서 되는 경로 (2026-09-25 Source probe, 미국 Azure IP)**: 이슈링크는 목록·robots.txt 대신 JS 쿠키 봇 확인 페이지(`cupid.js`)를 줘서 0건이다. 풀지 않는다(봇 차단 우회). `sources_issuelink`는 robots.txt 자리에 HTML이 오면 그 실행을 건너뛴다. 한국 IP(로컬)에서는 정상이라 로컬 테스트와 운영 결과가 다르다. 직접 스크래핑은 루리웹·클리앙·더쿠·보배·네이트판·웃대·딴지가 되고 오유·아카라이브·인스티즈·FM코리아는 막히고 MLB파크·SLR은 연결 오류다. 2026-09-26에 러너에서 접속되는 디시(실베)·뽐뿌(HOT)·인벤(오픈이슈 추천)·82쿡(많이 읽은 글 10개)·이토랜드(`/hit/list` 순위 30개, `row_is_link`)·와이고수(실시간 인기)·개드립(인기순) 파서를 더해 예비 경로가 있는 곳이 14곳이 됐다. 인스티즈는 채울 경로가 없다.
 - **소스 간 원시 조회수 비교 금지**: FM코리아 조회수는 API의 합성값이라 0으로 둔다(이슈링크로 받은 FM코리아 글도 0 — 한 커뮤니티에 실제 조회수 글이 섞이면 TBS 글이 뒤로 밀린다). 선정은 소스별로 정규화된 `rank_score`로 한다.
 - **보안**: 데일리 HTML은 `markdown` → `nh3`로 정화한다. 프론트는 외부 텍스트에 `escHtml`, 링크에 `safeUrl`(http/https만)을 쓴다.
 - **내부 링크는 `{{ base }}`로 시작**한다. base는 `SITE_URL`의 경로(`/korean-community-crawler`)에서 나온다.
 
 ## 환경변수
 
-README의 표 참고. 핵심은 `GOOGLE_API_KEY`(Secret), `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `SITE_URL`, `GSC_VERIFICATION`(Variables)이다. 음성은 `TTS_MODEL`, `TTS_FALLBACK_MODEL`, `TTS_VOICE`(Variables, 비우면 기본값)와 `AUDIO_DIR`을 쓴다. `TTS_ENABLED`는 pages.yml이 계산한다(audio fetch 성공이고 push 이벤트가 아닐 때만 `true`). Actions에서 비어 있는 vars는 `''`로 들어오는데, `build.py`가 import 전에 지워서 기본값을 쓰게 한다.
+README의 표 참고. 핵심은 `GOOGLE_API_KEY`(Secret), `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `SITE_URL`, `GSC_VERIFICATION`, `GA_MEASUREMENT_ID`(Variables, GA4 `G-…` 형식이 아니면 태그를 넣지 않음)이다. 음성은 `TTS_MODEL`, `TTS_FALLBACK_MODEL`, `TTS_VOICE`(Variables, 비우면 기본값)와 `AUDIO_DIR`을 쓴다. `TTS_ENABLED`는 pages.yml이 계산한다(audio fetch 성공이고 push 이벤트가 아닐 때만 `true`). Actions에서 비어 있는 vars는 `''`로 들어오는데, `build.py`가 import 전에 지워서 기본값을 쓰게 한다.
 
 ## 로컬 개발
 
@@ -127,8 +128,8 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 - [ ] **이슈 보드 튜닝.** `issue_log`로 며칠간 아침·저녁 정밀도를 확인하고, `GENERIC` 목록을 보강하고, 2글짜리 작은 이슈를 어떻게 다룰지 정한다. 09-24 실데이터에서 '결혼한 결혼'·'전장연 절대'(오전), '즉각 조사 거부 추석'·'포로 한국 보내'(저녁)처럼 어색한 이름이 나왔다.
 - [x] ~~(2순위) 크롤링 소스 안정화.~~ 커뮤니티별 상태(`source_health`)와 `status` 4종, 커뮤니티 단위 예비 경로, 이슈링크 2차 소스, 오전 전날 글 보충('어제'), 수집 이상 알림(`source-health` 이슈), 소스 실측 프로브를 넣었다(2026-09-25). 일베 매핑을 빼고 네이트판 예비 URL을 '톡커들의 선택'으로 바꿨다. 부분 실패 + fallback 실패도 절대 기준(6곳·150건)과 `partial`로 판정한다.
 - [ ] **소스 안정화 첫 운영 확인.**
-  - (1) Source probe를 한 번 수동 실행해 러너(해외 IP)에서 직접 스크래핑·이슈링크가 되는지 본다. 로컬(한국 IP)에서는 인스티즈 `/pt`만 403이었다.
-  - (2) `health` 잡 첫 실행에서 `gh label create`·`gh issue close --reason completed`가 되는지 본다. YAML은 파서로, 셸 로직은 가짜 gh로만 확인했다. 리포 Issues는 켜져 있다(2026-09-25 공개 API `has_issues: true`, 열린 이슈 0).
+  - ~~(1) Source probe~~ 2026-09-25 실행 완료(결과는 설계 결정의 '해외 러너에서 되는 경로'). 새 파서 7곳은 로컬에서만 실제로 받아 봤다 — 다음 프로브나 fallback이 도는 날 러너 로그로 확인한다.
+  - ~~(2) `health` 잡~~ 2026-09-25~26 이슈 #1~#4를 열고 닫는 것까지 실제로 동작했다(모두 인스티즈 degraded — 이후 degraded는 알림에서 뺐다).
   - (3) 며칠간 `[Health]` 로그로 `EXPECTED_BY_HOUR` missing 오탐과 `source-health` 이슈 빈도를 본다.
   - (4) 이슈링크 약관의 수집 금지 여부는 확인하지 못했다(robots.txt는 `Allow:/`). `/go/` HEAD가 이슈링크 클릭 집계에 잡히는지도 모른다. 원본 URL 캐시로 요청을 줄였다.
   - (5) 오전 이슈링크 (b)는 어제도 글이 적었던 곳(09-24 목록 기준 오유·인벤·웃대 3곳)만 받도록 줄였다(09-25 02:10 재현은 9곳이었다). 전날 상위 글을 저장하지 못한 날(00~02시 실행 실패 등)은 예전처럼 TBS 5건 미만인 곳 전부가 (b)다.
@@ -138,7 +139,8 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 - [ ] 읽어주기를 실기기에서 확인한다. 사파리·파이어폭스에서 음성 파일 오류 때 `pause` 이벤트가 `audio.error`보다 먼저 오면, 재생 중 끊김도 바로 이어 읽지 않고 '일시정지' 대기 상태가 된다(▶ 한 번이면 그 섹션부터 이어짐). 전환 안내(role=status)를 스크린리더가 읽는지도 헤드리스 크롬 접근성 트리까지만 봤다.
 - [ ] (선택) SNS 공유용 1200×630 `og:image`를 만든다. 지금은 투명 배경 로고를 그대로 쓴다.
 - [ ] (선택) 커스텀 도메인을 연결한다. 다음 호스팅 이전 때 SEO 손실을 막는다.
-- [ ] (선택) 방문 분석(GA4 등)을 붙인다.
+- [ ] 방문 분석(GA4): 코드는 넣었다(2026-09-26, `GA_MEASUREMENT_ID`). GA4 속성·웹 스트림을 만들고 측정 ID를 Variables에 넣으면 켜진다. 켠 뒤 GA4 MCP로 검색 유입(`sessionDefaultChannelGroup` Organic Search)을 본다.
+- SEO 문구(2026-09-26): 메인 '실시간 커뮤니티 인기글 모음 | 커트', 데일리 상세 설명은 그날 요약 소제목 3개(`build._daily_seo_desc`, 글 제목은 욕설 때문에 쓰지 않음).
 - [ ] (선택) 댓글·로그인처럼 사용자 입력이 필요한 기능은 Supabase(RLS 필수, 무료는 7일 비활성 시 일시정지)로 붙인다.
 
 ## 도메인을 바꿀 때

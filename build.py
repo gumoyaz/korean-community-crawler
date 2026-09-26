@@ -34,7 +34,7 @@ KST = timezone(timedelta(hours=9))
 
 # Actions의 ${{ vars.X }}는 미설정이면 ''로 들어온다 → 빈 문자열은 미설정으로 취급.
 # crawler/daily/gemini가 import 시점에 환경변수를 읽으므로 import 전에 정리한다.
-_ENV_KEYS = ('SITE_URL', 'BASE', 'STATE_URL', 'GSC_VERIFICATION', 'MIN_INTERVAL_MIN',
+_ENV_KEYS = ('SITE_URL', 'BASE', 'STATE_URL', 'GSC_VERIFICATION', 'GA_MEASUREMENT_ID', 'MIN_INTERVAL_MIN',
              'GOOGLE_API_KEY', 'GEMINI_MODEL', 'GEMINI_FALLBACK_MODEL', 'DAILY_DIR',
              'TTS_ENABLED', 'TTS_MODEL', 'TTS_FALLBACK_MODEL', 'TTS_VOICE', 'AUDIO_DIR')
 
@@ -146,6 +146,15 @@ def _md_to_html(text: str) -> str:
     )
 
 
+def _daily_seo_desc(record: dict, date_kr: str) -> str:
+    """데일리 상세의 meta description — 날마다 같은 문장이 되지 않게 그날 요약의 소제목(최대 3개)을 넣는다.
+    글 제목은 쓰지 않는다(욕설·자극적인 표현이 검색 결과 설명에 그대로 나간다)."""
+    topics = [re.sub(r'\s+', ' ', h).strip()
+              for h in re.findall(r'^##\s+(.+)$', record.get('summary_md') or '', re.M)][:3]
+    head = f'{date_kr} 커뮤니티 인기글 요약'
+    return f'{head}: {", ".join(topics)} 등 그날의 화제를 한 번에.' if topics else f'{head}. 그날의 화제를 한 번에.'
+
+
 def _format_date_kr(date_str: str) -> str:
     """'2025-04-26'  →  '2025년 4월 26일'"""
     try:
@@ -220,11 +229,14 @@ def _settings(args) -> dict:
     except ValueError:
         min_interval = DEFAULT_MIN_INTERVAL
 
+    ga_id = os.environ.get('GA_MEASUREMENT_ID', '').strip().upper()
     return {
         'site_url': site_url,
         'base': base,
         'state_url': os.environ.get('STATE_URL', f'{site_url}/data/state.json').strip(),
         'gsc_verification': os.environ.get('GSC_VERIFICATION', '').strip(),
+        # GA4 측정 ID('G-XXXXXXXXXX'). 형식이 아니면 태그를 넣지 않는다(스크립트 URL·JS에 그대로 들어가서)
+        'ga_id': ga_id if re.fullmatch(r'G-[A-Z0-9]{4,16}', ga_id) else '',
         'min_interval': min_interval,
     }
 
@@ -527,8 +539,11 @@ def _health(data: dict, prev, now: datetime) -> tuple[dict, dict]:
         # source_health.via 순서(crawler.VIA_ORDER: 직접 수집 → 이슈링크)대로 — 프론트 안내 문구와 같은 순서
         return [v for v in dict.fromkeys(e.get('via') or []) if v in HEALTH_FILL_VIA]
 
-    # TBS 갱신만 멈췄고 다른 경로로 글이 들어오는 커뮤니티는 알림에서 뺀다
-    alert_problems = {s: e for s, e in problems.items() if not (e['status'] == 'degraded' and filled(e))}
+    # 갱신 멈춤(degraded)은 알리지 않고 칩에만 표시한다. 원본(TBS)의 커뮤니티 수집이 멈춘 것이라 우리가 고칠 수 없고,
+    # 인스티즈는 거의 매일 몇 시간씩 멈춰서(09-25~26 하루에 이슈 4번) 알림이 소음이 됐다. 해외 러너에서는 이슈링크가
+    # 봇 확인 페이지를 받아 채울 경로도 없다. 하루 넘게 멈추면 날이 바뀐 뒤 기대 시각(EXPECTED_BY_HOUR)에 missing이 되어
+    # 알림 대상이 된다. 여러 곳이 한꺼번에 멈추면 status partial로 알린다
+    alert_problems = {s: e for s, e in problems.items() if e['status'] != 'degraded'}
     alerting = health == 'stale' or status == 'partial' or bool(alert_problems)
     key = (f'{health}|{status}|' + ','.join(f'{s}={e["status"]}' for s, e in sorted(alert_problems.items()))
            if alerting else 'ok')
@@ -701,7 +716,7 @@ def _llms_txt(site_url: str, summaries: list, data: dict) -> str:
         labels = ', '.join(label for label, _ in counts.most_common())
         sources = f'최근 수집 기준 {len(counts)}곳: {labels}'
     else:
-        sources = 'FM코리아, 디씨인사이드, 루리웹, 더쿠, 클리앙 등 한국 주요 커뮤니티'
+        sources = 'FM코리아, 디시인사이드, 루리웹, 더쿠, 클리앙 등 한국 주요 커뮤니티'
 
     ai_line = ('- **AI 트렌드 요약** — 메인 상단에 지금 화제인 주제를 Gemini가 짧게 정리\n'
                if data.get('ai_summary') else '')
@@ -807,6 +822,7 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
         'site_url': cfg['site_url'],
         'base': cfg['base'],
         'gsc_verification': cfg['gsc_verification'],
+        'ga_id': cfg['ga_id'],
         'build_time': build_time,
     }
 
@@ -840,6 +856,7 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
         record = dict(record)
         record['summary_html'] = _md_to_html(record.get('summary_md', ''))
         record['date_kr'] = _format_date_kr(d)
+        record['seo_desc'] = _daily_seo_desc(record, record['date_kr'])
         record['is_final'] = _is_final(record, d)
         record['audio'] = _site_audio(out, d, record['summary_md'], cfg['base'])
         if record['audio']:

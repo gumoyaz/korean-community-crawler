@@ -3,12 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>커트 — 커뮤니티 트렌드 실시간</title>
-<meta name="description" content="FM코리아, 디씨인사이드, 루리웹, 클리앙, 더쿠 등 한국 주요 인터넷 커뮤니티 실시간 인기글을 한눈에. 지금 화제인 글들을 놓치지 마세요.">
-<meta name="keywords" content="커뮤니티 트렌드, 실시간 인기글, FM코리아 베스트, 디씨인사이드, 루리웹 베스트, 클리앙 인기, 더쿠 핫, MLB파크, 오늘의유머, 인스티즈, 보배드림, 네이트판, 웃긴대학, 커뮤니티 베스트">
+<title>실시간 커뮤니티 인기글 모음 | 커트</title>
+<meta name="description" content="디시·에펨코리아·더쿠·루리웹·클리앙 등 21개 커뮤니티 인기글을 10분마다 모아 보여줍니다. 지금 뜨는 이슈와 실시간 베스트를 한눈에.">
+<meta name="keywords" content="커뮤니티 인기글, 실시간 인기글, 커뮤니티 베스트, 실시간 베스트, 인기글 모음, 디시 실베, 에펨 포텐, 더쿠 핫, 루리웹 베스트, 클리앙 인기, 네이트판 톡커들의 선택, 오늘의유머, 커뮤니티 트렌드">
 <meta name="robots" content="index, follow">
 <meta name="author" content="커트">
 {% if gsc_verification %}<meta name="google-site-verification" content="{{ gsc_verification }}">
+{% endif %}
+{% if ga_id %}<script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_id }}"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ ga_id }}');</script>
 {% endif %}
 <link rel="canonical" href="{{ site_url }}/">
 <link rel="icon" href="{{ base }}/static/favicon.ico" sizes="any">
@@ -21,14 +24,14 @@
 <meta property="og:type" content="website">
 <meta property="og:url" content="{{ site_url }}/">
 <meta property="og:site_name" content="커트">
-<meta property="og:title" content="커트 — 커뮤니티 트렌드 실시간">
-<meta property="og:description" content="FM코리아, 디씨인사이드, 루리웹, 클리앙 등 한국 주요 커뮤니티 실시간 인기글을 한눈에. 지금 화제인 글들을 놓치지 마세요.">
+<meta property="og:title" content="실시간 커뮤니티 인기글 모음 | 커트">
+<meta property="og:description" content="디시·에펨코리아·더쿠·루리웹·클리앙 등 21개 커뮤니티 인기글을 10분마다 모아 보여줍니다. 지금 뜨는 이슈와 실시간 베스트를 한눈에.">
 <meta property="og:image" content="{{ site_url }}/static/logo.png">
 <meta property="og:locale" content="ko_KR">
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="커트 — 커뮤니티 트렌드 실시간">
-<meta name="twitter:description" content="FM코리아, 디씨인사이드, 루리웹, 클리앙 등 한국 주요 커뮤니티 실시간 인기글을 한눈에.">
+<meta name="twitter:title" content="실시간 커뮤니티 인기글 모음 | 커트">
+<meta name="twitter:description" content="21개 커뮤니티 인기글을 10분마다 모아 보여줍니다. 지금 뜨는 이슈와 실시간 베스트를 한눈에.">
 <meta name="twitter:image" content="{{ site_url }}/static/logo.png">
 <!-- JSON-LD -->
 <script type="application/ld+json">

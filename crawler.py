@@ -201,6 +201,7 @@ HEALTH_STATUSES = ('ok', 'degraded', 'missing', 'blocked')
 #   title_sel  행 안의 글 링크(href 사용)      text_sel   링크 안의 제목 요소(없으면 링크 텍스트)
 #   strip_sel  제목에서 지울 요소(댓글 수 등)   date_attr  날짜를 텍스트 대신 속성에서 읽기
 #   date_from_title  날짜 칸이 없어 페이지 <title>의 'YYYY.MM.DD'를 쓴다
+#   row_is_link  행 요소가 곧 글 링크(title_sel 없이 행의 href를 쓴다)
 COMMUNITY_SOURCES = [
     {
         'id': 'todayhumor',
@@ -324,11 +325,89 @@ COMMUNITY_SOURCES = [
         'like_sel': 'td.voteNum',
         'date_sel': 'td.time',
     },
+    # 아래 7곳은 2026-09-26 추가. Source probe(러너 미국 IP)에서 접속되는 것을 확인했다
+    {
+        'id': 'dcinside',
+        'pages': [
+            'https://gall.dcinside.com/board/lists/?id=dcbest',   # 실시간 베스트
+            'https://gall.dcinside.com/board/lists/?id=dcbest&page=2',
+        ],
+        'row_sel': 'table.gall_list tbody tr.ub-content.us-post',   # 공지·광고 행은 us-post가 아니다
+        'title_sel': 'td.gall_tit > a:not(.reply_numbox)',
+        'view_sel': 'td.gall_count',
+        'like_sel': 'td.gall_recommend',
+        'date_sel': 'td.gall_date',
+        'date_attr': 'title',                                       # 'YYYY-MM-DD HH:MM:SS' (글자는 'HH:MM'·'YY.MM.DD')
+    },
+    {
+        'id': 'ppomppu',
+        'pages': [
+            'https://www.ppomppu.co.kr/hot.php',   # HOT 게시글 (여러 게시판)
+        ],
+        'row_sel': 'tr.baseList',
+        'title_sel': 'a.baseList-title',
+        'strip_sel': '.list_comment2',
+        'date_sel': 'td.board_date',                                           # 날짜·추천-반대·조회 순
+        'like_sel': 'td.board_date + td.board_date',
+        'view_sel': 'td.board_date + td.board_date + td.board_date',
+    },
+    {
+        'id': 'inven',
+        'pages': [
+            'https://www.inven.co.kr/board/webzine/2097?my=chuchu',   # 오픈이슈갤러리 추천 글
+        ],
+        'row_sel': 'table.thumbnail tbody tr',
+        'title_sel': 'a.subject-link',
+        'strip_sel': 'span.category',
+        'view_sel': 'td.view',
+        'like_sel': 'td.reco',
+        'date_sel': 'td.date',
+    },
+    {
+        'id': 'cook82',
+        'pages': [
+            'https://www.82cook.com/entiz/enti.php?bn=15',   # 자유게시판의 '많이 읽은 글' 10개 (조회수·날짜 칸 없음)
+        ],
+        'row_sel': 'div.Best ul.most li',
+        'title_sel': 'a[href*="read.php"]',
+    },
+    {
+        'id': 'etoland',
+        'pages': [
+            'https://www.etoland.co.kr/hit/list',   # 인기 순위 30개. /b/hit/list는 07-25에 멈춘 옛 목록이다
+        ],
+        'row_sel': 'a[class*="grid-cols-[21px"]',   # 순위 행이 링크 자체
+        'row_is_link': True,
+        'text_sel': 'span.subject',
+    },
+    {
+        'id': 'ygosu',
+        'pages': [
+            'https://ygosu.com/board/real_article',   # 실시간 인기
+        ],
+        'row_sel': 'table.bd_list tbody tr:not(:has(td.bdname))',   # 공지·AD 행은 td.bdname이 있다
+        'title_sel': 'td.tit a',
+        'strip_sel': 'span.category, span.reply_cnt',
+        'view_sel': 'td.read',
+        'like_sel': 'td.vote',
+        'date_sel': 'td.date',
+    },
+    {
+        'id': 'dogdrip',
+        'pages': [
+            'https://www.dogdrip.net/dogdrip?sort_index=popular',   # 개드립 인기순 (TBS와 같은 목록)
+        ],
+        'row_sel': 'li.webzine',
+        'title_sel': 'a.title-link',
+        'like_sel': 'div.list-meta span.margin-right-xsmall > span.text-primary:last-child',
+        'date_sel': 'div.list-meta span.text-muted',   # 'N 시간 전'
+    },
 ]
 
 # 제목 맨 앞 말머리([공지]·[🚨필독🚨]·(광고) 등)만 공지로 본다. '…긴급공지'처럼 제목 속 단어는 제외
 NOTICE_TITLE_RE = re.compile(r'^\s*[\[【(<]\W{0,3}(공지|필독|이벤트|광고|홍보|AD)')
-NOTICE_URL_RE = re.compile(r'/event/|/annonce/|/rule/|[?&]b=notice|event_notice')
+NOTICE_URL_RE = re.compile(r'/event/|/annonce/|/rule/|[?&]b=notice|event_notice|[?&]id=sponsor')
+AD_TITLE_RE = re.compile(r'^\s*(AD\s|하루특가\))')   # 목록에 섞인 광고 행 (뽐뿌 'AD […]', 이토랜드 '하루특가)')
 COMMENT_LINK_RE = re.compile(r'^[\[(]?\d+[\])]?$')   # 댓글 수 링크('[19]', '(5)')
 
 # 직접 스크래핑 차단 페이지 표시 (HTTP 200으로 온다). 정상 목록에도 챌린지 스크립트 흔적이 섞여 있어(오유 국내 응답)
@@ -1564,7 +1643,7 @@ class TrendCrawler:
 
         items = []
         for row in soup.select(src['row_sel']):
-            a = row.select_one(src['title_sel'])
+            a = row if src.get('row_is_link') else row.select_one(src['title_sel'])
             if not a or not a.get('href'):
                 continue
             href = a['href'].strip()
@@ -1846,7 +1925,7 @@ class TrendCrawler:
 
     def _is_notice(self, title: str, url: str = '') -> bool:
         """직접 스크래핑 전용. 말머리가 [공지]·[필독]·(광고) 등이거나 이벤트/공지 URL이면 공지로 본다."""
-        return bool(NOTICE_TITLE_RE.match(title) or (url and NOTICE_URL_RE.search(url)))
+        return bool(NOTICE_TITLE_RE.match(title) or AD_TITLE_RE.match(title) or (url and NOTICE_URL_RE.search(url)))
 
     def _fetch_summary(self, post: dict) -> None:
         sel = SUMMARY_SELECTORS.get(post['source'])

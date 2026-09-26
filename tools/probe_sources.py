@@ -225,7 +225,10 @@ def probe_issuelink(now: datetime, gap: float) -> list:
     out = []
     rec, body = probe('issuelink', 'robots.txt', issuelink.ROBOTS_URL)
     if body and rec.get('status') == 200:
-        rec['note'] = ' / '.join(line.strip() for line in _decode(body, 'utf-8').splitlines() if line.strip())[:120]
+        text = _decode(body, 'utf-8')
+        rec['note'] = ' / '.join(line.strip() for line in text.splitlines() if line.strip())[:120]
+        if re.search(r'<html|cupid\.js|toNumbers\(', text[:2000], re.I):   # 해외 IP에 오는 JS 쿠키 봇 확인 페이지
+            rec['verdict'], rec['challenge'] = 'blocked', True
     out.append(rec)
     il_gap = max(0.4, gap / 2)   # 한 서버라 목록은 짧은 간격으로 (동시 요청 없음)
     for site, sid in issuelink.SOURCE_MAP.items():
