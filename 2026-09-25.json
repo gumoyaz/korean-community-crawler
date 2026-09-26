@@ -1,0 +1,43 @@
+{
+ "date": "2026-09-25",
+ "source_sha": "624e1cf0adc95c48",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 123.68,
+ "bytes": 742464,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "50대 스토커와 인천공항 소식",
+   "start": 6.85
+  },
+  {
+   "title": "속옷 및 연예계, 드라마 관련 화제",
+   "start": 29.31
+  },
+  {
+   "title": "사건, 사고 및 정치 관련 이슈",
+   "start": 47.18
+  },
+  {
+   "title": "지역 소식과 생활 속 해프닝",
+   "start": 62.96
+  },
+  {
+   "title": "명절 선물과 육아 중 발생한 일",
+   "start": 75.74
+  },
+  {
+   "title": "강남의 신시스템 및 기계치 관련 글",
+   "start": 90.5
+  },
+  {
+   "title": "해외 커뮤니티 및 게임 관련 소식",
+   "start": 106.16
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-09-26T00:50:32+09:00",
+ "latency": 36.7
+}

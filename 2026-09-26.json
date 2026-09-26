@@ -1,0 +1,43 @@
+{
+ "date": "2026-09-26",
+ "source_sha": "1b9c4ae1b57f98d6",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-lite-tts",
+ "voice": "Kore",
+ "duration": 114.76,
+ "bytes": 688896,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "영화 '암살자들' 관련 논란",
+   "start": 5.92
+  },
+  {
+   "title": "연예 및 대중문화",
+   "start": 22.59
+  },
+  {
+   "title": "게임 및 인터넷 방송",
+   "start": 33.68
+  },
+  {
+   "title": "명절 및 공공장소 근황",
+   "start": 49.66
+  },
+  {
+   "title": "연애 및 인간관계",
+   "start": 67.31
+  },
+  {
+   "title": "일상 및 직장, 대학 생활",
+   "start": 84.22
+  },
+  {
+   "title": "자동차 및 시사",
+   "start": 97.97
+  }
+ ],
+ "boundary": "partial",
+ "generated_at": "2026-09-27T00:20:29+09:00",
+ "latency": 95.2
+}
