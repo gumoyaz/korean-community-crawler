@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 {% set is_detail = view == 'detail' and summary %}
+{# 방문 분석 페이지 구분 — GA4 content_group(page_view·모든 이벤트)과 Clarity 태그에 같이 쓴다 #}
+{% set cg = 'daily_detail' if is_detail else ('daily_pending' if view == 'pending' else 'daily_list') %}
 {% if is_detail %}
 {% set page_url = site_url ~ '/daily/' ~ summary.date ~ '/' %}
 <title>{{ summary.date_kr }} 커뮤니티 인기글 요약 | 커트</title>
@@ -33,8 +35,54 @@
 {% if gsc_verification %}<meta name="google-site-verification" content="{{ gsc_verification }}">
 {% endif %}
 {% if ga_id %}<script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_id }}"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ ga_id }}');</script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ ga_id }}',{content_group:{{ cg|tojson }}});</script>
 {% endif %}
+{% if clarity_id %}<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",{{ clarity_id|tojson }});clarity('set','content_group',{{ cg|tojson }});</script>
+{% endif %}
+<script>
+// ── 방문 분석 (GA4 이벤트 · Clarity 이벤트) ─────────────────────────────────────
+// ga_id·clarity_id 가 없으면 gtag·clarity 가 정의되지 않아 아무것도 보내지 않는다. 분석 코드의 어떤 오류도
+// 페이지 동작을 막지 않는다. 사용자 조작 핸들러와 관찰자(IntersectionObserver·미디어 이벤트)에서만 부르고,
+// render*·applyFilters·updateStatus·loadData 안에서는 부르지 않는다 (자동 갱신·다시 그리기가 이벤트를 다시 보내지 않게).
+// 값: 문자열은 100자로 자르고, 불리언은 'yes'/'no'로 바꾸며, 빈 값(undefined·null·''·NaN)은 뺀다.
+// opts.once: 이 키로는 페이지를 보는 동안 한 번만 보낸다. opts.key: 같은 키는 1.5초 안에 한 번만 보낸다(연타·중복 클릭).
+// opts.beacon: 페이지를 떠나는 링크 — transport_type 'beacon'. index.html 에도 같은 코드가 있다(바꾸면 둘 다)
+const TRACK_GROUP = {{ cg|tojson }};   // gtag config 의 content_group 과 같은 값 (index.html 은 'main')
+const trackOnce = new Set();
+const trackLast = new Map();
+function track(name, params, opts) {
+  try {
+    opts = opts || {};
+    if (opts.once) {
+      if (trackOnce.has(opts.once)) return;
+      trackOnce.add(opts.once);
+    }
+    if (opts.key) {
+      const now = Date.now();
+      if (now - (trackLast.get(opts.key) || 0) < 1500) return;
+      trackLast.set(opts.key, now);
+    }
+    if (typeof window.clarity === 'function') window.clarity('event', name);   // 세션 기록을 이벤트 이름으로 거를 수 있게 (파라미터 없음)
+    if (typeof window.gtag !== 'function') return;
+    const p = { content_group: TRACK_GROUP };
+    for (const [k, v] of Object.entries(params || {})) {
+      if (v === undefined || v === null || v === '' || (typeof v === 'number' && !isFinite(v))) continue;
+      p[k] = typeof v === 'boolean' ? (v ? 'yes' : 'no')
+        : typeof v === 'number' ? v
+        : String(v)
+            // 남의 글 제목이 들어가므로 이메일·휴대전화 번호 모양은 가린다(GA 약관). 뒷보기 (?<!…) 는 옛 사파리에서 문법 오류라 쓰지 않는다
+            .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]')
+            .replace(/(^|\D)01[016789][-.\s]?\d{3,4}[-.\s]?\d{4}(?!\d)/g, '$1[phone]')
+            .slice(0, 100).replace(/[\uD800-\uDBFF]$/, '');   // 잘린 이모지 반쪽 제거
+    }
+    if (opts.beacon) p.transport_type = 'beacon';
+    window.gtag('event', name, p);
+  } catch (e) { /* 분석 실패는 무시 */ }
+}
+// 지금 보고 있는 리포트 — 목록 페이지는 날짜가 없고(''이면 track 이 뺀다), 대기 페이지는 오늘 날짜
+const PAGE_DATE = {{ ((summary.date if is_detail else date) or '')|tojson }};
+const REPORT_KIND = {{ (('final' if summary.is_final else 'noon') if is_detail else '')|tojson }};   // 정오본·최종본
+</script>
 <link rel="icon" href="{{ base }}/static/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="{{ base }}/static/favicon-32x32.png">
 <link rel="apple-touch-icon" href="{{ base }}/static/apple-touch-icon.png">
@@ -162,8 +210,19 @@
   main {
     max-width: 860px;
     margin: 0 auto;
-    padding: 32px 16px 80px;
+    padding: 32px 16px 48px;
   }
+
+  /* ── 푸터 (분석 도구 안내) ── */
+  .site-foot {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 0 16px 32px;
+    text-align: center;
+    font-size: 12px;
+  }
+  .site-foot a { display: inline-block; padding: 8px 4px; color: var(--text-dim); }
+  .site-foot a:hover { color: var(--accent-text); text-decoration: underline; }
 
   /* ── Page title ── */
   .page-header {
@@ -523,7 +582,7 @@
   }
 
   @media (max-width: 600px) {
-    main { padding: 20px 12px 60px; }
+    main { padding: 20px 12px 40px; }
     .page-header h1 { font-size: 22px; }
     .page-header p { font-size: 13px; }
     .date-nav { gap: 8px; }
@@ -543,7 +602,7 @@
   }
 
   @media (max-width: 430px) {
-    main { padding: 16px 10px 60px; }
+    main { padding: 16px 10px 40px; }
     .summary-body { padding: 16px 12px; font-size: 13.5px; }
     .summary-card { padding: 10px 12px; gap: 8px; }
     .summary-card .date-badge { min-width: 70px; }
@@ -562,12 +621,12 @@
 
 <header>
   <div class="header-inner">
-    <a href="{{ base }}/" class="logo">
+    <a href="{{ base }}/" class="logo" data-nav="home" data-from="logo">
       <img src="{{ base }}/static/logo.png" alt="커트" width="35" height="35">
       <span class="logo-tagline">커뮤니티 트렌드 리포트</span>
     </a>
     <div class="header-right">
-      <a href="{{ base }}/" class="nav-link-outline">실시간 트렌드</a>
+      <a href="{{ base }}/" class="nav-link-outline" data-nav="home" data-from="header">실시간 트렌드</a>
     </div>
   </div>
 </header>
@@ -588,7 +647,7 @@
     <div class="summary-grid">
       {% for s in summaries %}
         {% set parts = s.date.split('-') %}
-        <a href="{{ base }}/daily/{{ s.date }}/" class="summary-card">
+        <a href="{{ base }}/daily/{{ s.date }}/" class="summary-card" data-nav="report" data-from="list" data-date="{{ s.date }}" data-pos="{{ loop.index }}">
           <div class="date-badge">
             <div class="day">{{ parts[2] }}</div>
             <div class="month">{{ parts[0] }}.{{ parts[1] }}</div>
@@ -619,7 +678,7 @@
 {# ──────────────────── PENDING VIEW ──────────────────── #}
 {% elif view == 'pending' %}
 
-  <a href="{{ base }}/daily/" class="back-link">← 목록으로</a>
+  <a href="{{ base }}/daily/" class="back-link" data-nav="list" data-from="back_link">← 목록으로</a>
 
   <div class="page-header">
     <div class="label">📰 Daily Report</div>
@@ -633,15 +692,15 @@
     <p>오늘 리포트는 KST 12시 이후 자동 생성됩니다.<br>
        12시가 지났다면 잠시 후 이 페이지를 새로고침해 주세요.</p>
     <div class="pending-links">
-      {% if latest_date %}<a href="{{ base }}/daily/{{ latest_date }}/" class="nav-link-outline">지난 리포트 보기</a>{% endif %}
-      <a href="{{ base }}/" class="nav-link-outline">실시간 트렌드 보기</a>
+      {% if latest_date %}<a href="{{ base }}/daily/{{ latest_date }}/" class="nav-link-outline" data-nav="report" data-from="pending" data-date="{{ latest_date }}">지난 리포트 보기</a>{% endif %}
+      <a href="{{ base }}/" class="nav-link-outline" data-nav="home" data-from="pending">실시간 트렌드 보기</a>
     </div>
   </div>
 
 {# ──────────────────── DETAIL VIEW ──────────────────── #}
 {% elif is_detail %}
 
-  <a href="{{ base }}/daily/" class="back-link">← 목록으로</a>
+  <a href="{{ base }}/daily/" class="back-link" data-nav="list" data-from="back_link">← 목록으로</a>
 
   <div class="page-header">
     <div class="label">📰 Daily Report</div>
@@ -651,7 +710,7 @@
   {# Date navigation #}
   <nav class="date-nav" aria-label="날짜 이동">
     {% if prev_date %}
-      <a href="{{ base }}/daily/{{ prev_date }}/" class="date-nav-btn" aria-label="이전 리포트 {{ prev_date }}">‹ {{ prev_date }}</a>
+      <a href="{{ base }}/daily/{{ prev_date }}/" class="date-nav-btn" aria-label="이전 리포트 {{ prev_date }}" data-nav="prev" data-from="date_nav" data-date="{{ prev_date }}">‹ {{ prev_date }}</a>
     {% else %}
       <span class="date-nav-btn disabled">‹ 이전</span>
     {% endif %}
@@ -659,7 +718,7 @@
     <span class="date-nav-center">{{ summary.date }}</span>
 
     {% if next_date %}
-      <a href="{{ base }}/daily/{{ next_date }}/" class="date-nav-btn" aria-label="다음 리포트 {{ next_date }}">{{ next_date }} ›</a>
+      <a href="{{ base }}/daily/{{ next_date }}/" class="date-nav-btn" aria-label="다음 리포트 {{ next_date }}" data-nav="next" data-from="date_nav" data-date="{{ next_date }}">{{ next_date }} ›</a>
     {% else %}
       <span class="date-nav-btn disabled">다음 ›</span>
     {% endif %}
@@ -711,6 +770,8 @@
   <div class="summary-body">
     {{ summary.summary_html | safe }}
   </div>
+  {# 방문 분석 daily_read 표식 (요약 끝·상위 글 목록 끝) — 크기 없는 빈 상자 #}
+  <div data-read="summary_end" aria-hidden="true"></div>
 
   {# Top posts #}
   {% if summary.posts %}
@@ -719,14 +780,14 @@
       {% for p in summary.posts[:30] %}
         {# style 속성에는 #rrggbb 형식 색만 넣는다 #}
         {% set sc = p.source_color if (p.source_color is string and p.source_color|length == 7 and p.source_color[0] == '#' and p.source_color[1:].lower().strip('0123456789abcdef') == '') else '#adb5bd' %}
-        <div class="post-item">
+        <div class="post-item"{% if loop.first %} data-read="posts_top"{% endif %}>
           <div class="post-rank {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">
             {{ loop.index }}
           </div>
           <div class="post-content">
             <div class="post-title">
               {% if p.url is string and p.url.startswith(('http://', 'https://')) %}
-              <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer">{{ p.title }}</a>
+              <a href="{{ p.url }}" target="_blank" rel="noopener noreferrer" data-post data-pos="{{ loop.index }}" data-src="{{ p.source }}">{{ p.title }}</a>
               {% else %}
               {{ p.title }}
               {% endif %}
@@ -744,6 +805,7 @@
         </div>
       {% endfor %}
     </div>
+    <div data-read="posts_end" aria-hidden="true"></div>
   {% endif %}
 
   {% if summary.audio %}
@@ -770,6 +832,16 @@
     const canSpeech = 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
     const audio = (audioData && typeof audioData.url === 'string' && audioData.url) ? document.createElement('audio') : null;
     const canAudio = !!(audio && typeof audio.canPlayType === 'function' && audio.canPlayType('audio/mpeg'));
+    // 섹션 = 요약 본문 바로 아래 h2 (음성 파일 sections[i] ↔ i번째 h2, 브라우저 음성도 같은 기준)
+    const h2s = Array.from(body.children).filter(n => n.nodeName === 'H2');
+    const secs = canAudio && Array.isArray(audioData.sections)
+      ? audioData.sections.map(s => Number(s && s.start)).filter(n => isFinite(n) && n >= 0)
+      : [];
+    // 섹션 수가 h2 수와 다르거나 시각이 뒤섞였으면 섹션 이동·하이라이트를 끄고 재생만 한다
+    const aligned = secs.length > 0 && secs.length === h2s.length && secs.every((s, i) => !i || s > secs[i - 1]);
+    // 방문 분석: 플레이어를 숨기는 브라우저(일부 인앱 등)의 비율도 보려고 아래 return 앞에서 보낸다
+    track('tts_ready', { can_audio: canAudio, can_speech: canSpeech, has_file: !!audioData, aligned, report_date: PAGE_DATE },
+          { once: 'tts_ready' });
     if (!canAudio && !canSpeech) return;
     player.hidden = false;
 
@@ -786,8 +858,6 @@
     const speedBtns  = Array.from(document.querySelectorAll('.tts-speed-btn'));
 
     const IDLE_LABEL = '재생 버튼을 눌러 요약을 들어보세요';
-    // 섹션 = 요약 본문 바로 아래 h2 (음성 파일 sections[i] ↔ i번째 h2, 브라우저 음성도 같은 기준)
-    const h2s = Array.from(body.children).filter(n => n.nodeName === 'H2');
 
     let mode  = canAudio ? 'audio' : 'speech';
     let speed = 1.0;
@@ -835,12 +905,89 @@
       });
     }
 
-    // ══ 1) 음성 파일 재생 ══════════════════════════════════════════════════
-    const secs = canAudio && Array.isArray(audioData.sections)
-      ? audioData.sections.map(s => Number(s && s.start)).filter(n => isFinite(n) && n >= 0)
-      : [];
-    // 섹션 수가 h2 수와 다르거나 시각이 뒤섞였으면 섹션 이동·하이라이트를 끄고 재생만 한다
-    const aligned = secs.length > 0 && secs.length === h2s.length && secs.every((s, i) => !i || s > secs[i - 1]);
+    // ── 방문 분석 (track·PAGE_DATE·REPORT_KIND 는 head 스크립트) ──
+    // 사용자 조작(버튼·잠금 화면·음성 메뉴)과 미디어 이벤트에서만 보낸다. audioPaint·idleUI 같은 그리기 함수에서는 부르지 않는다.
+    // 음성 파일 실패 → 브라우저 음성 자동 이어 읽기는 tts_fallback 하나만 보낸다(tts_play 없음)
+    let skipped  = false;   // 이 페이지에서 섹션을 건너뛴 적이 있음 (tts_skip 이 한 번이라도 나감)
+    let progDone = 0;       // 이미 보낸 가장 큰 진행률 이정표(25·50·75)
+
+    function ttsTrack(name, params, opts) {
+      track(name, Object.assign({ report_date: PAGE_DATE }, params), opts);
+    }
+
+    function isPlaying() {   // 그 순간 소리가 나는 중(일시정지·정지가 아님)
+      return mode === 'audio' ? (aActive && !audio.paused) : (ttsActive && !ttsPaused);
+    }
+
+    // 음성 파일이 일시정지 중 실패해 다음 ▶ 를 기다리는 중(speechFrom) — 아직 브라우저 음성은 시작 전이다
+    function speechWaiting() {
+      return mode === 'speech' && !ttsActive && speechFrom != null;
+    }
+
+    function curSection() {  // 0 = 도입부(첫 h2 전), 1~N = N번째 h2
+      if (mode === 'audio') return audioSection(audio.currentTime || 0) + 1;
+      if (speechWaiting()) return speechFrom + 1;   // 화면에 강조된 섹션 (실패한 위치의 섹션)
+      return ttsActive ? (ttsChunkSections[ttsIdx] ?? -1) + 1 : 0;
+    }
+
+    function pctFloor10() {  // 진행률을 10 단위로 내림 (0~90)
+      let f = 0;
+      if (mode === 'audio') { const d = audioDur(); f = d ? (audio.currentTime || 0) / d : 0; }
+      else if (speechWaiting()) f = speechFromFrac;   // 음성 파일이 멈춘 위치의 진행률 (audio 모드와 같은 기준)
+      else f = ttsChunks.length ? ttsIdx / ttsChunks.length : 0;
+      return Math.min(90, Math.floor(Math.max(0, f) * 10) * 10);
+    }
+
+    // 음성 파일에서 들은 내용 초 = 재생된 구간(audio.played, 겹치지 않는 합집합)의 길이 합. 건너뛴 구간은 빠지고,
+    // 되감아 다시 들은 구간은 한 번만 센다. 브라우저가 재생 위치로 직접 기록하므로 timeupdate 가 드물게 오는
+    // 화면 잠금·백그라운드 탭에서도 줄지 않는다. 브라우저 음성이면 뺀다(undefined)
+    function listenedS() {
+      if (mode !== 'audio') return undefined;
+      try {
+        const p = audio.played;
+        let s = 0;
+        for (let i = 0; i < p.length; i++) s += p.end(i) - p.start(i);
+        return Math.round(s);
+      } catch (e) { return undefined; }
+    }
+
+    // section: 0 = 처음부터, N = N번째 h2 부터 (음성 파일이 일시정지 중 실패한 뒤 speechFrom 에서 읽을 때)
+    function trackPlay(section) {
+      ttsTrack('tts_play', {
+        tts_mode: mode, report_kind: REPORT_KIND, speed: String(speed), section,
+        tts_voice: mode === 'audio' ? String(audioData.voice || 'Kore') : (ttsVoice ? shortName(ttsVoice) : 'default'),
+        voice_count: canSpeech ? koreanVoices().length : undefined,
+      });
+    }
+
+    function trackPause() {
+      ttsTrack('tts_pause', { tts_mode: mode, pct: pctFloor10(), section: curSection() });
+    }
+
+    function trackProgress(frac) {   // 25·50·75% 를 처음 넘을 때 각 1회 (100% 는 tts_complete)
+      for (const p of [25, 50, 75]) {
+        if (p <= progDone || frac * 100 < p) continue;
+        progDone = p;
+        ttsTrack('tts_progress', { pct: p, tts_mode: mode, speed: String(speed), skipped }, { once: 'tts_progress:' + p });
+      }
+    }
+
+    function trackComplete() {
+      ttsTrack('tts_complete', { tts_mode: mode, report_kind: REPORT_KIND, speed: String(speed), skipped, listened_s: listenedS() },
+               { once: 'tts_complete' });
+    }
+
+    function trackSkip(dir, section, input) {   // section: 도착 섹션
+      skipped = true;
+      ttsTrack('tts_skip', { dir: dir < 0 ? 'prev' : 'next', section, tts_mode: mode, input: input || 'button' });
+    }
+
+    function trackFail(err) {   // 같은 오류는 페이지당 한 번
+      err = err || 'unknown';
+      ttsTrack('tts_fail', { tts_mode: mode, err }, { once: 'tts_fail:' + err });
+    }
+
+    // ══ 1) 음성 파일 재생 (섹션 시각 secs·aligned 는 위에서 구했다) ════════════════
     const dataDur = canAudio && isFinite(Number(audioData.duration)) ? Number(audioData.duration) : 0;
     let aActive  = false;   // 재생 세션 진행 중(일시정지 포함)
     let aLoading = false;   // 재생을 눌렀는데 아직 소리가 나오지 않음
@@ -848,6 +995,7 @@
     // audio.paused 를 이미 true 로 바꿔 두어서, 사용자가 멈췄는지는 이 값으로 따로 기억한다
     let aWant = false;
     let speechFrom = null;  // 일시정지 중 음성 파일이 실패했을 때 다음 ▶ 에 브라우저 음성으로 이어 읽을 섹션
+    let speechFromFrac = 0; // 그때 음성 파일의 진행률 (방문 분석: 기다리는 중 ■ 의 tts_stop pct)
 
     function audioDur() {
       return isFinite(audio.duration) && audio.duration > 0 ? audio.duration : dataDur;
@@ -891,14 +1039,16 @@
     }
 
     function audioToggle() {
-      if (!audio.paused) { audio.pause(); return; }
+      if (!audio.paused) { audio.pause(); trackPause(); return; }
+      const fresh = !aActive;   // 새 재생(일시정지 해제가 아님) — 방문 분석 tts_play
       aActive = true;
       aWant = true;
       aLoading = audio.readyState < 3;   // HAVE_FUTURE_DATA 전이면 불러오는 중
       applyRate();
       setMediaMeta();
+      if (fresh) trackPlay(audio.ended || !audio.currentTime ? 0 : audioSection(audio.currentTime) + 1);   // 끝난 뒤 ▶ 는 처음부터
       let p;
-      try { p = audio.play(); } catch (e) { audioFail(); return; }
+      try { p = audio.play(); } catch (e) { audioFail('play_throw'); return; }
       audioPaint();
       if (p && typeof p.catch === 'function') p.catch(err => {
         const name = err && err.name;
@@ -908,13 +1058,15 @@
           aLoading = false;
           if (!audio.currentTime) aActive = false;
           audioPaint();
+          trackFail(name);
           return;
         }
-        audioFail();                                // NotSupportedError(404·형식 오류) 등
+        audioFail(name);                            // NotSupportedError(404·형식 오류) 등
       });
     }
 
-    function audioSkip(dir) {
+    // input: 'button'(⏮·⏭, 기본) | 'media_key'(잠금 화면·알림 컨트롤) — 방문 분석 tts_skip
+    function audioSkip(dir, input) {
       if (!aActive || !aligned) return;
       const t = audio.currentTime || 0;
       const cur = audioSection(t);
@@ -926,6 +1078,7 @@
         if (cur >= secs.length - 1) return;
         target = secs[cur + 1];
       }
+      trackSkip(dir, audioSection(target) + 1, input);   // 옮기기 전에 — 옮긴 뒤 진행률 이정표에 skipped 가 붙게
       audio.currentTime = target;
       audioPaint();
     }
@@ -940,22 +1093,29 @@
 
     // 404·디코드 실패·재생 중 네트워크 오류 → 브라우저 음성으로 전환
     // 재생 중(불러오는 중 포함)이었으면 그 섹션부터 바로 이어 읽고, 사용자가 일시정지해 둔 상태면 소리 없이 기다린다
-    function audioFail() {
+    // reason: play() 거부 이름(NotSupportedError 등)·'play_throw'. 없으면 audio.error 코드 (방문 분석 err)
+    function audioFail(reason) {
       if (mode !== 'audio') return;
+      const err = reason || (audio.error ? 'media_err_' + audio.error.code : 'unknown');
       const wasActive = aActive;
       const wasPlaying = aActive && aWant;
-      const fromSection = audioSection(audio.currentTime || 0);
+      const failedAt = audio.currentTime || 0;
+      const failedDur = audioDur();
+      const fromSection = audioSection(failedAt);
       aActive = false;
       aLoading = false;
       try { audio.pause(); } catch (e) { /* 이미 멈춤 */ }
       mode = 'speech';
       console.warn('음성 파일 재생 실패 — 브라우저 음성으로 전환:', audio.error ? audio.error.code : '');
+      ttsTrack('tts_fallback', { err, playing: wasPlaying, section: fromSection + 1, at_s: Math.round(failedAt), can_speech: canSpeech },
+               { once: 'tts_fallback' });
       clearMediaSession();
       idleUI();
       if (!canSpeech) {
         playBtn.disabled = true;
         voiceLabel.textContent = '';
         labelEl.textContent = '이 브라우저에서는 음성 재생에 실패했습니다';
+        trackFail('no_speech');
         return;
       }
       voiceLabel.title = '';
@@ -968,6 +1128,7 @@
       } else if (wasActive && fromSection >= 0) {
         // 일시정지 중 섹션 이동 등으로 새로 받다가 실패 — 다음 ▶ 때 그 섹션부터 읽는다
         speechFrom = fromSection;
+        speechFromFrac = failedDur ? failedAt / failedDur : 0;
         setPlayBtn(false, true);
         highlight(fromSection);
         setBar((fromSection + 1) / secs.length);
@@ -990,10 +1151,10 @@
         });
         const act = (name, fn) => { try { navigator.mediaSession.setActionHandler(name, fn); } catch (e) { /* 미지원 동작 */ } };
         act('play', () => { if (mode === 'audio' && audio.paused) audioToggle(); });
-        act('pause', () => { if (mode === 'audio' && !audio.paused) audio.pause(); });
+        act('pause', () => { if (mode === 'audio' && !audio.paused) { audio.pause(); trackPause(); } });
         if (aligned) {
-          act('previoustrack', () => { if (mode === 'audio') audioSkip(-1); });
-          act('nexttrack', () => { if (mode === 'audio') audioSkip(1); });
+          act('previoustrack', () => { if (mode === 'audio') audioSkip(-1, 'media_key'); });
+          act('nexttrack', () => { if (mode === 'audio') audioSkip(1, 'media_key'); });
         }
       } catch (e) { /* 미디어 세션 없이도 재생은 된다 */ }
     }
@@ -1016,10 +1177,15 @@
       audio.addEventListener('playing', () => { aLoading = false; audioPaint(); });
       audio.addEventListener('waiting', () => { if (aActive) { aLoading = true; audioPaint(); } });
       audio.addEventListener('loadedmetadata', () => { applyRate(); audioPaint(); });
-      audio.addEventListener('ended', () => { aActive = false; aLoading = false; audioPaint(); });
+      audio.addEventListener('ended', () => { aActive = false; aLoading = false; audioPaint(); trackComplete(); });
       // 사용자·잠금 화면·OS 가 멈춘 경우만 기억한다 (오류로 멈춘 pause 는 audio.error 가 이미 있다)
       audio.addEventListener('pause', () => { if (!audio.error) aWant = false; });
-      audio.addEventListener('error', audioFail);
+      audio.addEventListener('error', () => audioFail());   // Event 가 reason 으로 들어가지 않게
+      // 방문 분석: 진행률 이정표 — 그리기(audioPaint)와 따로 둔다 (들은 시간은 listenedS 가 audio.played 로 센다)
+      audio.addEventListener('timeupdate', () => {
+        const dur = audioDur();
+        if (aActive && dur) trackProgress((audio.currentTime || 0) / dur);
+      });
       const voice = String(audioData.voice || 'Kore');
       voiceLabel.textContent = 'Gemini · ' + voice;
       voiceLabel.title = (audioData.model ? audioData.model + ' · ' : '') + voice + ' 목소리';
@@ -1201,11 +1367,12 @@
     }
 
     function ttsSpeak(idx) {
-      if (idx >= ttsChunks.length) { ttsFinish(); return; }
+      if (idx >= ttsChunks.length) { ttsFinish(); trackComplete(); return; }   // 끝까지 읽음 (■·연속 오류는 ttsStop 이라 여기로 오지 않음)
       ttsIdx = idx;
       const my = ttsSession;
       showProgress(idx);
       ttsSetNavBtns();
+      trackProgress(idx / ttsChunks.length);
 
       const u = new SpeechSynthesisUtterance(ttsChunks[idx]);
       u.lang  = 'ko-KR';
@@ -1222,12 +1389,14 @@
         if (e.error === 'interrupted' || e.error === 'canceled') return;
         if (e.error === 'not-allowed') {   // 사용자 조작 없이 시작됨(자동 전환이 늦은 경우 등) — 다시 누르면 된다
           ttsStop();
+          trackFail(e.error);
           return;
         }
         console.warn('TTS 오류 (청크', idx, '):', e.error);
         if (++ttsErrors >= 3) {   // 연속 실패면 멈추고 안내
           ttsStop();
           labelEl.textContent = '이 브라우저에서는 음성 재생에 실패했습니다';
+          trackFail(e.error);
           return;
         }
         ttsSpeak(idx + 1);
@@ -1236,7 +1405,8 @@
     }
 
     // fromSection: 이 H2 섹션부터 읽는다 (null·-1 이면 처음부터)
-    function ttsStart(fromSection) {
+    // byUser: ▶ 로 새로 시작함 — 방문 분석 tts_play (음성 파일 실패 뒤 자동으로 이어 읽을 때는 보내지 않는다)
+    function ttsStart(fromSection, byUser) {
       ttsChunks = buildChunks();
       if (!ttsChunks.length) return;
       if (!ttsVoice) initVoices();
@@ -1250,6 +1420,7 @@
         while (s < ttsSectionStarts.length && ttsSectionStarts[s] === undefined) s++;
         if (s < ttsSectionStarts.length) idx = ttsSectionStarts[s];
       }
+      if (byUser) trackPlay(fromSection != null && fromSection >= 0 ? fromSection + 1 : 0);
       ttsSpeak(idx);
     }
 
@@ -1257,12 +1428,13 @@
       if (!ttsActive) {
         const from = speechFrom;   // 음성 파일이 일시정지 중 실패했으면 그 섹션부터
         speechFrom = null;
-        ttsStart(from);
+        ttsStart(from, true);
       } else if (!ttsPaused) {
         synth.pause();
         ttsPaused = true;
         setPlayBtn(false, true);
         labelEl.textContent = '일시정지됨';
+        trackPause();
       } else {
         ttsPaused = false;
         setPlayBtn(true, true);
@@ -1281,6 +1453,7 @@
       let target = (ttsChunkSections[ttsIdx] ?? -1) + dir;
       while (target >= 0 && target < ttsSectionStarts.length && ttsSectionStarts[target] === undefined) target += dir;
       if (target < 0 || target >= ttsSectionStarts.length) return;
+      trackSkip(dir, target + 1);
       ttsHardCancel();
       setPlayBtn(true, true);
       ttsSpeak(ttsSectionStarts[target]);
@@ -1312,23 +1485,32 @@
       voiceSel.addEventListener('change', () => {
         const v = voiceList[Number(voiceSel.value)];
         if (!v) return;
+        const wasPlaying = isPlaying();
         ttsVoice = v;
         try { localStorage.setItem(VOICE_KEY, v.name); } catch (e) { /* 저장 못 해도 이번 방문에는 적용 */ }
         ttsRestartChunk();
+        ttsTrack('tts_voice', { tts_voice: shortName(v), voice_count: voiceList.length, playing: wasPlaying });
       });
     }
 
     // ══ 버튼 연결 ══════════════════════════════════════════════════════════
     idleUI();
     playBtn.addEventListener('click', () => { if (mode === 'audio') audioToggle(); else ttsToggle(); });
-    stopBtn.addEventListener('click', () => { if (mode === 'audio') audioStop(); else ttsStop(); });
+    stopBtn.addEventListener('click', () => {
+      // 멈추기 전 위치로 보낸다 (페이지를 떠날 때의 자동 정지·오류 처리의 ttsStop 은 보내지 않는다)
+      ttsTrack('tts_stop', { tts_mode: mode, pct: pctFloor10(), section: curSection(), listened_s: listenedS() });
+      if (mode === 'audio') audioStop(); else ttsStop();
+    });
     prevBtn.addEventListener('click', () => { if (mode === 'audio') audioSkip(-1); else ttsSkip(-1); });
     nextBtn.addEventListener('click', () => { if (mode === 'audio') audioSkip(1); else ttsSkip(1); });
     speedBtns.forEach(b => b.addEventListener('click', () => {
+      const prev = speed;
+      const wasPlaying = isPlaying();
       speed = parseFloat(b.dataset.speed);
       markSpeed();
       if (mode === 'audio') applyRate();
       else ttsRestartChunk();
+      if (speed !== prev) ttsTrack('tts_speed', { speed: String(speed), prev_speed: String(prev), tts_mode: mode, playing: wasPlaying });
     }));
 
     // 페이지 벗어날 때 정지 (뒤로 가기 캐시에서 돌아와도 버튼 상태가 맞도록 UI 까지 되돌린다)
@@ -1345,6 +1527,59 @@
 {% endif %}
 
 </main>
+
+<footer class="site-foot"><a href="{{ base }}/privacy/">분석 도구 안내</a></footer>
+
+<script>
+// ── 방문 분석: 링크(daily_nav·daily_post_click)와 읽은 위치(daily_read) ─────────────────
+// 링크는 click 과 가운데 버튼(auxclick)만 본다. 이동·새 탭 열기는 막지 않는다(preventDefault 없음).
+// 같은 주소를 1.5초 안에 다시 누르면 한 번만 보낸다(track opts.key). 푸터 '분석 도구 안내'는 page_view 로 충분해서 보내지 않는다
+(function () {
+  function onLink(e) {
+    if (e.type === 'auxclick' && e.button !== 1) return;
+    const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    const opts = { key: 'link:' + a.href, beacon: true };
+    if (a.dataset.nav) {   // 내부 이동: data-nav(target)·data-from·data-date(to_date)·data-pos(목록 카드)
+      track('daily_nav', { target: a.dataset.nav, from: a.dataset.from, report_date: PAGE_DATE,
+                           to_date: a.dataset.date, pos: Number(a.dataset.pos) || undefined }, opts);
+      return;
+    }
+    const body = a.closest('.summary-body');
+    if (!a.hasAttribute('data-post') && !body) return;
+    let pos = Number(a.dataset.pos) || undefined;
+    let src = a.dataset.src;
+    if (body) {   // 요약 본문 안 링크 — 위치는 본문 링크 순서, 커뮤니티는 같은 주소의 상위 글이 있을 때만
+      pos = Array.from(body.querySelectorAll('a[href]')).indexOf(a) + 1 || undefined;
+      const same = Array.from(document.querySelectorAll('a[data-post]')).find(x => x.href === a.href);
+      src = same ? same.dataset.src : undefined;
+    }
+    track('daily_post_click', { area: body ? 'summary' : 'posts', report_date: PAGE_DATE, report_kind: REPORT_KIND,
+                                pos, community: src, post_title: (a.textContent || '').replace(/\s+/g, ' ').trim() }, opts);
+  }
+  document.addEventListener('click', onLink);
+  document.addEventListener('auxclick', onLink);
+
+  // 요약 끝·상위 글 목록 시작·끝(data-read 표식)이 처음 화면에 들어올 때 각 1회. 첫 화면에 이미 보이면 바로 나간다(sec 가 작다)
+  const marks = document.querySelectorAll('[data-read]');
+  if (!marks.length || !('IntersectionObserver' in window)) return;
+  const player = document.getElementById('ttsPlayer');
+  const playBtn = document.getElementById('ttsPlayBtn');
+  const obs = new IntersectionObserver(entries => {
+    for (const en of entries) {
+      if (!en.isIntersecting) continue;
+      obs.unobserve(en.target);
+      const part = en.target.dataset.read;
+      track('daily_read', {
+        part, report_date: PAGE_DATE, report_kind: REPORT_KIND, sec: Math.round(performance.now() / 1000),
+        // 그때 읽어주기가 재생 중이었나 — 플레이어 내부 상태 대신 재생 버튼 모양(재생 중이면 ⏸)으로 본다
+        playing: !!(player && !player.hidden && playBtn && playBtn.textContent === '⏸'),
+      }, { once: 'daily_read:' + part });
+    }
+  }, { threshold: 0 });
+  marks.forEach(m => obs.observe(m));
+})();
+</script>
 </body>
 </html>
 {% endautoescape %}

@@ -8,15 +8,16 @@
 
 | 파일 | 역할 |
 |---|---|
-| `build.py` | 진입점. 상태 복원 → 간격 가드 → 크롤 → 데일리 생성 → 데일리 음성 → `_site/` 렌더링 (sitemap·robots·llms.txt·404·audio 포함) |
+| `build.py` | 진입점. 상태 복원 → 간격 가드 → 크롤 → 데일리 생성 → 데일리 음성 → `_site/` 렌더링 (privacy·sitemap·robots·llms.txt·404·audio 포함) |
 | `tts.py` | 데일리 음성(Gemini TTS). 대본 → 합성 1회(+예비 모델) → 섹션 경계 → MP3(lameenc) → `AUDIO_DIR`(기본 `.audio/`)에 `{date}.mp3`·`{date}.json` |
 | `crawler.py` | `TrendCrawler`: todaybeststory API 전량 수집, 커뮤니티별 상태(`source_health`)·전체 `status` 판정, 빠지거나 멈춘 커뮤니티만 직접 스크래핑·이슈링크로 채우기, 오전 전날 글 보충, 랭킹, 이슈 블록·튜닝 로그 반영, `export_state`/`import_state` |
 | `sources_issuelink.py` | 이슈링크 2차 소스. `fetch(sources, now, cache=…)` → crawler 글 스키마(`via: 'issuelink'`), `SOURCE_MAP`(이슈링크 15곳 → source id). 어떤 실패도 예외로 올리지 않는다 |
 | `issues.py` | '지금 뜨는 이슈' 계산. `build_issues(posts, ps_history, now)` → trends.json의 `issues` 블록. 손으로 관리하는 단어 목록(`STOP_WORDS`·`GENERIC`·`LINK_STOP`·`ALIAS` 등)은 모듈 상단 상수 |
 | `daily.py` | 데일리 리포트 선정·프롬프트·저장 (`data/daily/YYYY-MM-DD.json`) |
 | `gemini.py` | Gemini REST 호출. 모델 세대별 thinking 설정, 5xx 백오프, 예비 모델 체인(`GEMINI_FALLBACK_MODEL`, 쉼표 구분) |
-| `templates/index.html` | 메인. JS가 `{base}/data/trends.json`을 읽어 이슈 보드와 피드를 렌더링 |
-| `templates/daily.html` | 데일리 목록·상세·대기 페이지 (빌드 시 서버 렌더링). 상세의 읽어주기 플레이어(음성 파일 재생, 실패하면 브라우저 음성) |
+| `templates/index.html` | 메인. JS가 `{base}/data/trends.json`을 읽어 이슈 보드와 피드를 렌더링. 방문 분석 이벤트(`track`) |
+| `templates/daily.html` | 데일리 목록·상세·대기 페이지 (빌드 시 서버 렌더링). 상세의 읽어주기 플레이어(음성 파일 재생, 실패하면 브라우저 음성). 방문 분석 이벤트(`track`, index.html과 같은 코드) |
+| `templates/privacy.html` | 분석 도구 안내(`/privacy/`). `ga_id`·`clarity_id` 유무에 따라 문구가 바뀜. `noindex`, sitemap·llms.txt 제외 |
 | `.github/workflows/pages.yml` | 빌드·배포 워크플로 (+ 수집 이상 알림 `health` 잡) |
 | `.github/workflows/source-probe.yml` · `tools/probe_sources.py` | 수동 실행 전용 소스 실측 프로브(러너 IP에서 TBS·직접 스크래핑·이슈링크·후보 URL의 상태·차단·행 수). 배포·state 없음 |
 | `tools/import_daily_db.py` | 옛 SQLite `daily.db` → JSON 변환 |
@@ -62,12 +63,22 @@
 - **해외 러너에서 되는 경로 (2026-09-25 Source probe, 미국 Azure IP)**: 이슈링크는 목록·robots.txt 대신 JS 쿠키 봇 확인 페이지(`cupid.js`)를 줘서 0건이다. 풀지 않는다(봇 차단 우회). `sources_issuelink`는 robots.txt 자리에 HTML이 오면 그 실행을 건너뛴다. 한국 IP(로컬)에서는 정상이라 로컬 테스트와 운영 결과가 다르다. 직접 스크래핑은 루리웹·클리앙·더쿠·보배·네이트판·웃대·딴지가 되고 오유·아카라이브·인스티즈·FM코리아는 막히고 MLB파크·SLR은 연결 오류다. 2026-09-26에 러너에서 접속되는 디시(실베)·뽐뿌(HOT)·인벤(오픈이슈 추천)·82쿡(많이 읽은 글 10개)·이토랜드(`/hit/list` 순위 30개, `row_is_link`)·와이고수(실시간 인기)·개드립(인기순) 파서를 더해 예비 경로가 있는 곳이 14곳이 됐다. 인스티즈는 채울 경로가 없다.
 - **전체 순위 = 실제 인기 + 커뮤니티 균형 (2026-09-26, 사용자 원칙)**: `crawler._assign_ranks`가 `_popularity`(log10 추정 조회수 × 반감기 24시간)로 정렬하고 같은 커뮤니티 k번째 글에서 `RANK_SOURCE_PENALTY`(0.6)×k를 뺀다. 조회수 없는 FM코리아·개드립은 댓글×100(265로 두면 FM코리아가 상위를 독차지). 예전 방식(커뮤니티별 1등을 모두 100점으로 맞추고 0.65^n 점감)은 1~21위가 커뮤니티별 1등 하나씩이 되어, 조회 8만 더쿠 글이 20위, 글 2개뿐인 인벤 1등이 3위였다. `rank_score`는 그대로라 이슈 보드·데일리는 영향 없다.
 - **소스 간 원시 조회수 비교 금지(rank_score·데일리 선정)**: FM코리아 조회수는 API의 합성값이라 0으로 둔다(이슈링크로 받은 FM코리아 글도 0 — 한 커뮤니티에 실제 조회수 글이 섞이면 TBS 글이 뒤로 밀린다). 선정은 소스별로 정규화된 `rank_score`로 한다.
-- **보안**: 데일리 HTML은 `markdown` → `nh3`로 정화한다. 프론트는 외부 텍스트에 `escHtml`, 링크에 `safeUrl`(http/https만)을 쓴다.
+- **방문 분석 (2026-09-27)**: GA4 커스텀 이벤트 28종과 Microsoft Clarity(세션 기록·히트맵)를 붙였다. 이벤트 표·맞춤 측정기준 등록 목록은 README '방문 분석'에 있다.
+  - 켜는 스위치는 ID뿐이다. `build._settings`가 `GA_MEASUREMENT_ID`(`G-[A-Z0-9]{4,16}`, 대문자로 바꿈)·`CLARITY_PROJECT_ID`(`[a-z0-9]{6,20}`, 소문자로 바꾸지 않음 — 대소문자 구분 여부를 몰라서)를 검사하고, 형식이 아니면 태그를 넣지 않는다. Clarity 형식 오류는 로그에 남기되 값은 쓰지 않는다. 두 값이 스크립트 URL·JS에 그대로 들어가기 때문이다. 404(`_not_found_html`)에도 두 태그를 넣는다(깨진 유입 링크 확인용).
+  - `track(name, params, opts)`는 index.html·daily.html에 **글자까지 같게** 있다(다른 것은 `TRACK_GROUP` 줄뿐 — 바꾸면 둘 다). `gtag`·`clarity`가 없으면 아무것도 안 하고, 모든 오류를 삼킨다. `opts.once`(페이지당 1회 — 이정표형), `opts.key`(같은 키 1.5초 안 1회 — 연타·같은 링크), `opts.beacon`(`transport_type: 'beacon'`). Clarity에는 이벤트 이름만 보낸다.
+  - **렌더 경로에서 부르지 않는다**: `renderAll`·`renderIssues`·`renderCards`·`applyFilters`·`updateStatus`·`loadData`·`audioPaint`·`idleUI`. 10분 자동 갱신과 화면 폭 전환(WIDE_MQ)으로 다시 그려도 이벤트가 나가지 않게 한다. 사용자 조작 핸들러와 관찰자(IntersectionObserver·미디어 이벤트)에서만 부르고, 상태가 실제로 바뀔 때만(같은 탭 재클릭·접기는 없음) 보낸다. 조작 하나가 함수 여러 개를 거쳐도 이벤트는 하나다(음성 파일 실패 → 자동 이어 읽기는 `tts_fallback`만, '다시 시도'는 `refresh_click`만). `feed_depth`는 `renderCards`가 관찰 대상만 다시 등록하고 관찰자 콜백이 보낸다.
+  - `feed_depth`는 본 카드 수가 아니라 내려간 깊이다. 50% 넘게 보인 카드의 목록 안 위치 최댓값(`feedMaxPos`)으로 센다. 자동 갱신·새로고침으로 다시 그린 순간 이미 화면에 있던 카드는 세지 않는다(`feedQuiet`). 서로 다른 href를 세던 첫 구현은 스크롤 없이 10분 갱신만으로 늘었다(넓은 화면 4번 갱신에 50). 읽어주기 `listened_s`는 `audio.played` 구간 합이다. `timeupdate` 차이(2초 미만)를 더하던 첫 구현은 `timeupdate`가 3초에 1번 오면 0이 됐다. 음성 파일 실패 뒤 ▶를 기다리는 동안(`speechFrom`)의 ■는 강조된 섹션과 실패 위치 진행률을 보낸다.
+  - 링크는 `document`의 `click`·`auxclick`(가운데 버튼)만 잡고 `preventDefault`·`stopPropagation`을 부르지 않는다. 글은 링크의 `data-rank`로 찾는다. `loadData()`는 `{ok, changed, err, ms}`를 돌려주고, 실패를 단계(fetch → parse → render)로 갈라 `timeout`·`network`·`http_<코드>`·`bad_json`·`bad_format`·`render`로 나눈다(렌더 버그의 TypeError를 `network`로 세지 않게). 배지 문구는 `statusNote()` 하나로 화면과 이벤트(`badge`)가 같이 쓴다.
+  - 파라미터 이름: 같은 뜻에는 같은 이름을 쓴다(GA4는 이름 하나에 맞춤 측정기준 하나). `source`·`medium`·`campaign`·`term`·`content`(트래픽 출처와 섞일 수 있다는 이야기 — 확인은 못 함)와 GA 예약 이름(`value`·`items`·`method`·`link_url`·`page_*` 등), 접두어 `google_`·`ga_`·`firebase_`를 피한다. 그래서 커뮤니티 id는 `community`다. 값은 문자열 100자, 불리언 `yes`/`no`, 빈 값은 뺀다.
+  - 개인정보: 글 주소·글쓴이 닉네임·`user_id`는 보내지 않는다. 문자열 값의 이메일·휴대전화 모양은 100자로 자르기 전에 `[email]`·`[phone]`으로 가린다(운영 제목 599개에서 0건이었지만 안내 페이지 문장의 전제다). 정규식에 뒷보기 `(?<!…)`를 쓰지 않는다 — 사파리 16.4 미만에서 문법 오류라 스크립트 전체가 죽는다. Clarity 마스킹은 기본(Balanced)이라 닉네임이 기록에 보이고, 안내 페이지에 그렇게 적었다.
+  - 페이지 구분은 GA4 기본 측정기준 '콘텐츠 그룹'이다. gtag `config`의 세 번째 인자와 `track`이 붙이는 `content_group`(`main`·`daily_list`·`daily_detail`·`daily_pending`·`privacy`·`404`), Clarity `set` 태그에 같은 값을 쓴다.
+  - 안내 페이지(`templates/privacy.html`)의 '이 사이트가 더 보내는 이용 기록' 목록은 `track` 이벤트와 맞춰야 한다. 누르지 않아도 나가는 `ai_line_view`·`daily_read`·`tts_ready`까지 적었다. 이벤트를 더하면 이 목록도 고친다. 광고 문장은 '커트는 방문 기록을 광고에 쓰지 않는다'이다. 그래서 GA4 속성의 Google 신호·광고 연결은 꺼 둬야 한다. Clarity를 켜면 Microsoft 광고 사용 고지·MUID 쿠키·옵트아웃이 같이 나온다(Clarity 약관 요구). 보관 문구('2개월 또는 14개월', '합계는 기간 없이 남음')는 GA 보관 설정과 상관없이 맞게 썼다.
+  - 동의 배너는 없다(한국 방문자 위주, 안내 페이지로 알림). 법률 검토는 하지 않았다.
 - **내부 링크는 `{{ base }}`로 시작**한다. base는 `SITE_URL`의 경로(`/korean-community-crawler`)에서 나온다.
 
 ## 환경변수
 
-README의 표 참고. 핵심은 `GOOGLE_API_KEY`(Secret), `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `SITE_URL`, `GSC_VERIFICATION`, `GA_MEASUREMENT_ID`(Variables, GA4 `G-…` 형식이 아니면 태그를 넣지 않음)이다. 음성은 `TTS_MODEL`, `TTS_FALLBACK_MODEL`, `TTS_VOICE`(Variables, 비우면 기본값)와 `AUDIO_DIR`을 쓴다. `TTS_ENABLED`는 pages.yml이 계산한다(audio fetch 성공이고 push 이벤트가 아닐 때만 `true`). Actions에서 비어 있는 vars는 `''`로 들어오는데, `build.py`가 import 전에 지워서 기본값을 쓰게 한다.
+README의 표 참고. 핵심은 `GOOGLE_API_KEY`(Secret), `GEMINI_MODEL`, `GEMINI_FALLBACK_MODEL`, `SITE_URL`, `GSC_VERIFICATION`, `GA_MEASUREMENT_ID`(Variables, GA4 `G-…` 형식이 아니면 태그를 넣지 않음), `CLARITY_PROJECT_ID`(Variables, 소문자·숫자 6~20자가 아니면 태그를 넣지 않음)이다. 음성은 `TTS_MODEL`, `TTS_FALLBACK_MODEL`, `TTS_VOICE`(Variables, 비우면 기본값)와 `AUDIO_DIR`을 쓴다. `TTS_ENABLED`는 pages.yml이 계산한다(audio fetch 성공이고 push 이벤트가 아닐 때만 `true`). Actions에서 비어 있는 vars는 `''`로 들어오는데, `build.py`가 import 전에 지워서 기본값을 쓰게 한다.
 
 ## 로컬 개발
 
@@ -82,6 +93,7 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 - 테스트할 때는 `DAILY_DIR`을 임시 폴더로 두어 `data/daily/`를 오염시키지 않는다. 음성도 `AUDIO_DIR`을 임시 폴더로 둔다.
 - `--now ISO`는 크롤러 판정 시각(TBS 조회 날짜·`EXPECTED_BY_HOUR`·오전 보충·알림 held)에도 쓰인다. 크롤하면 이슈링크((b) 적은 곳은 거의 매번)와, 멈추거나 빠진 커뮤니티가 있으면 직접 스크래핑 요청도 나간다. 실제 요청 없이 확인할 때는 `requests.Session.request`를 가짜로 바꿔 기록한 응답을 돌려주는 식으로 한다(2026-09-25 검증 방식).
 - 로컬 기본값은 `TTS_ENABLED` 미설정, 곧 **음성을 만들지 않는다**. 렌더링은 `AUDIO_DIR`에 맞는 음성이 있으면 싣는다. `--no-crawl`이면 `TTS_ENABLED=true`여도 만들지 않는다. 음성을 직접 만들어 볼 때만 `pip install lameenc==1.8.4`를 따로 설치한다(선택 의존성, pages.yml과 같은 버전).
+- 분석 태그를 볼 때는 가짜 ID(`GA_MEASUREMENT_ID=G-TEST12345`, `CLARITY_PROJECT_ID=abc123test`)로 렌더링하고, 브라우저에서 googletagmanager.com·clarity.ms 요청을 가로채 빈 JS로 답한다(실제 GA로 테스트 데이터를 보내지 않게). 이벤트는 `window.dataLayer.filter(a => a[0] === 'event')`, Clarity는 `window.clarity.q`로 본다. `gtag()`가 Arguments 객체를 넣으므로 `Array.from`으로 바꿔 본다. 두 ID를 비운 렌더도 같이 본다(`gtag`·`dataLayer`·`clarity`가 없고 콘솔 오류 0).
 - Windows에서는 `PYTHONUTF8=1`로 실행한다(콘솔 인코딩).
 - `_site/`, `.state/`, `.audio/`, `.env`, `*.db`는 gitignore 대상이다.
 
@@ -105,6 +117,10 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
   - 특정 날짜 음성을 다시 만들려면 `audio` 브랜치에서 그 날짜 파일을 지우는 커밋을 올린다. 다음 실행이 받아서 없는 것으로 보고 다시 만든다(최근 7일 리포트만). 최근 7일을 모두 다시 만들려면 `tts.SCRIPT_VERSION`을 올린다.
   - 브랜치를 통째로 지우면 다음 실행이 첫 실행처럼 새로 만든다. 최근 7일 리포트를 한 실행에 1개씩 다시 합성하고(KST 하루 최대 6회), 8~14일 전 음성은 사라진다.
   - 음성 생성만 끄는 Variables 스위치는 없다. 끄려면 pages.yml의 `TTS_ENABLED` 식을 `false`로 바꾼다. 이미 `audio` 브랜치에 있는 음성은 계속 실린다(14일 정리도 멈춘다).
+- 방문 분석 확인:
+  - 이벤트가 들어오는지는 Tag Assistant(tagassistant.google.com)로 사이트에 연결해 GA4 DebugView에서 본다. 맞춤 측정기준·측정항목은 등록한 뒤부터만 쌓이므로(소급 안 됨) 등록 목록(README '방문 분석')을 배포 전에 넣는다.
+  - GA4 MCP는 사용자 구글 로그인이 아니라 서비스 계정으로 접속한다. 커트 속성은 다른 GA 어카운트에 있어서, 그 서비스 계정을 커트 어카운트(또는 속성)에 '뷰어'로 넣어야 MCP에서 보인다. 서비스 계정 이메일은 MCP 설정의 인증 JSON(`client_email`)에 있다. 공개 리포라 문서에 적지 않는다.
+  - Clarity 켜기: clarity.microsoft.com에서 프로젝트를 만들고 ID를 Variables `CLARITY_PROJECT_ID`에 넣는다. 다음 실행 뒤 페이지 소스에 `clarity.ms/tag/<ID>`가 보이면 켜진 것이다. 끄려면 Variable을 비운다(안내 페이지 문구도 같이 꺼진다). 형식이 틀리면 빌드 로그에 `[Build] CLARITY_PROJECT_ID 형식이 아님`이 남는다.
 
 ## 데일리 음성 파일(Gemini TTS)
 
@@ -140,7 +156,15 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 - [ ] 읽어주기를 실기기에서 확인한다. 사파리·파이어폭스에서 음성 파일 오류 때 `pause` 이벤트가 `audio.error`보다 먼저 오면, 재생 중 끊김도 바로 이어 읽지 않고 '일시정지' 대기 상태가 된다(▶ 한 번이면 그 섹션부터 이어짐). 전환 안내(role=status)를 스크린리더가 읽는지도 헤드리스 크롬 접근성 트리까지만 봤다.
 - [ ] (선택) SNS 공유용 1200×630 `og:image`를 만든다. 지금은 투명 배경 로고를 그대로 쓴다.
 - [ ] (선택) 커스텀 도메인을 연결한다. 다음 호스팅 이전 때 SEO 손실을 막는다.
-- [ ] 방문 분석(GA4): 코드는 넣었다(2026-09-26, `GA_MEASUREMENT_ID`). GA4 속성·웹 스트림을 만들고 측정 ID를 Variables에 넣으면 켜진다. 켠 뒤 GA4 MCP로 검색 유입(`sessionDefaultChannelGroup` Organic Search)을 본다.
+- [x] ~~방문 분석(GA4) 태그.~~ 2026-09-26에 GA4 태그를 넣고 측정 ID를 Variables에 넣어 켰다. 2026-09-27에 커스텀 이벤트 28종·콘텐츠 그룹·Clarity(ID만 넣으면 켜짐)·분석 도구 안내 페이지를 더했다. 헤드리스 크롬 375·1280에서 ID를 켠 렌더·끈 렌더·잘못된 형식 렌더를 모두 확인했다(분석 요청은 가로챔).
+- [ ] **방문 분석 켜기 마무리(사용자, GA·Clarity 관리 화면).**
+  - (1) GA4 커트 속성에 맞춤 측정기준 38개·맞춤 측정항목 5개를 등록하고 키 이벤트(`post_click`·`daily_post_click`·`tts_play`)를 표시한다(README '방문 분석'). 소급되지 않으니 먼저 한다.
+  - (2) 같은 곳에서 이벤트 데이터 보관 14개월, Google 신호 끔, 광고 제품 연결 없음을 확인한다. 안내 페이지 문장이 이 설정을 전제로 한다.
+  - (3) GA4 MCP용 서비스 계정을 커트 GA 어카운트(또는 속성)에 '뷰어'로 추가한다. 지금 MCP에는 다른 4개 속성만 보인다. 추가한 뒤 `get_account_summaries`에 커트가 나오는지 본다.
+  - (4) Clarity 프로젝트를 만들고 ID를 `CLARITY_PROJECT_ID` Variables에 넣는다. (선택) Clarity 설정에서 GA4 연동, 닉네임 가림(`.card-author`).
+  - (5) 배포 뒤 DebugView에서 확인한다. 커스텀 이벤트에 붙인 `content_group`이 '콘텐츠 그룹' 측정기준에 들어가는지, `transport_type`이 파라미터로 남지 않는지 본다. 들어가지 않으면 `track`의 `content_group`을 빼는 것을 검토한다.
+- [ ] 며칠 쌓인 뒤 GA4로 본다: 검색 유입(`sessionDefaultChannelGroup` Organic Search, 서치 콘솔과 함께), 원글 클릭(`post_click` × `area`·`community`·`pos`), 피드 깊이(`feed_depth`), 이슈 보드 퍼널(`issue_open` → `issue_view_all` → `post_click`), 읽어주기 완료율(`tts_play` → `tts_complete`, `tts_mode`별), 불러오기 품질(`data_status` × `err`·`badge`). 결과로 이슈 보드·피드 순서·읽어주기를 고친다.
+- [ ] Clarity를 켠 뒤 EEA·영국·스위스 방문 비율을 본다. 2025-10-31부터 이 지역은 동의 신호가 없으면 쿠키 없이 기록된다(세션이 페이지마다 끊김). 비율이 의미 있으면 Clarity 동의 API를 검토한다.
 - SEO 문구(2026-09-26): 메인 '실시간 커뮤니티 인기글 모음 | 커트', 데일리 상세 설명은 그날 요약 소제목 3개(`build._daily_seo_desc`, 글 제목은 욕설 때문에 쓰지 않음).
 - [ ] (선택) 댓글·로그인처럼 사용자 입력이 필요한 기능은 Supabase(RLS 필수, 무료는 7일 비활성 시 일시정지)로 붙인다.
 

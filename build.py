@@ -5,7 +5,7 @@
 2. 크롤링 1회 + 데일리 리포트 생성 (KST 12시 이후 오늘 정오본, 다음 날 00:10~02시 전날 최종본)
 3. 데일리 음성(Gemini TTS) — TTS_ENABLED일 때 한 실행에 최대 1개
    (데일리 생성을 시도한 실행(성공·실패)과 시작 후 TTS_START_BUDGET_SEC가 지난 실행은 제외)
-4. _site/ 에 정적 사이트 렌더링 (index, daily, audio, trends.json, state.json, sitemap, robots, llms.txt, 404)
+4. _site/ 에 정적 사이트 렌더링 (index, daily, privacy, audio, trends.json, state.json, sitemap, robots, llms.txt, 404)
 5. 수집 상태(health) — GITHUB_OUTPUT health·health_detail 등과 Step Summary. pages.yml health 잡이 알림 대상 문제가
    HEALTH_ALERT_STREAK번 연속이면 'source-health' 이슈를 열고, 풀리면 닫는다(연속 횟수는 state.json 'health')
 
@@ -34,8 +34,8 @@ KST = timezone(timedelta(hours=9))
 
 # Actions의 ${{ vars.X }}는 미설정이면 ''로 들어온다 → 빈 문자열은 미설정으로 취급.
 # crawler/daily/gemini가 import 시점에 환경변수를 읽으므로 import 전에 정리한다.
-_ENV_KEYS = ('SITE_URL', 'BASE', 'STATE_URL', 'GSC_VERIFICATION', 'GA_MEASUREMENT_ID', 'MIN_INTERVAL_MIN',
-             'GOOGLE_API_KEY', 'GEMINI_MODEL', 'GEMINI_FALLBACK_MODEL', 'DAILY_DIR',
+_ENV_KEYS = ('SITE_URL', 'BASE', 'STATE_URL', 'GSC_VERIFICATION', 'GA_MEASUREMENT_ID', 'CLARITY_PROJECT_ID',
+             'MIN_INTERVAL_MIN', 'GOOGLE_API_KEY', 'GEMINI_MODEL', 'GEMINI_FALLBACK_MODEL', 'DAILY_DIR',
              'TTS_ENABLED', 'TTS_MODEL', 'TTS_FALLBACK_MODEL', 'TTS_VOICE', 'AUDIO_DIR')
 
 
@@ -64,6 +64,7 @@ import tts  # noqa: E402
 from crawler import HEALTH_FROM_HOUR, MERGE_PREV_END_HOUR, SOURCE_META, TrendCrawler  # noqa: E402
 
 DEFAULT_SITE_URL = 'https://gumoyaz.github.io/korean-community-crawler'
+ISSUES_URL = 'https://github.com/gumoyaz/korean-community-crawler/issues'   # 분석 도구 안내 페이지의 문의 링크
 REFRESH_INTERVAL = 600      # 프론트가 trends.json을 다시 읽는 주기(초)
 DEFAULT_MIN_INTERVAL = 7    # 분. cron-job.org(10분) + schedule(15분) 중복 실행 방지
 MIN_POSTS_FOR_DAILY = 20
@@ -230,6 +231,12 @@ def _settings(args) -> dict:
         min_interval = DEFAULT_MIN_INTERVAL
 
     ga_id = os.environ.get('GA_MEASUREMENT_ID', '').strip().upper()
+    # Microsoft Clarity 프로젝트 ID(소문자·숫자). 형식이 아니면 태그를 넣지 않는다(스크립트 URL·JS에 그대로 들어가서).
+    # 대소문자를 구분하는지 몰라서 소문자로 바꾸지 않는다(발급 값이 소문자). 값은 로그에 쓰지 않는다
+    clarity_id = os.environ.get('CLARITY_PROJECT_ID', '').strip()
+    if clarity_id and not re.fullmatch(r'[a-z0-9]{6,20}', clarity_id):
+        _log('[Build] CLARITY_PROJECT_ID 형식이 아님 — Clarity 태그 없음')
+        clarity_id = ''
     return {
         'site_url': site_url,
         'base': base,
@@ -237,6 +244,7 @@ def _settings(args) -> dict:
         'gsc_verification': os.environ.get('GSC_VERIFICATION', '').strip(),
         # GA4 측정 ID('G-XXXXXXXXXX'). 형식이 아니면 태그를 넣지 않는다(스크립트 URL·JS에 그대로 들어가서)
         'ga_id': ga_id if re.fullmatch(r'G-[A-Z0-9]{4,16}', ga_id) else '',
+        'clarity_id': clarity_id,
         'min_interval': min_interval,
     }
 
@@ -760,7 +768,20 @@ def _llms_txt(site_url: str, summaries: list, data: dict) -> str:
 """
 
 
-def _not_found_html(base: str) -> str:
+def _not_found_html(base: str, ga_id: str = '', clarity_id: str = '') -> str:
+    # Pages 는 없는 주소에 이 파일을 그 주소 그대로 보여 준다 → GA·Clarity(content_group '404')로 깨진 유입 링크를 본다.
+    # 두 ID 는 _settings 에서 형식(영문·숫자)을 검사한 값이라 그대로 넣어도 된다. 분석 도구 안내 링크는 다른 페이지 푸터처럼 늘 둔다
+    tags = ''
+    if ga_id:
+        tags += (f'<script async src="https://www.googletagmanager.com/gtag/js?id={ga_id}"></script>\n'
+                 '<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}'
+                 f"gtag('js',new Date());gtag('config','{ga_id}',{{content_group:'404'}});</script>\n")
+    if clarity_id:
+        tags += ('<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};'
+                 't=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;'
+                 'y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})'
+                 f'(window,document,"clarity","script","{clarity_id}");'
+                 "clarity('set','content_group','404');</script>\n")
     return f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -768,7 +789,7 @@ def _not_found_html(base: str) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>페이지를 찾을 수 없습니다 — 커트</title>
-<link rel="icon" href="{base}/static/logo.png">
+{tags}<link rel="icon" href="{base}/static/logo.png">
 <style>
   :root {{ --bg: #f7f7f8; --fg: #1d1d1f; --muted: #6e6e73; --accent: #4f46e5; }}
   @media (prefers-color-scheme: dark) {{
@@ -780,6 +801,9 @@ def _not_found_html(base: str) -> str:
   h1 {{ margin: 0 0 8px; font-size: 48px; }}
   p {{ color: var(--muted); }}
   a {{ color: var(--accent); font-weight: 600; text-decoration: none; margin: 0 8px; }}
+  .foot {{ margin-top: 40px; font-size: 12px; }}
+  .foot a {{ color: var(--muted); font-weight: 400; }}   /* 메인·데일리 푸터(.site-foot)와 같은 톤 */
+  .foot a:hover {{ text-decoration: underline; }}
 </style>
 </head>
 <body>
@@ -787,6 +811,7 @@ def _not_found_html(base: str) -> str:
   <h1>404</h1>
   <p>요청한 페이지를 찾을 수 없습니다.</p>
   <p><a href="{base}/">실시간 트렌드 홈</a><a href="{base}/daily/">데일리 리포트</a></p>
+  <p class="foot"><a href="{base}/privacy/">분석 도구 안내</a></p>
 </main>
 </body>
 </html>
@@ -823,6 +848,7 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
         'base': cfg['base'],
         'gsc_verification': cfg['gsc_verification'],
         'ga_id': cfg['ga_id'],
+        'clarity_id': cfg['clarity_id'],
         'build_time': build_time,
     }
 
@@ -873,6 +899,9 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
             **blank, 'view': 'pending', 'date': today, 'date_kr': _format_date_kr(today),
             'prev_date': dates[0] if dates else None})  # 가장 최근 리포트로 안내
 
+    # 분석 도구 안내 — ga_id·clarity_id 가 없어도 만든다('지금은 쓰지 않는다'고 안내). noindex 라서 sitemap·llms.txt 에는 넣지 않는다
+    render('privacy/index.html', 'privacy.html', issues_url=ISSUES_URL)
+
     # 정적 파일 · SEO
     static = ROOT / 'static'
     if static.is_dir():
@@ -881,7 +910,7 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
     _write(out / 'sitemap.xml', _sitemap(cfg['site_url'], build_time, sitemap_items))
     _write(out / 'robots.txt', _robots_txt(cfg['site_url'], cfg['base']))
     _write(out / 'llms.txt', _llms_txt(cfg['site_url'], sitemap_items, data))
-    _write(out / '404.html', _not_found_html(cfg['base']))
+    _write(out / '404.html', _not_found_html(cfg['base'], cfg['ga_id'], cfg['clarity_id']))
     _write(out / '.nojekyll', '')
 
     _log(f'[Render] {out} — 게시글 {len(data.get("posts") or [])}개, 데일리 {len(written)}개'

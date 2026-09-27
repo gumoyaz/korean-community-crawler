@@ -1,0 +1,280 @@
+{% autoescape true %}<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>분석 도구 안내 | 커트</title>
+<meta name="description" content="커트가 방문 통계를 보려고 쓰는 분석 도구와 모으는 정보, 쿠키, 끄는 방법을 안내합니다.">
+{# 검색 유입 가치가 없고 사이트 이름 검색에 끼지 않게 — robots.txt 로 막지 않는다(noindex 를 읽어야 해서). sitemap·llms.txt 에도 넣지 않는다 #}
+<meta name="robots" content="noindex, follow">
+<link rel="canonical" href="{{ site_url }}/privacy/">
+{% if ga_id %}<script async src="https://www.googletagmanager.com/gtag/js?id={{ ga_id }}"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','{{ ga_id }}',{content_group:'privacy'});</script>
+{% endif %}
+{% if clarity_id %}<script>(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",{{ clarity_id|tojson }});clarity('set','content_group','privacy');</script>
+{% endif %}
+<link rel="icon" href="{{ base }}/static/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="32x32" href="{{ base }}/static/favicon-32x32.png">
+<link rel="apple-touch-icon" href="{{ base }}/static/apple-touch-icon.png">
+<link rel="manifest" href="{{ base }}/static/site.webmanifest">
+<meta name="author" content="커트">
+<style>
+  /* 색·상자는 daily.html 과 같게 둔다 */
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface2: #f1f3f5;
+    --border: #e9ecef;
+    --text: #1a1a2e;
+    --text-dim: #5f6670;      /* surface2 위에서도 4.5:1 이상 */
+    --accent: #ff4757;        /* 배경·테두리용 브랜드색 */
+    --accent-text: #bd2a3a;   /* 글자용 강조색 (흰 배경·옅은 틴트 위 4.5:1 이상) */
+    --radius: 14px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', -apple-system, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  a { color: inherit; text-decoration: none; }
+  a:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
+
+  /* ── Header ── */
+  header {
+    background: #ffffff;
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 1px 8px rgba(0,0,0,0.06);
+    padding: 14px 24px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-inner {
+    max-width: 860px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .logo { display: flex; align-items: center; }
+  .logo img { height: 35px; width: auto; display: block; }
+  .logo-tagline { color: var(--text); font-size: 16px; font-weight: 600; margin-left: 12px; }
+  @media (max-width: 480px) { .logo-tagline { display: none; } }
+
+  .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .nav-link-outline {
+    font-size: 13px; color: var(--accent-text);
+    background: transparent;
+    border: 1.5px solid var(--accent);
+    padding: 6px 12px; border-radius: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: color .15s, background .15s;
+  }
+  .nav-link-outline:hover { background: var(--accent); color: #fff; }
+
+  /* ── Main ── */
+  main {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 32px 16px 64px;
+  }
+  .page-header { margin-bottom: 24px; }
+  .page-header .label {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--accent-text); text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .page-header h1 { font-size: 28px; font-weight: 800; line-height: 1.2; }
+
+  /* ── 본문 상자 (daily.html .summary-body 와 같은 모양) ── */
+  .doc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 32px 36px;
+    line-height: 1.8;
+    font-size: 15px;
+    box-shadow: var(--shadow);
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+  .doc h2 {
+    font-size: 18px; font-weight: 700;
+    margin: 32px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .doc p { margin-bottom: 12px; }
+  .doc ul { padding-left: 20px; margin-bottom: 12px; }
+  .doc li { margin-bottom: 6px; }
+  .doc li ul { margin: 6px 0 0; }
+  .doc a { color: var(--accent-text); text-decoration: underline; }
+  .doc code {
+    background: var(--surface2); border-radius: 4px;
+    padding: 1px 5px; font-size: .92em;
+  }
+  .doc .none {
+    padding: 10px 14px;
+    background: var(--surface2); border-radius: 10px;
+    color: var(--text-dim);
+  }
+  .doc .dim { color: var(--text-dim); font-size: 13px; }
+  .doc .updated { margin: 28px 0 0; color: var(--text-dim); font-size: 12px; }
+
+  /* 쿠키 표 — 좁은 화면에서는 상자 안에서만 넘친다 (페이지 가로 스크롤 없음) */
+  .table-wrap { overflow-x: auto; margin-bottom: 10px; }
+  .doc table { width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.6; }
+  .doc th, .doc td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  .doc th { background: var(--surface2); font-weight: 700; white-space: nowrap; }
+
+  @media (max-width: 600px) {
+    main { padding: 20px 12px 48px; }
+    .page-header h1 { font-size: 22px; }
+    .doc { padding: 20px 16px; font-size: 14.5px; }
+    .doc table { font-size: 12.5px; }
+    .doc th, .doc td { padding: 6px 6px; }
+  }
+  @media (max-width: 430px) {
+    header { padding: 12px 16px; }
+    main { padding: 16px 10px 40px; }
+    .doc { padding: 16px 12px; font-size: 14px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="{{ base }}/" class="logo">
+      <img src="{{ base }}/static/logo.png" alt="커트" width="35" height="35">
+      <span class="logo-tagline">커뮤니티 트렌드 리포트</span>
+    </a>
+    <div class="header-right">
+      <a href="{{ base }}/" class="nav-link-outline">실시간 트렌드</a>
+      <a href="{{ base }}/daily/" class="nav-link-outline">데일리 리포트</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="page-header">
+    <div class="label">Privacy</div>
+    <h1>분석 도구 안내</h1>
+  </div>
+
+  <article class="doc">
+    <p>커트는 회원가입·로그인·댓글 기능이 없고, 방문자가 직접 입력하는 정보가 없습니다.{% if ga_id or clarity_id %}
+       사이트를 고치는 데 참고하려고 아래 도구로 방문 통계를 봅니다.{% endif %}</p>
+    {% if not ga_id and not clarity_id %}<p class="none">지금은 분석 도구를 쓰지 않습니다.</p>{% endif %}
+
+    {% if ga_id or clarity_id %}
+    <h2>쓰는 도구</h2>
+    <ul>
+      {% if ga_id %}<li>Google Analytics 4 (Google): 방문 통계</li>{% endif %}
+      {% if clarity_id %}<li>Microsoft Clarity (Microsoft): 화면 이용 기록(세션 재생)과 히트맵</li>{% endif %}
+    </ul>
+
+    {# 목록은 템플릿의 track() 이벤트와 맞춘다 — 누르지 않아도 나가는 것(ai_line_view·daily_read·tts_ready)까지 적는다 #}
+    <h2>모으는 정보</h2>
+    <ul>
+      <li>자동으로 모이는 정보: 본 페이지 주소와 제목, 이전 페이지 주소, 기기 종류·운영체제·브라우저·화면 크기·언어,
+          대략적인 지역(국가·도시), 방문 시각과 머문 시간. 방문자를 구분하는 무작위 ID를 쿠키에 저장합니다.</li>
+      {% if ga_id %}<li>이 사이트가 더 보내는 이용 기록:
+        <ul>
+          <li>지금 뜨는 이슈에서 펼치거나 고른 이슈, 고른 카테고리·커뮤니티, 피드를 얼마나 내려 봤는지, AI 한 줄 요약이 화면에 보였는지</li>
+          <li>누른 글의 커뮤니티·순위·화면 속 위치·제목(각 커뮤니티에 공개된 글 제목)과 글이 올라온 뒤 지난 시간</li>
+          <li>데일리 리포트에서 누른 글, 리포트를 어디까지 읽었는지(요약 끝·글 목록)와 페이지를 연 뒤 걸린 시간</li>
+          <li>읽어주기: 이 브라우저에서 쓸 수 있는 방식(음성 파일·브라우저 음성), 재생·일시정지·정지·속도·섹션 이동,
+              들은 시간·진행률·끝까지 들었는지, 쓴 음성 이름과 한국어 음성 개수, 재생 오류</li>
+          <li>새로고침·안내 열기·페이지 이동처럼 사이트 안에서 누른 버튼과 링크</li>
+          <li>데이터를 불러오는 데 걸린 시간·실패 여부와 수집 상태</li>
+        </ul>
+      </li>{% endif %}
+      {% if clarity_id %}<li>Clarity: 마우스 움직임·클릭·스크롤을 기록해 화면을 다시 재생하거나 히트맵으로 봅니다.
+          입력란·선택 메뉴와 숫자·이메일 주소는 가려서 기록합니다(Clarity 기본 설정).
+          그 밖에 화면에 보이는 글자(커뮤니티에 공개된 글 제목·글쓴이 닉네임 등)는 기록에 그대로 보입니다.
+          {% if ga_id %}위 이용 기록의 이름(값은 빼고)도 함께 보내 기록을 찾는 데 씁니다.{% else %}글 클릭·읽어주기 재생 같은 이용 기록의 이름도 함께 보내 기록을 찾는 데 씁니다.{% endif %}</li>{% endif %}
+    </ul>
+    {% endif %}
+
+    <h2>모으지 않는 정보</h2>
+    <ul>
+      <li>커트는 이름·이메일·전화번호·계정 정보를 직접 모으거나 {% if ga_id or clarity_id %}분석 도구로 {% endif %}보내지 않습니다.{% if ga_id %}
+          이용 기록에는 글쓴이 닉네임을 넣지 않고, 글 제목에 이메일 주소나 휴대전화 번호처럼 보이는 부분이 있으면 가려서 보냅니다.{% endif %}</li>
+      {% if ga_id %}<li>Google 애널리틱스 4는 IP 주소를 기록하거나 저장하지 않습니다.</li>{% endif %}
+    </ul>
+
+    <h2>광고</h2>
+    <ul>
+      <li>커트는 광고를 싣지 않고, 방문 기록을 광고에 쓰지 않습니다.</li>
+      {# Clarity 이용약관은 Microsoft 가 받은 정보를 Microsoft Advertising 에 쓴다는 것을 안내문에 적고 개인정보처리방침을 링크하라고 한다 #}
+      {% if clarity_id %}<li>다만 Microsoft는 Clarity로 받은 정보(쿠키 ID 등)를 Microsoft 광고(Microsoft Advertising)를 포함한 자사 서비스에 쓸 수 있습니다.
+          자세한 내용은 <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noopener noreferrer">Microsoft 개인정보처리방침</a>을 보세요.</li>{% endif %}
+    </ul>
+
+    <h2>쿠키와 브라우저 저장소</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th scope="col">이름</th><th scope="col">쓰는 곳</th><th scope="col">목적</th><th scope="col">기간</th></tr>
+        </thead>
+        <tbody>
+          {% if ga_id %}<tr><td><code>_ga</code>, <code>_ga_{{ ga_id[2:] }}</code></td><td>Google 애널리틱스</td><td>방문자 구분(무작위 ID)</td><td>최대 2년</td></tr>{% endif %}
+          {% if clarity_id %}<tr><td><code>_clck</code></td><td>Clarity</td><td>방문자 구분</td><td>1년</td></tr>
+          <tr><td><code>_clsk</code></td><td>Clarity</td><td>한 번의 방문을 하나의 기록으로 묶기</td><td>1일</td></tr>
+          <tr><td><code>MUID</code>, <code>CLID</code></td><td>Clarity (Microsoft 도메인, 제3자 쿠키)</td><td>여러 사이트에 걸친 방문자 구분. MUID는 Microsoft 광고에도 쓰입니다</td><td>약 1년</td></tr>{% endif %}
+          <tr><td><code>kt.ttsVoice</code> (브라우저 저장소)</td><td>커트</td><td>읽어주기에서 고른 음성을 다음 방문에도 쓰기</td><td>지울 때까지</td></tr>
+        </tbody>
+      </table>
+    </div>
+    {% if ga_id or clarity_id %}<p class="dim">쿠키 이름과 기간은 각 서비스 사정에 따라 바뀔 수 있습니다.</p>{% endif %}
+
+    {% if ga_id or clarity_id %}
+    <h2>보관 기간</h2>
+    <ul>
+      {# GA 보관 설정은 이벤트 단위 데이터(탐색 분석)에만 걸린다 — 표준 보고서의 합계는 지워지지 않는다 #}
+      {% if ga_id %}<li>Google 애널리틱스: 개별 방문 기록(이벤트 단위)은 GA4 설정의 보관 기간(2개월 또는 14개월)이 지나면 지워집니다.
+          페이지·이벤트별 합계 통계는 기간 없이 남습니다.</li>{% endif %}
+      {% if clarity_id %}<li>Clarity: 세션 기록은 30일 보관합니다. 운영자가 표시한 기록과 Microsoft가 무작위로 고른 일부 기록은
+          최대 9개월까지 보관되고, 히트맵은 최대 9개월까지 볼 수 있습니다.</li>{% endif %}
+    </ul>
+
+    <h2>끄는 방법</h2>
+    <ul>
+      <li>브라우저 설정에서 이 사이트의 쿠키를 막거나 지웁니다.</li>
+      {% if ga_id %}<li>Google 애널리틱스 차단 부가기능: <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener noreferrer">tools.google.com/dlpage/gaoptout</a></li>{% endif %}
+      {% if clarity_id %}<li>Clarity 수집 거부: <a href="https://optout.aboutads.info/" target="_blank" rel="noopener noreferrer">optout.aboutads.info</a>에서 Microsoft를 고릅니다.
+          Clarity는 브라우저의 Global Privacy Control(GPC) 신호도 따릅니다.</li>{% endif %}
+      <li>광고·추적 차단 확장 프로그램으로 {% if ga_id %}googletagmanager.com{% endif %}{% if ga_id and clarity_id %}·{% endif %}{% if clarity_id %}clarity.ms를{% else %}을{% endif %} 막습니다.</li>
+      <li>분석 도구를 막아도 사이트의 모든 기능은 그대로 쓸 수 있습니다.</li>
+    </ul>
+
+    <h2>정보를 처리하는 곳</h2>
+    <ul>
+      <li>{% if ga_id %}Google LLC{% endif %}{% if ga_id and clarity_id %}, {% endif %}{% if clarity_id %}Microsoft Corporation{% endif %}. 해외 서버에서 처리될 수 있습니다.</li>
+      {% if ga_id %}<li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer">Google 개인정보처리방침</a> ·
+          <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener noreferrer">Google이 파트너 사이트의 정보를 쓰는 방식</a></li>{% endif %}
+      {% if clarity_id %}<li><a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noopener noreferrer">Microsoft 개인정보처리방침</a></li>{% endif %}
+    </ul>
+    {% endif %}
+
+    <h2>문의</h2>
+    <ul>
+      <li><a href="{{ issues_url }}" target="_blank" rel="noopener noreferrer">GitHub 이슈</a> (공개 게시판이라 개인 정보는 적지 마세요)</li>
+    </ul>
+
+    <p class="updated">이 안내는 2026년 9월 27일에 마지막으로 바뀌었습니다.</p>
+  </article>
+</main>
+
+</body>
+</html>
+{% endautoescape %}

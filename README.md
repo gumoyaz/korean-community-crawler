@@ -251,7 +251,8 @@ python -m http.server -d _site 8000
 | `GEMINI_FALLBACK_MODEL` | `gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite` | 예비 모델(쉼표로 여러 개, 순서대로 시도). `none`이면 끔 |
 | `SITE_URL` | `https://gumoyaz.github.io/korean-community-crawler` | canonical·sitemap·llms.txt의 기준 주소. 경로 부분이 내부 링크의 base가 됨 |
 | `GSC_VERIFICATION` | (없음) | 서치 콘솔 HTML 태그 인증값. 있으면 메타태그 출력 |
-| `GA_MEASUREMENT_ID` | (없음) | GA4 측정 ID(`G-XXXXXXXXXX`, Variables). 있으면 모든 페이지에 gtag.js를 넣는다 |
+| `GA_MEASUREMENT_ID` | (없음) | GA4 측정 ID(`G-XXXXXXXXXX`, Variables). 있으면 모든 페이지에 gtag.js를 넣고 이용 이벤트를 보낸다([방문 분석](#방문-분석)) |
+| `CLARITY_PROJECT_ID` | (없음) | Microsoft Clarity 프로젝트 ID(소문자·숫자 6~20자, Variables). 있으면 세션 기록·히트맵 태그를 넣는다. 형식이 틀리면 태그 없이 배포하고 로그에만 남긴다(값은 안 씀) |
 | `STATE_URL` | `{SITE_URL}/data/state.json` | Actions 캐시가 없을 때 상태를 받아올 주소 |
 | `MIN_INTERVAL_MIN` | `7` | 이 시간(분) 안에 다시 호출되면 크롤·배포를 건너뜀 |
 | `DAILY_DIR` | `data/daily` | 데일리 리포트 저장 폴더 |
@@ -275,6 +276,7 @@ python -m http.server -d _site 8000
 6. 음성 파일용 `audio` 브랜치는 음성을 처음 만든 실행이 자동으로 만듭니다. 따로 설정할 것은 없습니다(권한은 워크플로의 `contents: write`). 다만 브랜치 보호 규칙이나 rulesets를 모든 브랜치에 걸었다면 `audio` 브랜치의 강제 push(Actions 봇)를 허용해야 합니다. '강제 push 금지' 규칙은 브랜치를 처음 만드는 push는 막지 않고 두 번째 교체 push부터 막습니다. 그래서 첫 실행만 보고 판단하면 안 됩니다.
 7. 수집 이상 알림(`source-health` 이슈)은 리포의 Issues가 켜져 있어야 합니다(기본값). 라벨은 워크플로가 처음 쓸 때 만들고, 권한은 `health` 잡의 `issues: write`라 따로 설정할 것은 없습니다.
 8. 처음 배포한 뒤 **Source probe**를 한 번 수동 실행해 러너(해외 IP)에서 막히는 예비 경로를 확인합니다([소스 실측 프로브](#소스-실측-프로브-source-probe)).
+9. 방문 분석은 Variables에 `GA_MEASUREMENT_ID`·`CLARITY_PROJECT_ID`를 넣으면 다음 실행부터 켜집니다. GA4 맞춤 측정기준은 등록한 뒤부터만 쌓이므로 먼저 등록합니다([방문 분석](#방문-분석)).
 
 ## 산출물
 
@@ -285,6 +287,7 @@ python -m http.server -d _site 8000
 | `/data/state.json` | 다음 실행이 이어받을 상태 (점수 이력, 직전 글 목록, AI 요약, 이슈 튜닝 로그, 커뮤니티별 상태, 전날 상위 글, 이슈링크 캐시, 알림 연속 횟수) |
 | `/daily/`, `/daily/YYYY-MM-DD/` | 데일리 목록·상세 (서버 렌더링) |
 | `/audio/YYYY-MM-DD.mp3` | 데일리 음성 (지금 리포트 내용과 맞는 것만, 최근 14일) |
+| `/privacy/` | 분석 도구 안내 (`noindex`, sitemap·llms.txt에 넣지 않음) |
 | `/sitemap.xml`, `/robots.txt`, `/llms.txt`, `/404.html` | SEO·AI 크롤러용 |
 
 ## SEO / AI 검색
@@ -293,6 +296,105 @@ python -m http.server -d _site 8000
 - `sitemap.xml`에는 메인·데일리 목록·날짜별 리포트가 들어갑니다. `lastmod`는 리포트 생성일입니다.
 - `llms.txt`는 ChatGPT·Claude·Gemini·Perplexity 같은 AI 크롤러용 사이트 안내서입니다.
 - 프로젝트 페이지(`/korean-community-crawler/`)라서 `robots.txt`는 크롤러가 읽지 않습니다. 서치 콘솔에 `sitemap.xml`을 직접 제출해야 합니다.
+
+## 방문 분석
+
+Google 애널리틱스 4(GA4)와 Microsoft Clarity를 씁니다. 둘 다 ID를 Variables에 넣었을 때만 태그가 들어가고, 비어 있거나 형식이 틀리면 태그 없이 배포합니다. 두 ID는 페이지 소스에 그대로 보이는 값이라 비밀이 아닙니다.
+
+- **GA4** (`GA_MEASUREMENT_ID`) — 페이지 조회와 향상된 측정에 더해 아래 커스텀 이벤트를 보냅니다.
+- **Clarity** (`CLARITY_PROJECT_ID`) — 세션 기록(화면 재생)과 히트맵을 봅니다. 커스텀 이벤트는 이름만(값 없이) 보내서 기록을 이벤트로 거를 수 있게 합니다. 마스킹은 기본값(Balanced)이라 입력란·선택 메뉴와 숫자·이메일은 가려지고, 그 밖의 화면 글자(글 제목·글쓴이 닉네임)는 기록에 보입니다. 닉네임까지 가리려면 Clarity 설정 → Masking에서 `.card-author`를 가림 요소로 넣습니다.
+- **페이지 구분** — GA4 기본 측정기준 '콘텐츠 그룹'(`content_group`)을 씁니다. `main` · `daily_list` · `daily_detail` · `daily_pending`(리포트 대기) · `privacy` · `404`입니다. page_view와 모든 커스텀 이벤트에 붙고, Clarity에도 같은 값을 태그로 넣습니다. 맞춤 측정기준으로 따로 등록하지 않아도 됩니다.
+
+### 이벤트
+
+★는 키 이벤트로 표시할 것입니다. 데일리·읽어주기 이벤트에는 `report_date`(보고 있는 리포트 날짜)가 함께 붙습니다.
+
+| 이벤트 | 언제 보내나 | 주요 파라미터 |
+|---|---|---|
+| `data_status` | 메인 첫 불러오기 결과(1회). 자동 갱신은 연속 실패의 첫 회만 | `from`, `result`, `err`, `crawl_status`, `badge`, `age_min`, `load_ms` |
+| `refresh_click` | 머리글 새로고침·오류 화면 '다시 시도'의 결과 | `from`, `result`, `err` |
+| `how_open` | '어떻게 고르나요?'를 펼침 | – |
+| `issue_open` | 이슈를 고름(넓은 화면) 또는 펼침(모바일) | `issue_id`, `issue_name`, `issue_pos`, `issue_status`, `issue_kind`, `layout` |
+| `issue_view_all` · `issue_filter_clear` | '이 이슈 글 N개 모두 보기' / 필터 막대 ✕ | 둘 다 `issue_id`, `issue_name`. 모두 보기는 `issue_pos`, 해제는 `gone`(목록에서 빠진 이슈였음)·`shown` |
+| `issue_list_more` · `hot_list_more` | '이슈 N개 더' / '여기서만 뜨거운 글'을 펼침 | `hidden_count` / `hot_count` |
+| `tab_select` · `source_filter` | 카테고리 탭 / 커뮤니티 칩이 바뀜 | `tab`, `community_filter`, `community_health`, `issue_filter` |
+| ★ `post_click` | 피드 카드·이슈 대표 글·뜨거운 글 클릭(가운데 버튼 포함) | `area`, `community`, `rank`, `pos`, `via`, `prev_day`, `post_title`, `post_age_min` |
+| `feed_depth` | 피드를 10·25·50·100·200번째 카드까지 내려 봄(절반 넘게 보인 가장 깊은 카드의 목록 안 위치. 자동 갱신으로 바뀐 글은 세지 않음) | `depth`, `tab`, `community_filter`, `issue_filter` |
+| `daily_open` | 머리글 '데일리 리포트' | `from` |
+| `ai_line_view` | AI 요약 문단이 처음 보임 | `summary_age_min` |
+| `daily_nav` | 데일리 안 이동(목록 카드·이전/다음·목록으로·머리글·로고·대기 페이지 링크) | `target`, `from`, `to_date`, `pos` |
+| ★ `daily_post_click` | 데일리 상위 글·요약 본문 링크 | `area`, `report_kind`, `pos`, `community`, `post_title` |
+| `daily_read` | 상세의 요약 끝·글 목록 시작·끝이 처음 보임 | `part`, `sec`, `playing` |
+| `tts_ready` | 상세를 열 때 읽어주기를 쓸 수 있는지 | `can_audio`, `can_speech`, `has_file`, `aligned` |
+| ★ `tts_play` | 새 재생 시작(일시정지 뒤 이어 재생은 제외) | `tts_mode`, `speed`, `tts_voice`, `section` |
+| `tts_pause` · `tts_stop` | 사용자가 일시정지 / ■ 정지 | `pct`, `section`, `listened_s` |
+| `tts_progress` · `tts_complete` | 25·50·75%를 처음 넘음 / 끝까지 들음 | `pct`, `skipped`, `listened_s` |
+| `tts_speed` · `tts_skip` · `tts_voice` | 속도 변경 / ⏮·⏭(잠금 화면 포함) / 브라우저 음성 변경 | `speed`, `dir`, `section`, `input`, `tts_voice` |
+| `tts_fallback` · `tts_fail` | 음성 파일 → 브라우저 음성 전환 / 재생할 수 없음 | `err`, `at_s`, `playing` |
+
+보내는 규칙:
+
+- 글 **주소**와 글쓴이 닉네임은 보내지 않습니다. 글 제목은 100자로 자르고, 이메일 주소나 휴대전화 번호처럼 보이는 부분은 `[email]`·`[phone]`으로 가립니다. 사이트에 입력란이 없어서 방문자가 쓴 글자는 나가지 않습니다.
+- 값: 문자열은 100자까지, 불리언은 `yes`/`no`, 빈 값은 뺍니다.
+- 한 번의 조작에는 이벤트 하나: 10분 자동 갱신이나 화면 폭 전환으로 다시 그릴 때는 보내지 않습니다. 같은 탭·칩을 다시 누르거나 펼친 것을 접을 때도 보내지 않습니다. 같은 링크를 1.5초 안에 다시 누르면 한 번만 셉니다. 이정표형(`feed_depth`·`tts_progress`·`daily_read` 등)은 페이지를 보는 동안 한 번만 보냅니다.
+- 분석 코드의 오류나 광고 차단기는 사이트 동작에 영향을 주지 않습니다. 링크 클릭을 가로채지 않으므로 새 탭 열기도 그대로입니다.
+
+### 분석 도구 안내 페이지 (`/privacy/`)
+
+- 메인·데일리(목록·상세·대기)·404 페이지 아래에 '분석 도구 안내' 링크가 있습니다.
+- 켠 도구에 따라 문구가 바뀝니다. 둘 다 없으면 '지금은 분석 도구를 쓰지 않습니다'라고 안내합니다. 모으는 정보, 모으지 않는 정보, 광고(Clarity를 켜면 Microsoft가 받은 정보를 Microsoft 광고에 쓸 수 있다는 고지), 쿠키 표, 보관 기간, 끄는 방법, 정보를 처리하는 곳, 문의(GitHub 이슈)를 담습니다.
+- `noindex, follow`이고 sitemap·llms.txt에는 넣지 않습니다.
+- 이벤트를 더하거나 바꾸면 이 페이지의 '이 사이트가 더 보내는 이용 기록' 목록도 같이 고칩니다.
+
+### GA4 관리 화면에서 할 일
+
+**맞춤 정의는 등록한 뒤부터만 쌓입니다(소급 안 됨).** 관리 → 데이터 표시 → 맞춤 정의에서 범위 '이벤트'로 만듭니다. 등록하지 않은 파라미터는 보고서·탐색 분석에 나오지 않습니다(DebugView에는 보임).
+
+맞춤 측정기준 38개(★ 23개를 먼저 등록):
+
+| 파라미터 | 표시 이름 | | 파라미터 | 표시 이름 |
+|---|---|---|---|---|
+| ★ `area` | 클릭 위치 | | ★ `result` | 결과 |
+| ★ `community` | 커뮤니티 | | ★ `err` | 오류 종류 |
+| ★ `community_filter` | 커뮤니티 필터 | | ★ `crawl_status` | 수집 상태 |
+| `community_health` | 커뮤니티 수집 상태 | | `badge` | 갱신 배지 |
+| ★ `tab` | 카테고리 탭 | | ★ `target` | 이동 대상 |
+| ★ `rank` | 글 순위 | | ★ `report_date` | 리포트 날짜 |
+| ★ `pos` | 표시 위치 | | `report_kind` | 리포트 판 |
+| `via` | 수집 경로 | | `to_date` | 이동 날짜 |
+| `prev_day` | 어제 글 | | ★ `part` | 읽은 부분 |
+| ★ `post_title` | 글 제목 | | ★ `tts_mode` | 읽어주기 방식 |
+| `issue_id` | 이슈 ID | | ★ `speed` | 재생 속도 |
+| ★ `issue_name` | 이슈 이름 | | ★ `tts_voice` | 읽기 음성 |
+| ★ `issue_pos` | 이슈 순위 | | `section` | 섹션 |
+| ★ `issue_status` | 이슈 상태 | | ★ `pct` | 진행률 |
+| `issue_kind` | 이슈 종류 | | `dir` | 이동 방향 |
+| ★ `issue_filter` | 이슈 필터 중 | | `skipped` | 건너뛰기 있음 |
+| `layout` | 화면 배치 | | `playing` | 재생 중 |
+| ★ `depth` | 피드 깊이 | | `can_audio` | 음성 파일 가능 |
+| ★ `from` | 출발 위치 | | `can_speech` | 브라우저 음성 가능 |
+
+맞춤 측정항목 5개: `post_age_min`(글 나이(분), 표준) · `age_min`(데이터 나이(분), 표준) · `load_ms`(불러오기 시간, 밀리초) · `sec`(도달 시간, 초) · `listened_s`(들은 시간, 초. 음성 파일에서 재생된 구간의 합이라 건너뛴 곳은 빠지고 다시 들은 곳은 한 번만 셉니다).
+
+그 밖의 설정:
+
+- **키 이벤트**: `post_click`, `daily_post_click`, `tts_play` (선택: `tts_complete`).
+- **데이터 보관**: 이벤트 데이터 보관을 2개월(기본)에서 **14개월**로 바꿉니다. 탐색 분석으로 볼 수 있는 기간이 여기에 걸립니다.
+- **Google 신호 끔**, Google Ads 등 **광고 제품 연결 없음**. 안내 페이지가 '방문 기록을 광고에 쓰지 않는다'고 적으므로 이 설정과 맞아야 합니다.
+- **향상된 측정**: 페이지 조회·스크롤·이탈 클릭은 켜 둡니다. 사이트 검색·양식·동영상은 해당 기능이 없습니다.
+- `post_title`·`issue_name`·`issue_id`는 값 종류가 많아 표준 보고서에서 '(other)'로 묶일 수 있습니다. 탐색 분석에서 봅니다.
+- **확인**: Tag Assistant(tagassistant.google.com)로 사이트에 연결하면 DebugView에 이벤트와 파라미터가 실시간으로 보입니다.
+- **탐색 분석 예시**: `page_view`(main) → `issue_open` → `issue_view_all` → `post_click` 퍼널, `post_click` × `area`·`community`·`pos`, `feed_depth` × `depth`, 읽어주기 `tts_play` → `tts_progress` → `tts_complete`(`tts_mode`별), 품질 점검 `data_status` × `result`·`err`·`badge`.
+
+### Clarity 켜기
+
+1. clarity.microsoft.com에서 새 프로젝트를 만듭니다. 사이트 URL은 `https://gumoyaz.github.io/korean-community-crawler/`입니다.
+2. Settings → Overview에서 프로젝트 ID(소문자·숫자 약 10자)를 복사합니다.
+3. GitHub 리포 → Settings → Secrets and variables → Actions → **Variables**에 `CLARITY_PROJECT_ID`로 넣습니다.
+4. 다음 실행(약 10분) 뒤 페이지 소스에 `clarity.ms/tag/<ID>`가 보이면 켜진 것입니다. 안내 페이지의 Clarity 문구도 같이 켜집니다. Clarity 설치 화면의 '수동 설치'는 이미 된 상태입니다.
+5. (선택) Clarity 설정 → Setup → Google Analytics에서 GA4 속성과 연결합니다(코드 변경 없음).
+
+Clarity는 2025-10-31부터 EEA·영국·스위스 방문에 동의 신호를 요구합니다. 신호가 없으면 그 지역 방문은 쿠키 없이 기록되어 페이지마다 세션이 끊깁니다. 배포 뒤 이 지역 방문 비율을 보고 동의 API를 붙일지 정합니다.
 
 ## 옛 데이터 이전
 
