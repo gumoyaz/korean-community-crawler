@@ -119,7 +119,8 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
   - 음성 생성만 끄는 Variables 스위치는 없다. 끄려면 pages.yml의 `TTS_ENABLED` 식을 `false`로 바꾼다. 이미 `audio` 브랜치에 있는 음성은 계속 실린다(14일 정리도 멈춘다).
 - 방문 분석 확인:
   - 이벤트가 들어오는지는 Tag Assistant(tagassistant.google.com)로 사이트에 연결해 GA4 DebugView에서 본다. 맞춤 측정기준·측정항목은 등록한 뒤부터만 쌓이므로(소급 안 됨) 등록 목록(README '방문 분석')을 배포 전에 넣는다.
-  - GA4 MCP는 사용자 구글 로그인이 아니라 서비스 계정으로 접속한다. 커트 속성은 다른 GA 어카운트에 있어서, 그 서비스 계정을 커트 어카운트(또는 속성)에 '뷰어'로 넣어야 MCP에서 보인다. 서비스 계정 이메일은 MCP 설정의 인증 JSON(`client_email`)에 있다. 공개 리포라 문서에 적지 않는다.
+  - GA4 MCP는 사용자 구글 로그인이 아니라 서비스 계정으로 접속한다. 커트 속성(속성 ID 556037562, '커뮤니티 트렌드', 별도 GA 어카운트)에는 그 서비스 계정이 **편집자**로 들어가 있다(2026-09-27). 그래서 MCP 조회와, 같은 인증 JSON으로 GA Admin API(맞춤 정의·키 이벤트·보관 설정) 호출이 된다. 서비스 계정 이메일은 인증 JSON(`client_email`)에 있다. 공개 리포라 문서에 적지 않는다.
+  - Admin API 맞춤 정의의 `displayName`에는 괄호를 못 쓴다(영문·숫자·밑줄·공백, 한글은 됨). 그래서 측정항목 이름은 '글 나이 분'처럼 붙였다.
   - Clarity 켜기: clarity.microsoft.com에서 프로젝트를 만들고 ID를 Variables `CLARITY_PROJECT_ID`에 넣는다. 다음 실행 뒤 페이지 소스에 `clarity.ms/tag/<ID>`가 보이면 켜진 것이다. 끄려면 Variable을 비운다(안내 페이지 문구도 같이 꺼진다). 형식이 틀리면 빌드 로그에 `[Build] CLARITY_PROJECT_ID 형식이 아님`이 남는다.
 
 ## 데일리 음성 파일(Gemini TTS)
@@ -157,10 +158,8 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 - [ ] (선택) SNS 공유용 1200×630 `og:image`를 만든다. 지금은 투명 배경 로고를 그대로 쓴다.
 - [ ] (선택) 커스텀 도메인을 연결한다. 다음 호스팅 이전 때 SEO 손실을 막는다.
 - [x] ~~방문 분석(GA4) 태그.~~ 2026-09-26에 GA4 태그를 넣고 측정 ID를 Variables에 넣어 켰다. 2026-09-27에 커스텀 이벤트 28종·콘텐츠 그룹·Clarity(ID만 넣으면 켜짐)·분석 도구 안내 페이지를 더했다. 헤드리스 크롬 375·1280에서 ID를 켠 렌더·끈 렌더·잘못된 형식 렌더를 모두 확인했다(분석 요청은 가로챔).
-- [ ] **방문 분석 켜기 마무리(사용자, GA·Clarity 관리 화면).**
-  - (1) GA4 커트 속성에 맞춤 측정기준 38개·맞춤 측정항목 5개를 등록하고 키 이벤트(`post_click`·`daily_post_click`·`tts_play`)를 표시한다(README '방문 분석'). 소급되지 않으니 먼저 한다.
-  - (2) 같은 곳에서 이벤트 데이터 보관 14개월, Google 신호 끔, 광고 제품 연결 없음을 확인한다. 안내 페이지 문장이 이 설정을 전제로 한다.
-  - (3) GA4 MCP용 서비스 계정을 커트 GA 어카운트(또는 속성)에 '뷰어'로 추가한다. 지금 MCP에는 다른 4개 속성만 보인다. 추가한 뒤 `get_account_summaries`에 커트가 나오는지 본다.
+- [ ] **방문 분석 켜기 마무리.**
+  - ~~(1)~(3)~~ 2026-09-27 완료: 서비스 계정 편집자 추가(사용자) 뒤 Admin API로 맞춤 측정기준 38개·측정항목 5개, 키 이벤트 `post_click`·`daily_post_click`·`tts_play`를 등록하고, 이벤트 데이터 보관을 2개월(기본값)에서 14개월로 바꿨다. Google 신호는 꺼져 있고 광고 연결은 없다(확인). 실제 사이트에서 조작한 이벤트 6종이 GA4 실시간 보고서에 들어오는 것도 확인했다.
   - (4) Clarity 프로젝트를 만들고 ID를 `CLARITY_PROJECT_ID` Variables에 넣는다. (선택) Clarity 설정에서 GA4 연동, 닉네임 가림(`.card-author`).
   - (5) 배포 뒤 DebugView에서 확인한다. 커스텀 이벤트에 붙인 `content_group`이 '콘텐츠 그룹' 측정기준에 들어가는지, `transport_type`이 파라미터로 남지 않는지 본다. 들어가지 않으면 `track`의 `content_group`을 빼는 것을 검토한다.
 - [ ] 며칠 쌓인 뒤 GA4로 본다: 검색 유입(`sessionDefaultChannelGroup` Organic Search, 서치 콘솔과 함께), 원글 클릭(`post_click` × `area`·`community`·`pos`), 피드 깊이(`feed_depth`), 이슈 보드 퍼널(`issue_open` → `issue_view_all` → `post_click`), 읽어주기 완료율(`tts_play` → `tts_complete`, `tts_mode`별), 불러오기 품질(`data_status` × `err`·`badge`). 결과로 이슈 보드·피드 순서·읽어주기를 고친다.
