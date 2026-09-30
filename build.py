@@ -536,9 +536,11 @@ def _health(data: dict, prev, now: datetime) -> tuple[dict, dict]:
     status = str(data.get('status') or '')
     sh = data.get('source_health') if isinstance(data.get('source_health'), dict) else {}
     problems = {s: e for s, e in sh.items() if isinstance(e, dict) and e.get('status') in HEALTH_LABEL}
+    # 원본 수집이 멈춰 목록에서 뺀 커뮤니티(crawler.SUSPEND_AFTER_H) — 알림 대상은 아니고 detail에만 남긴다
+    suspended = {s: e for s, e in sh.items() if isinstance(e, dict) and e.get('status') == 'suspended'}
     if status in ('stale', 'stale-source'):
         health = 'stale'
-    elif status == 'partial' or problems:
+    elif status == 'partial' or problems or suspended:
         health = 'degraded'
     else:
         health = 'ok'
@@ -585,6 +587,11 @@ def _health(data: dict, prev, now: datetime) -> tuple[dict, dict]:
         fv = filled(e)
         fill = (f', {"·".join(HEALTH_FILL_VIA[v][0] for v in fv)}{HEALTH_FILL_VIA[fv[-1]][1]} 보충' if fv else '')
         parts.append(f'{HEALTH_LABEL[e["status"]]}: {label}({s}{ago}{note}{fill})')
+    for s, e in sorted(suspended.items()):
+        label = SOURCE_META.get(s, (s,))[0]
+        last = _parse_iso(e.get('last_update'))
+        ago = f', 마지막 갱신 {(now - last).total_seconds() / 3600:.1f}시간 전' if last else ''
+        parts.append(f'중단(목록에서 뺌, 원본이 다시 갱신되면 자동 복귀): {label}({s}{ago})')
     if held:
         parts.append(f'KST {HEALTH_FROM_HOUR:02d}시 전이라 판정을 쉬는 시간 - 직전 알림 상태 유지(연속 {streak}회)')
     # GITHUB_OUTPUT은 한 줄 key=value — 줄바꿈이 들어가면 다음 출력이 깨진다

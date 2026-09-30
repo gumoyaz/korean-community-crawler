@@ -194,7 +194,11 @@ PREV_DAY_FIELDS = ('title', 'url', 'source', 'source_label', 'source_emoji', 'so
 # 전체 status — ok | partial(TBS가 일부만 옴: 끊김·장애·기대 커뮤니티 여럿 빠짐/멈춤, 예비 경로로 채우고 이전 글 병합)
 # | stale(수집 실패로 이전 목록 유지) | stale-source(TBS 전체 갱신이 HEALTH_STALE_MIN분 넘게 멈춤)
 STATUSES = ('ok', 'partial', 'stale', 'stale-source')
-HEALTH_STATUSES = ('ok', 'degraded', 'missing', 'blocked')
+HEALTH_STATUSES = ('ok', 'degraded', 'missing', 'blocked', 'suspended')
+# 원본(TBS) 갱신이 이 시간 넘게 없고 이번에 어느 경로로도 글이 없는 커뮤니티는 '중단'(suspended)으로 본다 — 칩·알림에서
+# 빠지고, TBS에 새 갱신이 오면 다음 실행에서 저절로 ok로 돌아온다. 인스티즈는 09-29 05시부터 TBS 수집이 멈췄고
+# 해외 러너에서는 직접·이슈링크로도 못 채워 missing 알림만 이어졌다(2026-09-30, 사용자 결정: 빼되 돌아오면 다시 넣기)
+SUSPEND_AFTER_H = 30
 
 
 # ── 직접 스크래핑 (TBS에서 빠졌거나 멈춘 커뮤니티만) ──────────────────────────
@@ -1300,7 +1304,10 @@ class TrendCrawler:
     def _decide_status(self, plan: dict, complete: bool) -> str:
         if plan.get('tbs_stale'):
             return 'stale-source'
-        if not complete or len(plan['degraded'] | plan['missing']) >= PARTIAL_MIN_PROBLEMS:
+        # 중단(suspended)으로 빼 둔 커뮤니티는 partial 판정에 세지 않는다 (돌아오면 _update_source_health가 ok로 되돌림)
+        with self._lock:
+            suspended = {s for s, e in self._source_health.items() if e.get('status') == 'suspended'}
+        if not complete or len((plan['degraded'] | plan['missing']) - suspended) >= PARTIAL_MIN_PROBLEMS:
             return 'partial'
         return 'ok'
 
@@ -1471,6 +1478,18 @@ class TrendCrawler:
                 'since': old.get('since') if old.get('status') == status and old.get('since') else _fmt_dt(now),
                 'via': [v for v in VIA_ORDER if v in via_by[s]],
             }
+            # 원본 갱신이 SUSPEND_AFTER_H시간 넘게 없고 이번에 글이 하나도 없으면 중단으로 뺀다. 원본 기록이 아예 없는 곳은
+            # 직전에 중단이었을 때만 이어 간다. TBS에 새 갱신이 오면 위에서 ok·degraded로 판정되고 여기 조건도 풀린다
+            last = _parse_iso_dt(entry['last_update'])
+            if status != 'ok' and entry['n'] == 0 and (
+                    (last is not None and (now - last).total_seconds() > SUSPEND_AFTER_H * 3600)
+                    or (last is None and old.get('status') == 'suspended')):
+                status = entry['status'] = 'suspended'
+                if old.get('status') == 'suspended' and old.get('since'):
+                    entry['since'] = old['since']
+                else:
+                    entry['since'] = _fmt_dt(now)
+                note = '원본 수집 중단 - 목록에서 뺌(원본이 다시 갱신되면 자동으로 다시 넣음)'
             if note:
                 entry['note'] = note
             health[s] = entry
