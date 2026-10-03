@@ -1,0 +1,43 @@
+{
+ "date": "2026-09-29",
+ "source_sha": "f28f4a0cf79d3333",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 115.44,
+ "bytes": 692928,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "유튜버 닛몰캐쉬 폭로 관련 논란",
+   "start": 6.25
+  },
+  {
+   "title": "한가인 구매내역 인증",
+   "start": 29.77
+  },
+  {
+   "title": "산후도우미 업체 예약 거절",
+   "start": 38.17
+  },
+  {
+   "title": "군사 및 사법 판결 소식",
+   "start": 53.06
+  },
+  {
+   "title": "최예나 성수동 목격담",
+   "start": 66.48
+  },
+  {
+   "title": "주4일제 근무 반응",
+   "start": 81.15
+  },
+  {
+   "title": "기술 및 기타 커뮤니티 화제글",
+   "start": 91.93
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-09-30T00:20:35+09:00",
+ "latency": 33.5
+}

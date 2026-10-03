@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-02",
+ "source_sha": "ab2dd3ad26a46d05",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 121.4,
+ "bytes": 728784,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "김민재 인터뷰 및 발언",
+   "start": 6.24
+  },
+  {
+   "title": "연예계 소식 및 열애설",
+   "start": 19.25
+  },
+  {
+   "title": "이동진 평론가 발언 및 '암살자(들)' 행사 취소",
+   "start": 37.06
+  },
+  {
+   "title": "교육 및 사회 관련 이슈",
+   "start": 57.22
+  },
+  {
+   "title": "정치 관련 게시글",
+   "start": 77.89
+  },
+  {
+   "title": "기업 및 일상, 기타 근황",
+   "start": 97.93
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-03T01:00:45+09:00",
+ "latency": 35.2
+}

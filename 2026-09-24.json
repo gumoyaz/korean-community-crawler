@@ -1,0 +1,35 @@
+{
+ "date": "2026-09-24",
+ "source_sha": "bf85743c29978583",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 131.04,
+ "bytes": 786528,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "사건 및 사고 이슈",
+   "start": 6.65
+  },
+  {
+   "title": "정치 및 국방 관련 소식",
+   "start": 24.46
+  },
+  {
+   "title": "사회 및 문화 호불호 이슈",
+   "start": 50.38
+  },
+  {
+   "title": "여행 및 해외 관련 소식",
+   "start": 77.34
+  },
+  {
+   "title": "기타 개인 및 게임, 엔터테인먼트 소식",
+   "start": 104.9
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-09-25T09:50:30+09:00",
+ "latency": 34.7
+}

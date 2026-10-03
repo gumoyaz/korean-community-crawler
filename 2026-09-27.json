@@ -1,0 +1,39 @@
+{
+ "date": "2026-09-27",
+ "source_sha": "9ba3ad6a8ca1d056",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 114.08,
+ "bytes": 684864,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "아시안게임 야구 및 스포츠",
+   "start": 6.32
+  },
+  {
+   "title": "결혼 및 예식 관련 이야기",
+   "start": 22.07
+  },
+  {
+   "title": "방송 및 유명인 소식",
+   "start": 37.54
+  },
+  {
+   "title": "남녀 및 연애 관련 담론",
+   "start": 54.28
+  },
+  {
+   "title": "건강 및 의료 정보",
+   "start": 76.79
+  },
+  {
+   "title": "사회 및 일상 이슈",
+   "start": 87.76
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-09-28T00:20:29+09:00",
+ "latency": 30.7
+}
