@@ -20,6 +20,7 @@
 | `templates/privacy.html` | 분석 도구 안내(`/privacy/`). `ga_id`·`clarity_id` 유무에 따라 문구가 바뀜. `noindex`, sitemap·llms.txt 제외 |
 | `.github/workflows/pages.yml` | 빌드·배포 워크플로 (+ 수집 이상 알림 `health` 잡) |
 | `.github/workflows/source-probe.yml` · `tools/probe_sources.py` | 수동 실행 전용 소스 실측 프로브(러너 IP에서 TBS·직접 스크래핑·이슈링크·후보 URL의 상태·차단·행 수). 배포·state 없음 |
+| `.github/workflows/watchdog.yml` | 실행 감시. 15분마다 `pages.yml` 실행 중 30분 넘게 대기(queued·waiting·requested)인 것을 취소(안 되면 force-cancel). `pages` concurrency와 따로라 막히지 않음 |
 | `tools/import_daily_db.py` | 옛 SQLite `daily.db` → JSON 변환 |
 | `data/daily/` | **커밋되는** 데일리 리포트 아카이브 (Actions 봇이 커밋) |
 
@@ -99,6 +100,7 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 
 ## 운영 메모
 
+- 실행이 대기에 굳는 장애: 2026-10-06 02:10 KST에 실행 하나가 시작을 못 하고 15시간 대기로 남아 `pages` concurrency를 붙잡았고, 그 뒤 dispatch가 전부 pending → 취소돼 사이트가 02:00에 멈췄다(GitHub 쪽 문제). 그 실행을 API로 취소하자 바로 돌아왔다. 이후 `watchdog.yml`이 15분마다 30분 넘은 대기 실행을 취소한다.
 - 수동 실행: Actions → Build and deploy → Run workflow. "간격 가드 무시"를 체크하면 바로 크롤한다.
 - 외부 트리거: cron-job.org가 10분마다 `POST /repos/gumoyaz/korean-community-crawler/actions/workflows/pages.yml/dispatches`를 호출한다.
   - 헤더에 `User-Agent`가 없으면 GitHub가 403을 준다.

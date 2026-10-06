@@ -1,0 +1,48 @@
+# 실행 감시: 'Build and deploy'(pages.yml) 실행이 30분 넘게 대기(queued·waiting·requested)에 걸려 있으면 취소한다.
+# pages.yml은 concurrency 'pages'로 한 번에 하나만 돌아서, 시작을 못 하고 굳은 실행 하나가 있으면 그 뒤 실행이 전부
+# pending → 다음 실행에 밀려 취소된다(2026-10-06 02:10~17:00 KST, 사이트 15시간 정지). 이 워크플로는 'pages'와 다른
+# concurrency라 막히지 않는다. 취소가 안 먹으면 force-cancel을 쓴다. 다음 실행은 cron-job.org의 10분 dispatch가 띄운다.
+name: Run watchdog
+
+on:
+  schedule:
+    - cron: '5,20,35,50 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: true
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write   # 실행 취소
+    steps:
+      - name: Cancel runs stuck in queue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          MAX_QUEUE_MIN: '30'
+        run: |
+          set -euo pipefail
+          now=$(date -u +%s)
+          for st in queued waiting requested; do
+            gh api "repos/$GH_REPO/actions/workflows/pages.yml/runs?status=$st&per_page=50" \
+              --jq '.workflow_runs[] | "\(.id) \(.created_at)"' | while read -r id created; do
+              [ -n "$id" ] || continue
+              age=$(( (now - $(date -u -d "$created" +%s)) / 60 ))
+              if [ "$age" -ge "$MAX_QUEUE_MIN" ]; then
+                echo "실행 $id: $st ${age}분 - 취소"
+                if ! gh api -X POST "repos/$GH_REPO/actions/runs/$id/cancel" >/dev/null; then
+                  echo "  일반 취소 실패 - 강제 취소"
+                  gh api -X POST "repos/$GH_REPO/actions/runs/$id/force-cancel" >/dev/null || echo "  강제 취소도 실패"
+                fi
+                echo "- 실행 $id ($st ${age}분) 취소" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done
+          done
+          echo "점검 끝 ($(date -u +%FT%TZ))"
