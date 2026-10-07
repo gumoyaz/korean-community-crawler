@@ -17,6 +17,7 @@
           생성은 TTS_ENABLED=true일 때만 한다(로컬 기본값은 생성 안 함).
 """
 import argparse
+import email.utils
 import json
 import os
 import re
@@ -704,6 +705,34 @@ def _sitemap(site_url: str, build_time: str, summaries: list) -> str:
     return '\n'.join(parts) + '\n'
 
 
+def _rss(site_url: str, items: list, build_time: str) -> str:
+    """데일리 리포트 RSS 2.0 (/rss.xml) — 네이버 서치어드바이저 등 검색엔진이 새 리포트를 빨리 수집하게 한다.
+    최근 30개. 설명은 데일리 상세의 meta description(그날 소제목)과 같다."""
+    def rfc822(iso, date):
+        dt = _parse_iso(iso) or datetime.strptime(date, '%Y-%m-%d').replace(hour=12, tzinfo=KST)
+        return email.utils.format_datetime(dt)
+
+    parts = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">', '<channel>',
+             '  <title>커트 — 커뮤니티 인기글 데일리 리포트</title>',
+             f'  <link>{xml_escape(site_url)}/daily/</link>',
+             '  <description>디시·에펨코리아·더쿠·루리웹 등 한국 커뮤니티 인기글을 매일 AI가 주제별로 요약한 리포트</description>',
+             '  <language>ko</language>',
+             f'  <lastBuildDate>{rfc822(build_time, build_time[:10])}</lastBuildDate>',
+             f'  <atom:link href="{xml_escape(site_url)}/rss.xml" rel="self" type="application/rss+xml"/>']
+    for it in items[:30]:
+        link = f"{site_url}/daily/{it['date']}/"
+        parts += ['  <item>',
+                  f"    <title>{xml_escape(it['date_kr'] + ' 커뮤니티 인기글 요약')}</title>",
+                  f'    <link>{xml_escape(link)}</link>',
+                  f'    <guid isPermaLink="true">{xml_escape(link)}</guid>',
+                  f"    <description>{xml_escape(it['desc'])}</description>",
+                  f"    <pubDate>{rfc822(it.get('at'), it['date'])}</pubDate>",
+                  '  </item>']
+    parts += ['</channel>', '</rss>']
+    return '\n'.join(parts) + '\n'
+
+
 def _robots_txt(site_url: str, base: str) -> str:
     # 봇별 그룹을 따로 두면 그 봇은 '*' 그룹 규칙을 무시한다(RFC 9309) → 한 그룹에 모은다.
     # 주의: 프로젝트 페이지(서브경로)에서는 크롤러가 호스트 루트의 robots.txt만 읽는다.
@@ -880,7 +909,7 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
 
     render('daily/index.html', 'daily.html', **{**blank, 'view': 'list', 'summaries': summaries})
 
-    written, with_audio = [], []
+    written, with_audio, rss_items = [], [], []
     for i, d in enumerate(dates):
         record = daily.get_summary(d)
         if not record:
@@ -890,6 +919,8 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
         record['summary_html'] = _md_to_html(record.get('summary_md', ''))
         record['date_kr'] = _format_date_kr(d)
         record['seo_desc'] = _daily_seo_desc(record, record['date_kr'])
+        rss_items.append({'date': d, 'date_kr': record['date_kr'], 'desc': record['seo_desc'],
+                          'at': record.get('generated_at')})
         record['is_final'] = _is_final(record, d)
         record['audio'] = _site_audio(out, d, record['summary_md'], cfg['base'])
         if record['audio']:
@@ -917,6 +948,7 @@ def _render(out: Path, templates: Path, cfg: dict, now: datetime, crawler: Trend
     _write(out / 'sitemap.xml', _sitemap(cfg['site_url'], build_time, sitemap_items))
     _write(out / 'robots.txt', _robots_txt(cfg['site_url'], cfg['base']))
     _write(out / 'llms.txt', _llms_txt(cfg['site_url'], sitemap_items, data))
+    _write(out / 'rss.xml', _rss(cfg['site_url'], rss_items, build_time))
     _write(out / '404.html', _not_found_html(cfg['base'], cfg['ga_id'], cfg['clarity_id']))
     _write(out / '.nojekyll', '')
 

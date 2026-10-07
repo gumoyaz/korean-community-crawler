@@ -8,7 +8,7 @@
 
 | 파일 | 역할 |
 |---|---|
-| `build.py` | 진입점. 상태 복원 → 간격 가드 → 크롤 → 데일리 생성 → 데일리 음성 → `_site/` 렌더링 (privacy·sitemap·robots·llms.txt·404·audio 포함) |
+| `build.py` | 진입점. 상태 복원 → 간격 가드 → 크롤 → 데일리 생성 → 데일리 음성 → `_site/` 렌더링 (privacy·sitemap·rss.xml·robots·llms.txt·404·audio 포함) |
 | `tts.py` | 데일리 음성(Gemini TTS). 대본 → 합성 1회(+예비 모델) → 섹션 경계 → MP3(lameenc) → `AUDIO_DIR`(기본 `.audio/`)에 `{date}.mp3`·`{date}.json` |
 | `crawler.py` | `TrendCrawler`: todaybeststory API 전량 수집, 커뮤니티별 상태(`source_health`)·전체 `status` 판정, 빠지거나 멈춘 커뮤니티만 직접 스크래핑·이슈링크로 채우기, 오전 전날 글 보충, 랭킹, 이슈 블록·튜닝 로그 반영, `export_state`/`import_state` |
 | `sources_issuelink.py` | 이슈링크 2차 소스. `fetch(sources, now, cache=…)` → crawler 글 스키마(`via: 'issuelink'`), `SOURCE_MAP`(이슈링크 15곳 → source id). 어떤 실패도 예외로 올리지 않는다 |
@@ -158,7 +158,8 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 - [ ] Gemini 모델 운용을 점검한다. 3.8 Flash의 503·일일 한도 빈도를 보고 기본 모델과 체인 순서를 조정한다.
 - [x] ~~데일리 음성 첫 Actions 실행 확인.~~ 2026-09-25에 음성 3개가 만들어져 `audio` 브랜치에 올라갔다. 교체 push 3번이 모두 통과했고(브랜치 규칙 없음), `lameenc`가 설치됐고, 경계는 모두 `snap`이었다. 429가 나면 `[한도: ...]` 값을 위 '한도' 줄에 적는다.
 - [ ] 읽어주기를 실기기에서 확인한다. 사파리·파이어폭스에서 음성 파일 오류 때 `pause` 이벤트가 `audio.error`보다 먼저 오면, 재생 중 끊김도 바로 이어 읽지 않고 '일시정지' 대기 상태가 된다(▶ 한 번이면 그 섹션부터 이어짐). 전환 안내(role=status)를 스크린리더가 읽는지도 헤드리스 크롬 접근성 트리까지만 봤다.
-- [ ] (선택) SNS 공유용 1200×630 `og:image`를 만든다. 지금은 투명 배경 로고를 그대로 쓴다.
+- [x] ~~SNS 공유용 `og:image`.~~ 2026-10-07 `static/og-image.png`(1200×630, 로고 + '실시간 커뮤니티 인기글 모음', 맑은 고딕으로 생성), `twitter:card`는 `summary_large_image`.
+- 데일리 리포트 RSS(2026-10-07): `/rss.xml`(RSS 2.0, 최근 30개, 설명은 데일리 상세 meta description과 같음, `build._rss`). 메인·데일리 head에 `<link rel="alternate" type="application/rss+xml">`. 네이버 서치어드바이저·서치 콘솔에 사이트맵과 함께 제출한다.
 - [ ] (선택) 커스텀 도메인을 연결한다. 다음 호스팅 이전 때 SEO 손실을 막는다.
 - [x] ~~방문 분석(GA4) 태그.~~ 2026-09-26에 GA4 태그를 넣고 측정 ID를 Variables에 넣어 켰다. 2026-09-27에 커스텀 이벤트 28종·콘텐츠 그룹·Clarity(ID만 넣으면 켜짐)·분석 도구 안내 페이지를 더했다. 헤드리스 크롬 375·1280에서 ID를 켠 렌더·끈 렌더·잘못된 형식 렌더를 모두 확인했다(분석 요청은 가로챔).
 - [ ] **방문 분석 켜기 마무리.**
