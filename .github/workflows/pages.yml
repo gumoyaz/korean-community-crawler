@@ -21,13 +21,41 @@ on:
 # 권한은 잡마다 필요한 것만 준다
 permissions: {}
 
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
+# 동시 실행 제한은 잡 단위로 둔다(build·deploy 각각 한 번에 하나). 실행 전체에 걸면 시작을 못 하고 대기에 굳은 실행
+# 하나가 그룹을 붙잡아 뒤 실행이 전부 pending → 취소된다(2026-10-06 02:10~17:00, 19:00~05:20 KST 두 번 정지).
+# 실행마다 맨 먼저 도는 watchdog 잡은 그룹 밖이라 막히지 않고, 30분 넘게 대기인 다른 실행을 취소한다
 jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      actions: write   # 굳은 실행 취소
+    steps:
+      - name: Cancel other runs stuck in queue
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SELF_RUN: ${{ github.run_id }}
+          MAX_QUEUE_MIN: '30'
+        run: |
+          set -uo pipefail
+          now=$(date -u +%s)
+          for st in queued waiting requested; do
+            gh api "repos/$GH_REPO/actions/workflows/pages.yml/runs?status=$st&per_page=50" --jq '.workflow_runs[] | "\(.id) \(.created_at)"' | while read -r id created; do
+              [ -n "$id" ] && [ "$id" != "$SELF_RUN" ] || continue
+              age=$(( (now - $(date -u -d "$created" +%s)) / 60 ))
+              [ "$age" -ge "$MAX_QUEUE_MIN" ] || continue
+              echo "실행 $id: $st ${age}분 - 취소"
+              gh api -X POST "repos/$GH_REPO/actions/runs/$id/cancel" >/dev/null || gh api -X POST "repos/$GH_REPO/actions/runs/$id/force-cancel" >/dev/null || echo "  취소 실패"
+            done
+          done
+
   build:
     runs-on: ubuntu-latest
+    concurrency:
+      group: pages-build
+      cancel-in-progress: false
     # 최악 경로(수집 180초 + AI 요약 130초 + 데일리 약 250초 + 설치·렌더)가 10분을 넘을 수 있다.
     # 음성(TTS 최대 150초 × 2모델)은 데일리 생성을 시도한 실행(성공·실패 모두)과 build.py 시작 후
     # 7분(TTS_START_BUDGET_SEC)이 지난 실행에서는 하지 않으므로 이 경로와 겹치지 않는다
@@ -264,6 +292,9 @@ jobs:
     needs: build
     if: needs.build.outputs.skip != 'true'
     runs-on: ubuntu-latest
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
     timeout-minutes: 10
     permissions:
       pages: write      # Pages 배포

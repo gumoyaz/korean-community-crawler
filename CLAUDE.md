@@ -100,7 +100,7 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 
 ## 운영 메모
 
-- 실행이 대기에 굳는 장애: 2026-10-06 02:10 KST에 실행 하나가 시작을 못 하고 15시간 대기로 남아 `pages` concurrency를 붙잡았고, 그 뒤 dispatch가 전부 pending → 취소돼 사이트가 02:00에 멈췄다(GitHub 쪽 문제). 그 실행을 API로 취소하자 바로 돌아왔다. 이후 `watchdog.yml`이 15분마다 30분 넘은 대기 실행을 취소한다.
+- 실행이 대기에 굳는 장애: 2026-10-06 02:10 KST에 실행 하나가 시작을 못 하고 15시간 대기로 남아 `pages` concurrency를 붙잡았고, 그 뒤 dispatch가 전부 pending → 취소돼 사이트가 02:00에 멈췄다(GitHub 쪽 문제). 그 실행을 API로 취소하자 바로 돌아왔다. 같은 날 19:00~다음 날 05:20에 또 10시간 멈췄는데, `watchdog.yml`의 15분 schedule이 실제로는 몇 시간에 한 번만 돌아(10/6 16시간에 3회) 늦게 잡았다. 그래서 동시 실행 제한을 실행 전체에서 잡 단위(`pages-build`·`pages-deploy`)로 옮기고, pages.yml 실행마다 그룹 밖의 `watchdog` 잡이 먼저 돌아 30분 넘게 대기인 다른 실행을 취소한다(10분 dispatch마다 점검). `watchdog.yml`은 dispatch가 끊겼을 때를 위한 보조다.
 - 수동 실행: Actions → Build and deploy → Run workflow. "간격 가드 무시"를 체크하면 바로 크롤한다.
 - 외부 트리거: cron-job.org가 10분마다 `POST /repos/gumoyaz/korean-community-crawler/actions/workflows/pages.yml/dispatches`를 호출한다.
   - 헤더에 `User-Agent`가 없으면 GitHub가 403을 준다.
