@@ -165,7 +165,8 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 - [x] ~~방문 분석(GA4) 태그.~~ 2026-09-26에 GA4 태그를 넣고 측정 ID를 Variables에 넣어 켰다. 2026-09-27에 커스텀 이벤트 28종·콘텐츠 그룹·Clarity(ID만 넣으면 켜짐)·분석 도구 안내 페이지를 더했다. 헤드리스 크롬 375·1280에서 ID를 켠 렌더·끈 렌더·잘못된 형식 렌더를 모두 확인했다(분석 요청은 가로챔).
 - [ ] **방문 분석 켜기 마무리.**
   - ~~(1)~(3)~~ 2026-09-27 완료: 서비스 계정 편집자 추가(사용자) 뒤 Admin API로 맞춤 측정기준 38개·측정항목 5개, 키 이벤트 `post_click`·`daily_post_click`·`tts_play`를 등록하고, 이벤트 데이터 보관을 2개월(기본값)에서 14개월로 바꿨다. Google 신호는 꺼져 있고 광고 연결은 없다(확인). 실제 사이트에서 조작한 이벤트 6종이 GA4 실시간 보고서에 들어오는 것도 확인했다.
-  - (4) Clarity 프로젝트를 만들고 ID를 `CLARITY_PROJECT_ID` Variables에 넣는다. (선택) Clarity 설정에서 GA4 연동, 닉네임 가림(`.card-author`).
+  - ~~(4) Clarity~~ 2026-10-08 켬: 프로젝트 ID를 Variables `CLARITY_PROJECT_ID`에 넣었고, 운영 페이지에서 `clarity.ms/tag/<ID>` 로드와 `i.clarity.ms/collect` 전송을 확인했다. 안내 페이지의 Clarity 문구도 켜졌다. (선택) Clarity 설정에서 GA4 연동, 닉네임 가림(`.card-author`).
+  - 검색 등록(2026-10-07~08): 네이버 서치어드바이저(호스트 `https://gumoyaz.github.io`, 사이트맵·RSS 제출), 빙 웹마스터(서치 콘솔 가져오기), 서치 콘솔 색인 생성 요청(/daily/·최근 데일리). 다음 웹마스터는 하지 않기로 함.
   - (5) 배포 뒤 DebugView에서 확인한다. 커스텀 이벤트에 붙인 `content_group`이 '콘텐츠 그룹' 측정기준에 들어가는지, `transport_type`이 파라미터로 남지 않는지 본다. 들어가지 않으면 `track`의 `content_group`을 빼는 것을 검토한다.
 - [ ] 며칠 쌓인 뒤 GA4로 본다: 검색 유입(`sessionDefaultChannelGroup` Organic Search, 서치 콘솔과 함께), 원글 클릭(`post_click` × `area`·`community`·`pos`), 피드 깊이(`feed_depth`), 이슈 보드 퍼널(`issue_open` → `issue_view_all` → `post_click`), 읽어주기 완료율(`tts_play` → `tts_complete`, `tts_mode`별), 불러오기 품질(`data_status` × `err`·`badge`). 결과로 이슈 보드·피드 순서·읽어주기를 고친다.
 - [ ] Clarity를 켠 뒤 EEA·영국·스위스 방문 비율을 본다. 2025-10-31부터 이 지역은 동의 신호가 없으면 쿠키 없이 기록된다(세션이 페이지마다 끊김). 비율이 의미 있으면 Clarity 동의 API를 검토한다.
