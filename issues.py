@@ -568,6 +568,51 @@ def _surface(word, comp, feats):
     return f if f.startswith(word) else word
 
 
+# ── 이름 다듬기 (2026-10-08, issue_log 2주치 어색한 이름에서 뽑음) ─────────────────
+# 묶기에는 손대지 않고 보드에 보이는 이름만 고친다. 예: '건강 미국 의료 민영화'·'축구 피셜 축구대표팀 내부 갈등'·
+# '만에 개인 체납'·'신입생 빡친 교수 올린'·'사망한 공무원 사망'·'이화영 이재명 대통령에게'·'즉각 조사 거부 추석'
+NAME_SUFFIX_STRIP = ('이라면', '에게서', '에게', '에서', '한테', '라면', '들')   # 끝에 붙은 조사·복수 (남은 글자 2자 이상일 때)
+# 이름에 쓰지 않는 말: 수식어·서술어·부사·말버릇
+NAME_STOP = {'만에', '의외로', '떠나', '피셜', '오피셜', '보내', '당신', '실수', '인생', '진짜', '레알', '빡친', '빡침',
+             '올린', '대단한', '충격적인', '절대', '역시', '드디어', '결국', '아직', '방금', '현재'}
+# 수식어·서술어 어미 — 끝이 이렇게 끝나면 이름에서 뺀다 (명사 예외는 아래)
+NAME_MOD_RE = re.compile(r'(적인|스러운|다|한|된|친|린|낸|던|는)$')
+NAME_MOD_KEEP = {'북한', '남한', '대한', '제한', '권한', '기한', '무한', '시한', '국한', '한한', '남친', '여친', '사친',
+                 '부친', '모친', '절친', '런던', '베를린', '바다', '캐나다', '사다리', '판다', '플로리다', '다다'}
+
+
+# 이름 양 끝에서 빼는 일반명사 — 나라 이름·사건어는 남긴다('일본 어깨빵 튀르키예', 'DMZ 지뢰 사고')
+NAME_EDGE_DROP = GENERIC - set(NAME_EVENTS) - {
+    '베트남', '필리핀', '태국', '대만', '홍콩', '러시아', '우크라이나', '북한', '영국', '프랑스', '독일', '인도', '호주',
+    '캐나다', '이스라엘', '이란', '튀르키예', '터키', '몽골', '인도네시아', '말레이시아', '브라질', '멕시코', '싱가포르',
+    '런던', '미국', '일본', '중국', '한국', '대통령'}
+
+
+def _tidy_name(words):
+    """보드 이름용 단어 정리. (단어 목록, 뺀 단어 수)를 돌려준다.
+    끝 조사·복수 떼기 → 수식어·서술어·말버릇 빼기 → 다른 단어에 포함된 단어 빼기 → 양 끝의 일반명사 빼기(2단어는 남김)
+    → 최대 4단어. 많이 빠졌으면(2개 이상, 또는 1단어만 남음) 부른 쪽이 대표 글 제목으로 바꾼다"""
+    out = []
+    for w in words:
+        w = _clean_word(w)   # '여자들은' → '여자들' 다음에 복수를 뗀다
+        for suf in NAME_SUFFIX_STRIP:
+            if w.endswith(suf) and len(w) - len(suf) >= 2:
+                w = w[:-len(suf)]
+                break
+        w = _clean_word(w)
+        if not w or w in NAME_STOP or (w not in NAME_MOD_KEEP and len(w) >= 2 and NAME_MOD_RE.search(w)):
+            continue
+        if w not in out:
+            out.append(w)
+    out = [w for w in out if not any(w != o and len(w) >= 2 and w in o for o in out)]
+    while len(out) > 2 and out[-1] in NAME_EDGE_DROP:
+        out.pop()
+    while len(out) > 2 and out[0] in NAME_EDGE_DROP:
+        out.pop(0)
+    out = out[:4]
+    return out, len(dict.fromkeys(words)) - len(out)
+
+
 def _clean_word(w):
     """이름에 쓸 때 끝 조사 떼기: 스태프가 → 스태프 (로·도·만·과·와는 명사 끝일 수 있어 둔다: 마운자로)"""
     return w[:-1] if len(w) >= 3 and w[-1] in NAME_PARTICLE else w
@@ -712,8 +757,14 @@ def build_issues(posts: list, ps_history: list, now: datetime) -> dict:
         elif kind == 'story':
             if chain:
                 words = [w for w in chain if w not in LINK_STOP]
-                if specific and specific[0] not in words and cov[specific[0]] / n >= 0.4:
-                    words.insert(0, specific[0])
+                # 구절에 없는 핵심어는 절반 넘는 글에 나올 때만, 제목 속 위치에 맞춰 앞이나 뒤에 붙인다
+                # (0.4·늘 맨 앞이던 때 '건강 미국 의료 민영화'·'이재명 거래처에서 들어본 황당한 요구'가 나왔다)
+                if (specific and specific[0] not in words and cov[specific[0]] / n >= 0.5 and len(words) < 4
+                        and not any(specific[0] in w or w in specific[0] for w in words)):
+                    if _mean_pos(specific[0], comp, feats) > _mean_pos(words[-1], comp, feats):
+                        words.append(specific[0])
+                    else:
+                        words.insert(0, specific[0])
             elif specific:
                 words = specific[:2]
                 words.sort(key=lambda w: _mean_pos(w, comp, feats))
@@ -722,7 +773,9 @@ def build_issues(posts: list, ps_history: list, now: datetime) -> dict:
                 if ev and len(words) < 4:
                     words.append(ev)
         words = [w for w in words if not PRED_NAME_RE.search(w)]
-        name = ' '.join(_clean_word(_surface(w, comp, feats)) for w in words)
+        tidy, dropped = _tidy_name([_surface(w, comp, feats) for w in words])
+        # 많이 깎였으면(수식어·서술어가 섞인 제목 조각) 단어 나열보다 대표 글 제목이 낫다 — 아래에서 대표 글 제목으로 채운다
+        name = '' if (dropped >= 2 or (len(tidy) < 2 and len(words) >= 2)) else ' '.join(tidy)
 
         # 대표 글 — 설명력 점수순, 커뮤니티당 1개, 퍼나르기 중복·선정적 제목(2번째부터) 제외
         def why_score(i):
@@ -740,7 +793,7 @@ def build_issues(posts: list, ps_history: list, now: datetime) -> dict:
                 break
         head = posts[reps[0]]
         if not name:
-            name = _clean_headline(head['title'], 30) if kind == 'repost' else _display_title(head['title'])
+            name = _clean_headline(head['title'], 30)
 
         # 시각 — since는 두 번째로 이른 글 (첫 글이 엉뚱하게 오래된 경우를 피한다)
         times = sorted(t for t in (_parse_dt(p.get('date')) for p in ps) if t)
