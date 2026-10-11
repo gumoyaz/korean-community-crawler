@@ -40,8 +40,10 @@ MODEL = (os.environ.get('GEMINI_MODEL', '').strip() or DEFAULT_MODEL).removepref
 # 기본 모델이 실패하면 차례로 넘겨 보는 예비 모델들 (무료 한도는 모델마다 따로).
 # 2026-09-23~24 실측: 503 'high demand'가 모델마다 시간대별로 번갈아 났다(3.8·3.7 503, 3.6·3.5 성공,
 # 3.5-Lite 60초 무응답이 같은 시각에 섞임) → 예비를 하나만 두면 둘 다 실패하는 날이 생긴다.
+# 2026-10-11 3.7 Flash를 맨 뒤 예비로 추가. 같은 날 짧은 질문 3번이 모두 60~90초 무응답(3.6은 1.4초)이라
+# 앞에 두면 남은 시간을 다 써서 3.6·3.5 차례가 사라진다 — 나머지가 다 실패하고 시간이 남을 때만 시도한다.
 # GEMINI_FALLBACK_MODEL에 쉼표로 여러 개를 줄 수 있고 'none'이면 쓰지 않는다.
-DEFAULT_FALLBACK_MODELS = 'gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite'
+DEFAULT_FALLBACK_MODELS = 'gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.7-flash'
 _fb = os.environ.get('GEMINI_FALLBACK_MODEL', '').strip() or DEFAULT_FALLBACK_MODELS
 FALLBACK_MODELS = ([] if _fb.lower() in ('none', 'off', '0') else
                    [m for m in dict.fromkeys(x.strip().removeprefix('models/') for x in _fb.split(','))
