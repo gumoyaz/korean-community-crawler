@@ -34,7 +34,9 @@ try:
 except ImportError:
     pass
 
-DEFAULT_MODEL = 'gemini-3.8-flash'
+# 2026-10-11 기본을 3.8 → 3.6으로 바꿨다(사용자 결정). 10/4~11 데일리 8개 중 3.8이 쓴 것은 3개뿐이고, 같은 날 테스트에서
+# 3.8은 60초 무응답·3.6은 1.4~1.7초. 3.8이 기본이면 재시도에 예산 절반을 쓴 뒤에야 예비로 넘어갔다
+DEFAULT_MODEL = 'gemini-3.6-flash'
 MODEL = (os.environ.get('GEMINI_MODEL', '').strip() or DEFAULT_MODEL).removeprefix('models/')
 
 # 기본 모델이 실패하면 차례로 넘겨 보는 예비 모델들 (무료 한도는 모델마다 따로).
@@ -45,7 +47,8 @@ MODEL = (os.environ.get('GEMINI_MODEL', '').strip() or DEFAULT_MODEL).removepref
 # GEMINI_FALLBACK_MODEL에 쉼표로 여러 개를 줄 수 있고 'none'이면 쓰지 않는다.
 # 2026-10-11 3.5 은퇴 예정(사용자 안내) → 대신 3.1 Flash Lite(같은 날 2.4초 정상 응답)를 넣었다. 3.5·3.5 Lite는 은퇴 전까지
 # 남겨 둔다 — 은퇴 뒤에는 404로 바로 실패해 다음 차례로 넘어가므로 시간을 거의 안 쓴다. 3.1 Pro Preview는 무료 키로 0.4초 만에 거절.
-DEFAULT_FALLBACK_MODELS = 'gemini-3.6-flash,gemini-3.5-flash,gemini-3.1-flash-lite,gemini-3.5-flash-lite,gemini-3.7-flash'
+# 3.8은 무응답이 잦아(남은 시간을 다 쓸 수 있어) 빠르게 답하는 모델 뒤에 둔다
+DEFAULT_FALLBACK_MODELS = 'gemini-3.5-flash,gemini-3.1-flash-lite,gemini-3.8-flash,gemini-3.5-flash-lite,gemini-3.7-flash'
 _fb = os.environ.get('GEMINI_FALLBACK_MODEL', '').strip() or DEFAULT_FALLBACK_MODELS
 FALLBACK_MODELS = ([] if _fb.lower() in ('none', 'off', '0') else
                    [m for m in dict.fromkeys(x.strip().removeprefix('models/') for x in _fb.split(','))

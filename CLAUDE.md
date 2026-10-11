@@ -107,7 +107,7 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 - 외부 트리거: cron-job.org가 10분마다 `POST /repos/gumoyaz/korean-community-crawler/actions/workflows/pages.yml/dispatches`를 호출한다.
   - 헤더에 `User-Agent`가 없으면 GitHub가 403을 준다.
   - 토큰은 이 리포만 선택한 fine-grained PAT이고, 권한은 Actions: Read and write다. 만료되면 GitHub에서 재발급해 cron-job.org 헤더를 교체한다. 교체하기 전까지는 백업 `schedule`만 돈다.
-- Gemini 무료 한도는 모델마다 따로 있고, 태평양 자정(KST 16~17시)에 리셋된다. 3.8 Flash는 503(high demand)이 잦아서 예비 모델 체인이 자주 쓰인다.
+- Gemini 무료 한도는 모델마다 따로 있고, 태평양 자정(KST 16~17시)에 리셋된다. 3.8 Flash는 503(high demand)·무응답이 잦아 2026-10-11에 기본을 3.6 Flash로 바꾸고 3.8은 예비 셋째로 내렸다. 3.5는 은퇴 예정이라 3.1 Flash Lite를 예비에 넣었다(`gemini.DEFAULT_FALLBACK_MODELS`). 3.7 Flash는 같은 날 테스트 3번 모두 60~90초 무응답이라 맨 뒤다.
 - 상태 확인: `data/state.json`의 `last_run`, `daily_failed_at`과 `data/trends.json`의 `status`, `crawl_count`, `source_health`를 본다. 실행 요약(Step Summary)에 커뮤니티별 상태 표가 있고, 알림 연속 횟수는 `state.json`의 `health`(`status, streak, key, since, detail, close_left`)에 있다. 로그 줄은 `[Health]`, `[IssueLink]`, `[PrevDay]`, `[Refresh] … → 직접 스크래핑 …, 이슈링크 …`.
 - 수집 이상 이슈: `source-health` 라벨. 연속 3번 알림 대상이면 열리고 풀리면 닫힌다(KST 00~06시에는 닫지 않고 06시 뒤 판정으로 닫는다). 소음이 크면 `build.HEALTH_ALERT_STREAK`나 알림 대상 규칙(`_health`)을 조정한다.
 - 소스 실측: Actions → **Source probe** → Run workflow(`only`로 그룹 선택: tbs,fallback,issuelink,candidates, 비우면 전부 약 2~3분). 결과는 Step Summary와 아티팩트 `source-probe-<run_id>`(JSON·MD, 30일)에 남는다. 러너(해외 IP)에서 직접 스크래핑이 막히는지 이 결과로 판단한다. 판정 `blocked`는 차단 상태 코드·챌린지·msg.html, `empty`는 200인데 파서 0행(선택자 고장일 수 있음)이다.
@@ -157,7 +157,7 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
   - (4) 이슈링크 약관의 수집 금지 여부는 확인하지 못했다(robots.txt는 `Allow:/`). `/go/` HEAD가 이슈링크 클릭 집계에 잡히는지도 모른다. 원본 URL 캐시로 요청을 줄였다.
   - (5) 오전 이슈링크 (b)는 어제도 글이 적었던 곳(09-24 목록 기준 오유·인벤·웃대 3곳)만 받도록 줄였다(09-25 02:10 재현은 9곳이었다). 전날 상위 글을 저장하지 못한 날(00~02시 실행 실패 등)은 예전처럼 TBS 5건 미만인 곳 전부가 (b)다.
 - [ ] 이슈 묶기 단어와 '함께 나온 말'에 조사 '이/가'가 붙은 형태(예: "승무원이")가 남는다. 같은 라운드에 어근이 따로 없으면 '승무원'과 다른 단어로 본다(이름에서는 끝 조사를 뗀다). "불꽃놀이"처럼 원래 '이'로 끝나는 명사를 깨지 않는 방법을 찾는다.
-- [ ] Gemini 모델 운용을 점검한다. 3.8 Flash의 503·일일 한도 빈도를 보고 기본 모델과 체인 순서를 조정한다.
+- [x] ~~Gemini 모델 운용 점검.~~ 2026-10-11 기본 3.6, 예비 3.5 → 3.1 Flash Lite → 3.8 → 3.5 Lite → 3.7. 며칠 뒤 데일리 `model` 필드로 어느 모델이 쓰는지 다시 본다.
 - [x] ~~데일리 음성 첫 Actions 실행 확인.~~ 2026-09-25에 음성 3개가 만들어져 `audio` 브랜치에 올라갔다. 교체 push 3번이 모두 통과했고(브랜치 규칙 없음), `lameenc`가 설치됐고, 경계는 모두 `snap`이었다. 429가 나면 `[한도: ...]` 값을 위 '한도' 줄에 적는다.
 - [ ] 읽어주기를 실기기에서 확인한다. 사파리·파이어폭스에서 음성 파일 오류 때 `pause` 이벤트가 `audio.error`보다 먼저 오면, 재생 중 끊김도 바로 이어 읽지 않고 '일시정지' 대기 상태가 된다(▶ 한 번이면 그 섹션부터 이어짐). 전환 안내(role=status)를 스크린리더가 읽는지도 헤드리스 크롬 접근성 트리까지만 봤다.
 - [x] ~~SNS 공유용 `og:image`.~~ 2026-10-07 `static/og-image.png`(1200×630, 로고 + '실시간 커뮤니티 인기글 모음', 맑은 고딕으로 생성), `twitter:card`는 `summary_large_image`.
