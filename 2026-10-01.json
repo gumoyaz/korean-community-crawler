@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-01",
+ "source_sha": "301a0d26e6b91e88",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 132.24,
+ "bytes": 793728,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "이동진 평론 관련 발언",
+   "start": 6.06
+  },
+  {
+   "title": "삼성 직원 주거비 지원 및 횡령 논란",
+   "start": 21.54
+  },
+  {
+   "title": "신조어 및 패션 트렌드",
+   "start": 39.88
+  },
+  {
+   "title": "사건, 사고 및 법, 제도 변화",
+   "start": 56.04
+  },
+  {
+   "title": "정치 관련 게시글",
+   "start": 81.8
+  },
+  {
+   "title": "사회적 이슈 및 기타 화제글",
+   "start": 96.46
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-02T01:00:51+09:00",
+ "latency": 45.1
+}

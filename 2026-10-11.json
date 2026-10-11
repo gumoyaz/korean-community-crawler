@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-11",
+ "source_sha": "a87450fb55e95c64",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 130.16,
+ "bytes": 781344,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "축구 선수 관련 게시글",
+   "start": 7.09
+  },
+  {
+   "title": "반도체 전문가 관련 이창용 전 한은 총재 발언",
+   "start": 22.23
+  },
+  {
+   "title": "게임 '데바데' 2B 캐릭터 외형 수정",
+   "start": 36.21
+  },
+  {
+   "title": "정치인 관련 게시글",
+   "start": 51.3
+  },
+  {
+   "title": "연애 및 결혼 관련 고민과 이야기",
+   "start": 65.98
+  },
+  {
+   "title": "콘텐츠 및 만화 관련 게시글",
+   "start": 80.8
+  },
+  {
+   "title": "기타 생활 및 일상 관련 게시글",
+   "start": 97.49
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-11T12:10:26+09:00",
+ "latency": 38.8
+}

@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-04",
+ "source_sha": "a9ce89cf08fbfa09",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 139.16,
+ "bytes": 835344,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "아시안게임 축구대표팀 군 면제 관련 발언 논란",
+   "start": 6.31
+  },
+  {
+   "title": "정치권 주요 동향 및 반응",
+   "start": 30.44
+  },
+  {
+   "title": "인터넷 방송 및 콘텐츠 트렌드",
+   "start": 54.99
+  },
+  {
+   "title": "경제 및 부동산 이슈",
+   "start": 77.91
+  },
+  {
+   "title": "일상, 연애 및 커뮤니티 화제",
+   "start": 97.18
+  },
+  {
+   "title": "기타 문화 및 게임 관련 글",
+   "start": 123.39
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-05T00:20:27+09:00",
+ "latency": 33.6
+}

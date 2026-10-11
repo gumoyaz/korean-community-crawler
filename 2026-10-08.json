@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-08",
+ "source_sha": "87bd1458e14f7ae0",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 150.68,
+ "bytes": 904464,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "축구대표팀 내부 갈등 및 축구협회 이슈",
+   "start": 6.4
+  },
+  {
+   "title": "연예계 소식 및 인물 이슈",
+   "start": 31.92
+  },
+  {
+   "title": "결혼 준비와 연인 간의 채무 및 자산 공개 문제",
+   "start": 53.48
+  },
+  {
+   "title": "기업 및 IT, 가전 트렌드",
+   "start": 81.65
+  },
+  {
+   "title": "미디어 콘텐츠 및 인터넷 유행",
+   "start": 96.78
+  },
+  {
+   "title": "기타 사회, 건강 및 인물 관련 이슈",
+   "start": 122.82
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-09T00:20:32+09:00",
+ "latency": 37.0
+}

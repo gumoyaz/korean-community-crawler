@@ -1,0 +1,43 @@
+{
+ "date": "2026-09-30",
+ "source_sha": "3ca018e6b695fbc7",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 155.04,
+ "bytes": 930528,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "영화 및 대중문화 이슈",
+   "start": 7.11
+  },
+  {
+   "title": "방송 및 연예인 관련 소식",
+   "start": 25.13
+  },
+  {
+   "title": "일본 문화 및 호스트바",
+   "start": 50.24
+  },
+  {
+   "title": "사회 및 교통 문제",
+   "start": 69.03
+  },
+  {
+   "title": "남녀관계 및 연애 관련 글",
+   "start": 86.48
+  },
+  {
+   "title": "자영업 및 인터넷 게시글 이슈",
+   "start": 109.03
+  },
+  {
+   "title": "정치 및 국제 관계 언급",
+   "start": 136.39
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-01T00:20:28+09:00",
+ "latency": 39.6
+}

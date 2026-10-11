@@ -1,0 +1,35 @@
+{
+ "date": "2026-09-28",
+ "source_sha": "a52c01391bb1581e",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 103.4,
+ "bytes": 620784,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "부동산 가치 상승",
+   "start": 5.86
+  },
+  {
+   "title": "연예인 및 인물 관련 소식",
+   "start": 10.27
+  },
+  {
+   "title": "금융 및 사회 이슈",
+   "start": 38.45
+  },
+  {
+   "title": "국제 동향 및 대외 운동",
+   "start": 54.12
+  },
+  {
+   "title": "기타 일상 및 인문 정보",
+   "start": 75.17
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-09-29T00:20:36+09:00",
+ "latency": 34.9
+}

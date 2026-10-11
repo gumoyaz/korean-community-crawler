@@ -1,0 +1,47 @@
+{
+ "date": "2026-10-05",
+ "source_sha": "d0487e2c74bfb98f",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 152.08,
+ "bytes": 912816,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "티원 유튜브 '드릉드릉' 표현 사용",
+   "start": 6.71
+  },
+  {
+   "title": "'나 혼자 산다' 김민 구옥 생활 연출 논란 및 제작진 신뢰",
+   "start": 16.51
+  },
+  {
+   "title": "유해진 측의 신변 위협 및 명예 훼손 강경 대응 예고",
+   "start": 39.05
+  },
+  {
+   "title": "미국 쌀 개방의 영향 및 독일의 한국 비판",
+   "start": 52.91
+  },
+  {
+   "title": "민주당 전진숙 관련 언급 및 총수 방송 시청 후기",
+   "start": 69.74
+  },
+  {
+   "title": "남녀의 인식 및 선호 차이",
+   "start": 92.0
+  },
+  {
+   "title": "연애, 결혼 및 신혼여행 관련 논의",
+   "start": 109.49
+  },
+  {
+   "title": "기타 생활 정보 및 이슈",
+   "start": 127.13
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-06T00:20:32+09:00",
+ "latency": 33.3
+}

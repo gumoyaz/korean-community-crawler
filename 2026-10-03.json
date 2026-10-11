@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-03",
+ "source_sha": "474403a253093cb7",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 130.84,
+ "bytes": 785376,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "한일전 축구 한국 우승 및 4연패 달성",
+   "start": 6.6
+  },
+  {
+   "title": "게임 및 행사 관련 이슈",
+   "start": 21.99
+  },
+  {
+   "title": "가족 및 일상 사연",
+   "start": 44.48
+  },
+  {
+   "title": "사회적 관심사와 생활 정보",
+   "start": 68.77
+  },
+  {
+   "title": "방송, 연예 및 패션, 신체",
+   "start": 90.25
+  },
+  {
+   "title": "음식, 온라인 콘텐츠 및 해외 사례",
+   "start": 107.48
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-04T00:20:29+09:00",
+ "latency": 35.3
+}
