@@ -43,7 +43,9 @@ MODEL = (os.environ.get('GEMINI_MODEL', '').strip() or DEFAULT_MODEL).removepref
 # 2026-10-11 3.7 Flash를 맨 뒤 예비로 추가. 같은 날 짧은 질문 3번이 모두 60~90초 무응답(3.6은 1.4초)이라
 # 앞에 두면 남은 시간을 다 써서 3.6·3.5 차례가 사라진다 — 나머지가 다 실패하고 시간이 남을 때만 시도한다.
 # GEMINI_FALLBACK_MODEL에 쉼표로 여러 개를 줄 수 있고 'none'이면 쓰지 않는다.
-DEFAULT_FALLBACK_MODELS = 'gemini-3.6-flash,gemini-3.5-flash,gemini-3.5-flash-lite,gemini-3.7-flash'
+# 2026-10-11 3.5 은퇴 예정(사용자 안내) → 대신 3.1 Flash Lite(같은 날 2.4초 정상 응답)를 넣었다. 3.5·3.5 Lite는 은퇴 전까지
+# 남겨 둔다 — 은퇴 뒤에는 404로 바로 실패해 다음 차례로 넘어가므로 시간을 거의 안 쓴다. 3.1 Pro Preview는 무료 키로 0.4초 만에 거절.
+DEFAULT_FALLBACK_MODELS = 'gemini-3.6-flash,gemini-3.5-flash,gemini-3.1-flash-lite,gemini-3.5-flash-lite,gemini-3.7-flash'
 _fb = os.environ.get('GEMINI_FALLBACK_MODEL', '').strip() or DEFAULT_FALLBACK_MODELS
 FALLBACK_MODELS = ([] if _fb.lower() in ('none', 'off', '0') else
                    [m for m in dict.fromkeys(x.strip().removeprefix('models/') for x in _fb.split(','))
