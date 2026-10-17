@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-11",
+ "source_sha": "5291f9a876f1c006",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 139.52,
+ "bytes": 837504,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "축구 국가대표팀 관련 논란",
+   "start": 6.87
+  },
+  {
+   "title": "직장인 일상 및 생활 관련 이슈",
+   "start": 27.87
+  },
+  {
+   "title": "연예인 및 인플루언서 소식",
+   "start": 49.1
+  },
+  {
+   "title": "가족 및 개인적인 사연",
+   "start": 64.77
+  },
+  {
+   "title": "직장 및 경제 활동 관련 게시글",
+   "start": 80.51
+  },
+  {
+   "title": "사회 트렌드 및 기타 게시글",
+   "start": 103.14
+  },
+  {
+   "title": "정치인 관련 게시글",
+   "start": 128.58
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-12T00:20:28+09:00",
+ "latency": 35.9
+}

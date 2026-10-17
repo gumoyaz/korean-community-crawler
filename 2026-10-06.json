@@ -1,0 +1,35 @@
+{
+ "date": "2026-10-06",
+ "source_sha": "28f1bb1c755179b5",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-lite-tts",
+ "voice": "Kore",
+ "duration": 107.08,
+ "bytes": 642816,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "병역 및 사회 이슈",
+   "start": 6.23
+  },
+  {
+   "title": "사건 사고 및 사건 현장 소식",
+   "start": 24.11
+  },
+  {
+   "title": "직장 및 사회 생활 문화",
+   "start": 44.49
+  },
+  {
+   "title": "인터넷 콘텐츠 및 인물 소식",
+   "start": 64.55
+  },
+  {
+   "title": "지역, 국제 및 일상 주제",
+   "start": 82.07
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-07T00:30:39+09:00",
+ "latency": 29.8
+}

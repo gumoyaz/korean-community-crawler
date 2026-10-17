@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-07",
+ "source_sha": "1f6cc168206d07ad",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 150.16,
+ "bytes": 901296,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "축구대표팀 내부 갈등 및 은퇴 시사 논란",
+   "start": 5.77
+  },
+  {
+   "title": "2030 세대의 주택청약통장 해지 속출",
+   "start": 25.96
+  },
+  {
+   "title": "플레이스테이션 및 게임 업계 소식",
+   "start": 33.25
+  },
+  {
+   "title": "배우 한선화 부산국제영화제 스타일링 아쉬움",
+   "start": 56.67
+  },
+  {
+   "title": "직장 및 일상생활 갈등",
+   "start": 76.9
+  },
+  {
+   "title": "정치 및 사회 소식",
+   "start": 110.99
+  },
+  {
+   "title": "인터넷 커뮤니티 가상 질문 및 괴담",
+   "start": 124.7
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-08T01:00:45+09:00",
+ "latency": 109.1
+}

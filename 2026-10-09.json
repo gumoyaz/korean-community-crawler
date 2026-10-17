@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-09",
+ "source_sha": "5ee5656b74aee149",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 138.52,
+ "bytes": 831456,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "스포츠 및 인물 소식",
+   "start": 6.44
+  },
+  {
+   "title": "인터넷 방송 및 연예, 인플루언서",
+   "start": 32.7
+  },
+  {
+   "title": "사건, 사고 및 사회 이슈",
+   "start": 61.56
+  },
+  {
+   "title": "경제 및 산업 소식",
+   "start": 91.96
+  },
+  {
+   "title": "정치 및 해외 소식",
+   "start": 102.36
+  },
+  {
+   "title": "드라마 및 일상, 기타",
+   "start": 117.05
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-10T00:20:28+09:00",
+ "latency": 36.1
+}

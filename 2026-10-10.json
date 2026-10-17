@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-10",
+ "source_sha": "25c42f173bcd7c81",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 119.56,
+ "bytes": 717696,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "윤소희 SNS 비난 댓글 상황",
+   "start": 6.3
+  },
+  {
+   "title": "연예 및 방송 관련 소식",
+   "start": 24.98
+  },
+  {
+   "title": "스포츠 및 사건, 사고",
+   "start": 39.11
+  },
+  {
+   "title": "소비 및 생활 정보 관련",
+   "start": 58.84
+  },
+  {
+   "title": "연애 및 일상 경험담",
+   "start": 82.24
+  },
+  {
+   "title": "사회 및 기타 이슈",
+   "start": 99.63
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-11T00:20:26+09:00",
+ "latency": 36.3
+}

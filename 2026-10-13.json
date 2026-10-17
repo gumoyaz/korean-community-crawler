@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-13",
+ "source_sha": "f66f19aca5a8194a",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 118.6,
+ "bytes": 711936,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "스마트크루즈 추돌 사고",
+   "start": 6.76
+  },
+  {
+   "title": "배우 정보석 화장품 회사의 점심 식사",
+   "start": 15.25
+  },
+  {
+   "title": "오타니 관련 소식",
+   "start": 33.72
+  },
+  {
+   "title": "김수현 카톡 조작 논란",
+   "start": 45.94
+  },
+  {
+   "title": "국정감사 및 한동훈 딸 수사 논란",
+   "start": 55.74
+  },
+  {
+   "title": "건강 및 생활 정보",
+   "start": 68.44
+  },
+  {
+   "title": "방송, 연예 및 문화 관련 소식",
+   "start": 83.67
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-14T00:20:29+09:00",
+ "latency": 33.1
+}
