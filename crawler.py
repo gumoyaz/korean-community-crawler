@@ -394,7 +394,8 @@ COMMUNITY_SOURCES = [
         'pages': [
             'https://ygosu.com/board/real_article',   # 실시간 인기
         ],
-        'row_sel': 'table.bd_list tbody tr:not(:has(td.bdname))',   # 공지·AD 행은 td.bdname이 있다
+        # 공지·AD 행은 td.bdname이 있다. 2026-10-19 개편으로 표 클래스가 bd_list → yg-board-table (행 구조는 같음)
+        'row_sel': 'table.yg-board-table tbody tr:not(:has(td.bdname)), table.bd_list tbody tr:not(:has(td.bdname))',
         'title_sel': 'td.tit a',
         'strip_sel': 'span.category, span.reply_cnt',
         'view_sel': 'td.read',
