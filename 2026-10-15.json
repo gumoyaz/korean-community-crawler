@@ -1,0 +1,35 @@
+{
+ "date": "2026-10-15",
+ "source_sha": "32761936ad42770a",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 136.4,
+ "bytes": 818784,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "건강 및 의학 정보",
+   "start": 7.65
+  },
+  {
+   "title": "방송 및 연예계 소식",
+   "start": 27.4
+  },
+  {
+   "title": "경제 및 사회 이슈",
+   "start": 67.1
+  },
+  {
+   "title": "사건, 사고 및 사회적 논란",
+   "start": 93.06
+  },
+  {
+   "title": "군대 및 유머 게시글",
+   "start": 124.45
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-16T00:20:30+09:00",
+ "latency": 36.4
+}

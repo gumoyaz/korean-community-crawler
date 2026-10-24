@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-17",
+ "source_sha": "99741142a7c9b8e3",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 119.36,
+ "bytes": 716544,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "양홍원과 지디",
+   "start": 6.79
+  },
+  {
+   "title": "인물 및 연예계 소식",
+   "start": 13.75
+  },
+  {
+   "title": "의료 및 사회 현안",
+   "start": 40.41
+  },
+  {
+   "title": "물가 및 상거래",
+   "start": 65.56
+  },
+  {
+   "title": "장소 및 장소별 근황",
+   "start": 78.69
+  },
+  {
+   "title": "대인관계 및 사회적 행동",
+   "start": 91.62
+  },
+  {
+   "title": "기타 이슈",
+   "start": 110.48
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-18T00:20:32+09:00",
+ "latency": 31.8
+}

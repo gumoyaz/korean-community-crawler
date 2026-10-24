@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-18",
+ "source_sha": "350e78da78487a0e",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 128.16,
+ "bytes": 769248,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "이수만 관련 이슈",
+   "start": 6.51
+  },
+  {
+   "title": "아주대 소아과 응급실 신고 국적 논란",
+   "start": 19.0
+  },
+  {
+   "title": "사회 및 경제 관련 발언과 입장",
+   "start": 30.59
+  },
+  {
+   "title": "법적, 사건 사고 게시글",
+   "start": 63.53
+  },
+  {
+   "title": "중고 거래 및 연예, 인물 소식",
+   "start": 80.64
+  },
+  {
+   "title": "서브컬처 및 일상, 남녀 이슈",
+   "start": 98.48
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-19T00:20:24+09:00",
+ "latency": 32.3
+}

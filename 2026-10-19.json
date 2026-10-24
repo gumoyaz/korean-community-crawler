@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-19",
+ "source_sha": "f484e0574cc325e9",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 130.72,
+ "bytes": 784656,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "이수만 그룹 A20 관련 논란",
+   "start": 6.15
+  },
+  {
+   "title": "사우디아라비아 방글라데시 커플 사형 관련 소식",
+   "start": 22.66
+  },
+  {
+   "title": "AI 발전으로 인한 3D 외주 프리랜서의 수입 감소",
+   "start": 37.59
+  },
+  {
+   "title": "등산 동호회 내 불륜에 대한 시각차",
+   "start": 55.98
+  },
+  {
+   "title": "해운대 포장마차 바가지 요금 논란",
+   "start": 75.99
+  },
+  {
+   "title": "방송인 정형돈의 기러기 생활 소회",
+   "start": 87.69
+  },
+  {
+   "title": "기타 커뮤니티 주요 이슈",
+   "start": 98.3
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-20T00:20:26+09:00",
+ "latency": 31.0
+}

@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-14",
+ "source_sha": "5b03034bae114bdb",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 125.72,
+ "bytes": 754704,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "E-스포츠와 방송 및 사회적 이슈",
+   "start": 6.06
+  },
+  {
+   "title": "대학 및 교육계 소식",
+   "start": 25.16
+  },
+  {
+   "title": "사건 및 사고, 법적 판결",
+   "start": 41.71
+  },
+  {
+   "title": "산업 및 기업 동향",
+   "start": 61.54
+  },
+  {
+   "title": "커뮤니티 및 인터넷 화제",
+   "start": 77.26
+  },
+  {
+   "title": "해외 및 기타 정보",
+   "start": 94.47
+  },
+  {
+   "title": "엔터테인먼트 및 일상",
+   "start": 110.66
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-15T00:20:27+09:00",
+ "latency": 35.6
+}

@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-16",
+ "source_sha": "e6fc8fec2055a6bb",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 127.64,
+ "bytes": 766224,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "테슬라 신차 로드스터 공개 및 자동차 이슈",
+   "start": 6.43
+  },
+  {
+   "title": "방송인 및 인터넷 방송 관련 소식",
+   "start": 31.43
+  },
+  {
+   "title": "공항 이용 및 사건, 사고 소식",
+   "start": 50.73
+  },
+  {
+   "title": "국내외 정세 및 기타 이슈",
+   "start": 67.2
+  },
+  {
+   "title": "부동산 및 의료, 산업 소식",
+   "start": 86.53
+  },
+  {
+   "title": "기타 커뮤니티 화제글",
+   "start": 104.62
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-17T00:20:45+09:00",
+ "latency": 31.7
+}

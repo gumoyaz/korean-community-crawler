@@ -1,0 +1,35 @@
+{
+ "date": "2026-10-12",
+ "source_sha": "8ba3e5ea3d99a88c",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 129.36,
+ "bytes": 776448,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "주행 보조 시스템 운전 중 추돌 및 현대자동차 관련 이슈",
+   "start": 6.88
+  },
+  {
+   "title": "스포츠 정책 및 지역 행사 소식",
+   "start": 34.56
+  },
+  {
+   "title": "마라톤 대회 사망 사고 및 사회, 직업 관련 이슈",
+   "start": 49.41
+  },
+  {
+   "title": "연예인 팬 저격 및 상품, 이벤트 관련 소식",
+   "start": 78.63
+  },
+  {
+   "title": "기타 커뮤니티 화제글",
+   "start": 102.34
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-13T00:20:27+09:00",
+ "latency": 40.2
+}

@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-24",
+ "source_sha": "e03b1ced168cd985",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 140.08,
+ "bytes": 840816,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "한국 러닝 문화 실태와 유튜버골든벨 촬영 후기",
+   "start": 6.38
+  },
+  {
+   "title": "AP 알케미 입장문 발표 및 양홍원 관련 폭로",
+   "start": 22.72
+  },
+  {
+   "title": "연예인 및 인물 근황",
+   "start": 39.86
+  },
+  {
+   "title": "연애 및 남녀관계 이슈",
+   "start": 62.37
+  },
+  {
+   "title": "직장 및 사회생활 해프닝",
+   "start": 84.51
+  },
+  {
+   "title": "일론 머스크의 우크라이나 스타링크 중단 관련 언급",
+   "start": 105.21
+  },
+  {
+   "title": "영화 장면 및 기타 화제글",
+   "start": 119.39
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-24T12:10:27+09:00",
+ "latency": 29.9
+}

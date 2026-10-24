@@ -1,0 +1,35 @@
+{
+ "date": "2026-10-20",
+ "source_sha": "d47b8c95a6741aed",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 115.16,
+ "bytes": 691344,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "김정은 신상 관련 소문",
+   "start": 6.36
+  },
+  {
+   "title": "연예 및 엔터테인먼트 화제",
+   "start": 27.04
+  },
+  {
+   "title": "사회 및 생활 이슈",
+   "start": 49.4
+  },
+  {
+   "title": "정치 및 정책 관련 소식",
+   "start": 77.97
+  },
+  {
+   "title": "국방 및 기타 이슈",
+   "start": 95.01
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-21T00:20:28+09:00",
+ "latency": 29.7
+}
