@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-31",
+ "source_sha": "c1bde43a9c7cb8a7",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 139.48,
+ "bytes": 837216,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "남녀 관계 및 결혼 관련 이슈",
+   "start": 6.41
+  },
+  {
+   "title": "사건 및 인물 관련 논란",
+   "start": 30.68
+  },
+  {
+   "title": "의료 및 입국 관련 이슈",
+   "start": 53.02
+  },
+  {
+   "title": "서브컬처 및 해외 소식",
+   "start": 71.32
+  },
+  {
+   "title": "연예 및 미디어 트렌드",
+   "start": 94.48
+  },
+  {
+   "title": "일상, 패션 및 자기계발",
+   "start": 113.64
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-01T00:20:27+09:00",
+ "latency": 61.3
+}

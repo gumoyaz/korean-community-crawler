@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-27",
+ "source_sha": "ed1fce29946529b2",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 138.92,
+ "bytes": 833904,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "대북 및 국정 이슈",
+   "start": 6.29
+  },
+  {
+   "title": "사회 사건 및 법원 판결",
+   "start": 14.16
+  },
+  {
+   "title": "외신 및 해외 정보",
+   "start": 34.28
+  },
+  {
+   "title": "IT 및 제품 결함",
+   "start": 57.03
+  },
+  {
+   "title": "소비자 피해 및 서비스 이슈",
+   "start": 75.19
+  },
+  {
+   "title": "연예 및 대중문화",
+   "start": 99.4
+  },
+  {
+   "title": "라이프 및 기타 주제",
+   "start": 118.72
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-28T00:22:59+09:00",
+ "latency": 30.0
+}

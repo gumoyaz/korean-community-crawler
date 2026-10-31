@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-23",
+ "source_sha": "92ea1c6c9e85fec1",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 145.68,
+ "bytes": 874368,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "양홍원 바람 및 불륜 의혹과 레이블 입장",
+   "start": 6.52
+  },
+  {
+   "title": "한국 러닝 문화 및 고디바 다음 유행 떡",
+   "start": 22.71
+  },
+  {
+   "title": "헌팅남 약물 투여 및 기타 사회 이슈",
+   "start": 39.69
+  },
+  {
+   "title": "일본 드라마 속 지창욱 근황 및 연예, 인물 이슈",
+   "start": 62.21
+  },
+  {
+   "title": "자산 35억 41세 남성 및 헬스트레이너",
+   "start": 87.15
+  },
+  {
+   "title": "기상 정보 및 네이버 지도",
+   "start": 106.74
+  },
+  {
+   "title": "커뮤니티 및 시사, 기타 이슈",
+   "start": 124.07
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-24T00:20:30+09:00",
+ "latency": 31.7
+}

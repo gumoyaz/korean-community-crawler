@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-25",
+ "source_sha": "71ea2fcb4b58330e",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 149.44,
+ "bytes": 896976,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "인터넷 방송인 및 크루 소식",
+   "start": 7.69
+  },
+  {
+   "title": "인터넷 유튜버 관련 고발 및 소식",
+   "start": 26.45
+  },
+  {
+   "title": "방송 및 연예계 소식",
+   "start": 48.33
+  },
+  {
+   "title": "정치 및 사회 관련 게시글",
+   "start": 82.34
+  },
+  {
+   "title": "IT 및 제품 후기",
+   "start": 105.71
+  },
+  {
+   "title": "기타 해외 및 사고 소식",
+   "start": 129.98
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-26T00:20:34+09:00",
+ "latency": 34.8
+}

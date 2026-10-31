@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-22",
+ "source_sha": "b75bd612b3ed59ad",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 147.0,
+ "bytes": 882288,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "축구 국가대표팀 라커룸 폭로 및 관련 반응",
+   "start": 6.8
+  },
+  {
+   "title": "연예 및 대중문화 소식",
+   "start": 26.9
+  },
+  {
+   "title": "결혼 준비 및 생활 관련 이슈",
+   "start": 59.5
+  },
+  {
+   "title": "정치 및 국제 관련 소식",
+   "start": 87.64
+  },
+  {
+   "title": "역사 및 문화 콘텐츠",
+   "start": 110.36
+  },
+  {
+   "title": "기타 인터넷 화제글",
+   "start": 124.33
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-23T00:20:27+09:00",
+ "latency": 34.1
+}

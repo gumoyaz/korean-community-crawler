@@ -1,0 +1,43 @@
+{
+ "date": "2026-10-30",
+ "source_sha": "79f3bd780a65c2f0",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 127.68,
+ "bytes": 766368,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "중계중 출신 85년생 여배우 학폭 주장 제기",
+   "start": 7.47
+  },
+  {
+   "title": "아주대 소아응급센터장 사표 제출",
+   "start": 32.07
+  },
+  {
+   "title": "게임 '콜 오브 듀티' 제재 검토 및 사과",
+   "start": 36.82
+  },
+  {
+   "title": "학원 선행학습 제재 법안 발의",
+   "start": 56.42
+  },
+  {
+   "title": "연예인 및 인물 근황",
+   "start": 67.35
+  },
+  {
+   "title": "투자 손실 및 연애, 결혼 관련 게시글",
+   "start": 81.91
+  },
+  {
+   "title": "기타 인터넷 이슈 및 생활 관련 글",
+   "start": 102.5
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-31T00:20:30+09:00",
+ "latency": 28.1
+}

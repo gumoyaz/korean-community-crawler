@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-21",
+ "source_sha": "60f4c17bcd6276fd",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 154.12,
+ "bytes": 925056,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "손흥민과 스포츠 선수 및 인물 소식",
+   "start": 7.77
+  },
+  {
+   "title": "사회적 이슈 및 주요 발언",
+   "start": 28.22
+  },
+  {
+   "title": "사건, 사고 및 군 관련 소식",
+   "start": 53.4
+  },
+  {
+   "title": "가정 및 결혼, 연애 고민",
+   "start": 78.13
+  },
+  {
+   "title": "연예인 신체 조건 및 일상 해프닝",
+   "start": 99.08
+  },
+  {
+   "title": "음식 및 자동차 관련 기타 유머",
+   "start": 135.89
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-22T00:20:29+09:00",
+ "latency": 37.8
+}

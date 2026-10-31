@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-26",
+ "source_sha": "f2a96ac70de4ed37",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 134.68,
+ "bytes": 808416,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "사회 및 국방 이슈",
+   "start": 6.92
+  },
+  {
+   "title": "연예 및 인물 근황",
+   "start": 23.87
+  },
+  {
+   "title": "IT 및 기술 정보",
+   "start": 49.88
+  },
+  {
+   "title": "지역 및 행사 현황",
+   "start": 64.72
+  },
+  {
+   "title": "인터넷 방송 및 커뮤니티 화제",
+   "start": 79.26
+  },
+  {
+   "title": "게임 및 기타 화제글",
+   "start": 104.69
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-27T00:20:38+09:00",
+ "latency": 33.7
+}

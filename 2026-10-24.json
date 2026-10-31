@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-24",
+ "source_sha": "84fdc801ad076c35",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 128.8,
+ "bytes": 773136,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "연예인 및 미디어 관련 이슈",
+   "start": 7.17
+  },
+  {
+   "title": "인터넷 방송 및 유튜버 소식",
+   "start": 36.69
+  },
+  {
+   "title": "가수 및 문화, 게임 소식",
+   "start": 52.41
+  },
+  {
+   "title": "경제 및 사회 생활 이슈",
+   "start": 72.59
+  },
+  {
+   "title": "IT 및 제품, 행사 근황",
+   "start": 98.48
+  },
+  {
+   "title": "신체 및 건강 사연",
+   "start": 120.2
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-25T00:20:30+09:00",
+ "latency": 31.3
+}

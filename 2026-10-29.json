@@ -1,0 +1,39 @@
+{
+ "date": "2026-10-29",
+ "source_sha": "53fa915f42c0a6cb",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 103.96,
+ "bytes": 624096,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "소아청소년과 모집 현황",
+   "start": 5.52
+  },
+  {
+   "title": "유튜버 카광 근황",
+   "start": 15.69
+  },
+  {
+   "title": "취업시장 및 경제 관련 이슈",
+   "start": 25.24
+  },
+  {
+   "title": "사회 사건 및 현장 소식",
+   "start": 41.78
+  },
+  {
+   "title": "국제 및 정치, 유튜브 발언",
+   "start": 61.61
+  },
+  {
+   "title": "개인 경험담 및 기타 이야기",
+   "start": 77.78
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-10-30T00:20:30+09:00",
+ "latency": 26.2
+}
