@@ -1,0 +1,47 @@
+{
+ "date": "2026-11-01",
+ "source_sha": "19bf1cb984e4544e",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 134.44,
+ "bytes": 806976,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "인터넷 서비스 및 커뮤니티 소식",
+   "start": 6.39
+  },
+  {
+   "title": "사회 이슈 및 지역 근황",
+   "start": 24.28
+  },
+  {
+   "title": "인물 및 사건사고",
+   "start": 38.66
+  },
+  {
+   "title": "국제 정세 및 전쟁",
+   "start": 59.6
+  },
+  {
+   "title": "신약 및 건강 정보",
+   "start": 75.53
+  },
+  {
+   "title": "방송 및 인물 비하인드",
+   "start": 84.11
+  },
+  {
+   "title": "게임 및 문화 콘텐츠",
+   "start": 99.04
+  },
+  {
+   "title": "일상 및 기타 이슈",
+   "start": 114.27
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-02T00:20:32+09:00",
+ "latency": 29.7
+}

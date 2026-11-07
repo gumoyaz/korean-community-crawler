@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-06",
+ "source_sha": "87ff5779d3c19947",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 132.08,
+ "bytes": 792864,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "옥주현 183억 원 대출 및 상가건물 관련 논란",
+   "start": 5.67
+  },
+  {
+   "title": "정치 및 사회 주요 이슈",
+   "start": 30.01
+  },
+  {
+   "title": "주식 및 금융 시장 상황",
+   "start": 47.62
+  },
+  {
+   "title": "스포츠 및 게임 소식",
+   "start": 68.43
+  },
+  {
+   "title": "연예인 및 인물 근황",
+   "start": 89.1
+  },
+  {
+   "title": "일상 및 기타 커뮤니티 화제",
+   "start": 103.36
+  }
+ ],
+ "boundary": "partial",
+ "generated_at": "2026-11-07T00:20:31+09:00",
+ "latency": 27.6
+}

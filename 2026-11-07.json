@@ -1,0 +1,43 @@
+{
+ "date": "2026-11-07",
+ "source_sha": "031fd9eed1c8fe7a",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 148.24,
+ "bytes": 889776,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "옥주현 부동산 구매 및 대출 관련 글",
+   "start": 6.13
+  },
+  {
+   "title": "스포츠 경기 현장 및 결과",
+   "start": 31.59
+  },
+  {
+   "title": "방송 및 연예계 소식",
+   "start": 50.23
+  },
+  {
+   "title": "일상 및 가족 관계 고민",
+   "start": 68.01
+  },
+  {
+   "title": "세금 및 경제, 투자 관련 게시글",
+   "start": 90.4
+  },
+  {
+   "title": "문화 및 중고 거래 반응",
+   "start": 113.12
+  },
+  {
+   "title": "정치 및 기타 이슈",
+   "start": 135.81
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-07T12:09:07+09:00",
+ "latency": 27.1
+}
