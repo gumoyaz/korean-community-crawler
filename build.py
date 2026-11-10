@@ -62,7 +62,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape  # noqa: E40
 import daily  # noqa: E402
 import gemini  # noqa: E402
 import tts  # noqa: E402
-from crawler import HEALTH_FROM_HOUR, MERGE_PREV_END_HOUR, SOURCE_META, TrendCrawler  # noqa: E402
+from crawler import HEALTH_FROM_HOUR, MERGE_PREV_END_HOUR, SOURCE_META, SUSPEND_AFTER_H, TrendCrawler  # noqa: E402
 
 DEFAULT_SITE_URL = 'https://gumoyaz.github.io/korean-community-crawler'
 ISSUES_URL = 'https://github.com/gumoyaz/korean-community-crawler/issues'   # 분석 도구 안내 페이지의 문의 링크
@@ -554,7 +554,15 @@ def _health(data: dict, prev, now: datetime) -> tuple[dict, dict]:
     # 인스티즈는 거의 매일 몇 시간씩 멈춰서(09-25~26 하루에 이슈 4번) 알림이 소음이 됐다. 해외 러너에서는 이슈링크가
     # 봇 확인 페이지를 받아 채울 경로도 없다. 하루 넘게 멈추면 날이 바뀐 뒤 기대 시각(EXPECTED_BY_HOUR)에 missing이 되어
     # 알림 대상이 된다. 여러 곳이 한꺼번에 멈추면 status partial로 알린다
-    alert_problems = {s: e for s, e in problems.items() if e['status'] != 'degraded'}
+    # 빠짐(missing)도 원본 수집이 SUSPEND_AFTER_H(30시간) 넘게 멈췄고 예비 경로(직접 수집·이슈링크)로 채워지고 있으면
+    # 칩·detail에만 남긴다. 처음 멈춘 날은 30시간이 안 돼서 알리고, 그 뒤 매일 기대 시각에 이슈가 열렸다 닫히는 것을 막는다
+    # (와이고수 10-20~26 TBS 정지, 직접 수집으로 채우는 동안 이슈 #13~#20이 매일 열림). 채우지 못하면 blocked라 계속 알린다
+    def covered_long(e) -> bool:
+        last = _parse_iso(e.get('last_update'))
+        return (e['status'] == 'missing' and bool(filled(e))
+                and (last is None or (now - last).total_seconds() > SUSPEND_AFTER_H * 3600))
+
+    alert_problems = {s: e for s, e in problems.items() if e['status'] != 'degraded' and not covered_long(e)}
     alerting = health == 'stale' or status == 'partial' or bool(alert_problems)
     key = (f'{health}|{status}|' + ','.join(f'{s}={e["status"]}' for s, e in sorted(alert_problems.items()))
            if alerting else 'ok')
@@ -587,7 +595,8 @@ def _health(data: dict, prev, now: datetime) -> tuple[dict, dict]:
         note = f', {e["note"]}' if isinstance(e.get('note'), str) and e.get('note') else ''
         fv = filled(e)
         fill = (f', {"·".join(HEALTH_FILL_VIA[v][0] for v in fv)}{HEALTH_FILL_VIA[fv[-1]][1]} 보충' if fv else '')
-        parts.append(f'{HEALTH_LABEL[e["status"]]}: {label}({s}{ago}{note}{fill})')
+        quiet = ', 오래 멈췄지만 채우는 중이라 알림 안 함' if covered_long(e) else ''
+        parts.append(f'{HEALTH_LABEL[e["status"]]}: {label}({s}{ago}{note}{fill}{quiet})')
     for s, e in sorted(suspended.items()):
         label = SOURCE_META.get(s, (s,))[0]
         last = _parse_iso(e.get('last_update'))
