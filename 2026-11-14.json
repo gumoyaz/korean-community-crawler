@@ -1,0 +1,35 @@
+{
+ "date": "2026-11-14",
+ "source_sha": "f000a558cc8a47ce",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 121.72,
+ "bytes": 730656,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "배우 고경표 음주사고",
+   "start": 6.8
+  },
+  {
+   "title": "식음료 브랜드 및 매장 근황",
+   "start": 29.27
+  },
+  {
+   "title": "기업 및 직장 문화 이슈",
+   "start": 45.05
+  },
+  {
+   "title": "사회 및 개인 후기 모음",
+   "start": 66.21
+  },
+  {
+   "title": "기술, AI 및 기타 이슈",
+   "start": 90.02
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-15T00:20:28+09:00",
+ "latency": 26.7
+}

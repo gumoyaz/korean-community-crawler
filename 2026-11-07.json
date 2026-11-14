@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-07",
+ "source_sha": "cbb52256331508a1",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 123.36,
+ "bytes": 740448,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "서울 거주에 관한 인식",
+   "start": 6.11
+  },
+  {
+   "title": "국내 사회 및 경제 관련 소식",
+   "start": 18.48
+  },
+  {
+   "title": "해외 및 해외 사건, 사고",
+   "start": 43.19
+  },
+  {
+   "title": "테크 및 스포츠 소식",
+   "start": 63.79
+  },
+  {
+   "title": "가정 및 생활 고민",
+   "start": 80.92
+  },
+  {
+   "title": "자연 및 기타 방송, 인터넷 콘텐츠",
+   "start": 100.79
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-08T00:20:30+09:00",
+ "latency": 28.5
+}

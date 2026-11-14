@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-02",
+ "source_sha": "0e005bb19dd651d7",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 137.84,
+ "bytes": 827424,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "연예인 관련 논란 및 근황",
+   "start": 6.34
+  },
+  {
+   "title": "이란발 김정은 사망 속보 언급",
+   "start": 37.66
+  },
+  {
+   "title": "국내외 군사 및 국제 정세",
+   "start": 53.11
+  },
+  {
+   "title": "추모 및 사회적 이슈",
+   "start": 74.74
+  },
+  {
+   "title": "기타 인터넷 이슈 및 근황",
+   "start": 91.16
+  },
+  {
+   "title": "정치 및 인물 관련 언급",
+   "start": 126.04
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-03T00:20:30+09:00",
+ "latency": 29.5
+}

@@ -1,0 +1,35 @@
+{
+ "date": "2026-11-08",
+ "source_sha": "a6b589d6a1536b3a",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 116.08,
+ "bytes": 696816,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "스포츠 및 우승 이슈",
+   "start": 7.23
+  },
+  {
+   "title": "연예 및 방송 관련 소식",
+   "start": 23.41
+  },
+  {
+   "title": "방송, 게임, 애니메이션 콘텐츠",
+   "start": 40.39
+  },
+  {
+   "title": "사회 및 해외 이슈",
+   "start": 63.14
+  },
+  {
+   "title": "가정과 일상 사연",
+   "start": 89.22
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-09T00:20:27+09:00",
+ "latency": 26.2
+}

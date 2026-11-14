@@ -1,0 +1,43 @@
+{
+ "date": "2026-11-04",
+ "source_sha": "d02a71a8f1d149d1",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 148.52,
+ "bytes": 891504,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "경찰관의 119 구급대원 폭언 및 기타 사회 이슈",
+   "start": 6.74
+  },
+  {
+   "title": "국토부의 테슬라 FSD 허가 불가",
+   "start": 37.14
+  },
+  {
+   "title": "캣츠아이 미국 콘서트 취소",
+   "start": 56.3
+  },
+  {
+   "title": "게임 및 기술 업계 이슈",
+   "start": 74.33
+  },
+  {
+   "title": "연예 및 미디어 화제",
+   "start": 96.54
+  },
+  {
+   "title": "고민 및 기타 연애, 의료 사연",
+   "start": 113.58
+  },
+  {
+   "title": "정치인 관련 언급",
+   "start": 131.21
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-05T00:20:40+09:00",
+ "latency": 30.1
+}

@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-13",
+ "source_sha": "12fc44ac0d16e147",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 128.8,
+ "bytes": 773136,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "정보 및 팁 공유",
+   "start": 7.25
+  },
+  {
+   "title": "엔터테인먼트 및 사회 이슈",
+   "start": 26.2
+  },
+  {
+   "title": "직업 및 세무 관련 소식",
+   "start": 51.11
+  },
+  {
+   "title": "개인 신상 및 연애, 가족 고민",
+   "start": 70.07
+  },
+  {
+   "title": "자동차 및 경제",
+   "start": 96.08
+  },
+  {
+   "title": "정치 및 기타 이슈",
+   "start": 107.81
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-14T00:50:35+09:00",
+ "latency": 28.6
+}

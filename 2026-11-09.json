@@ -1,0 +1,35 @@
+{
+ "date": "2026-11-09",
+ "source_sha": "622eb472dc676520",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 110.96,
+ "bytes": 666144,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "T1 경기와 페이커, 도란 선수 소식",
+   "start": 5.85
+  },
+  {
+   "title": "체중 감량 후기 및 건강 관련 게시글",
+   "start": 26.65
+  },
+  {
+   "title": "연애 및 직장, 일상 대화",
+   "start": 37.52
+  },
+  {
+   "title": "인물 및 이미지 관련 게시물",
+   "start": 60.35
+  },
+  {
+   "title": "기타 이슈 및 게임, 음악 관련 소식",
+   "start": 80.1
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-10T00:20:31+09:00",
+ "latency": 26.4
+}

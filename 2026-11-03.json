@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-03",
+ "source_sha": "127e9e8cf2498a65",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 135.52,
+ "bytes": 813456,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "사회 및 정책 소식",
+   "start": 7.97
+  },
+  {
+   "title": "정치 및 국정 관련 게시글",
+   "start": 28.87
+  },
+  {
+   "title": "국제 및 해외 이슈",
+   "start": 47.12
+  },
+  {
+   "title": "산업 및 경제 상황",
+   "start": 67.11
+  },
+  {
+   "title": "인물 및 방송, 연예 관련",
+   "start": 88.08
+  },
+  {
+   "title": "기타 일상 및 유머 이슈",
+   "start": 112.02
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-04T00:20:29+09:00",
+ "latency": 30.2
+}

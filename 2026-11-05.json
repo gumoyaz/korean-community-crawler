@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-05",
+ "source_sha": "1ef968d24c5953ba",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 116.36,
+ "bytes": 698544,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "해외 및 지역 관련 이슈",
+   "start": 5.39
+  },
+  {
+   "title": "서브컬처 및 애니메이션",
+   "start": 25.81
+  },
+  {
+   "title": "스포츠 및 선수 관련 소식",
+   "start": 45.37
+  },
+  {
+   "title": "사회 및 문화 트렌드",
+   "start": 61.99
+  },
+  {
+   "title": "IT 및 금융, 경제",
+   "start": 78.68
+  },
+  {
+   "title": "기타 일상 및 영상",
+   "start": 94.91
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-06T00:20:36+09:00",
+ "latency": 27.0
+}

@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-12",
+ "source_sha": "ea66e0ec9aa0e42b",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 148.2,
+ "bytes": 889488,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "세무사 시험 AI 안경 부정행위 의혹",
+   "start": 6.81
+  },
+  {
+   "title": "유현준 교수의 강의 발언 논란",
+   "start": 46.27
+  },
+  {
+   "title": "젠슨 황 관련 사진 공개",
+   "start": 61.2
+  },
+  {
+   "title": "리트 만점자의 수능 국어 언급",
+   "start": 75.98
+  },
+  {
+   "title": "현대백화점 크리스마스 문구 스펠링 누락",
+   "start": 86.2
+  },
+  {
+   "title": "기타 커뮤니티 화제 글",
+   "start": 105.45
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-13T00:20:32+09:00",
+ "latency": 29.9
+}
