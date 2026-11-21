@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-15",
+ "source_sha": "28b3d252946bdc34",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 112.84,
+ "bytes": 677376,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "미미미누 관련 게시글",
+   "start": 6.81
+  },
+  {
+   "title": "세무사 수석 합격자 자수 사건",
+   "start": 17.91
+  },
+  {
+   "title": "넷플릭스 12월 신작 출시 정보",
+   "start": 32.32
+  },
+  {
+   "title": "스포츠 및 연예계 소식",
+   "start": 43.82
+  },
+  {
+   "title": "정치 및 사회 관련 게시글",
+   "start": 66.5
+  },
+  {
+   "title": "기타 기술 및 커뮤니티 이슈",
+   "start": 95.9
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-16T00:20:26+09:00",
+ "latency": 27.8
+}

@@ -1,0 +1,43 @@
+{
+ "date": "2026-11-20",
+ "source_sha": "ad15ed8c0500c556",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 126.92,
+ "bytes": 761904,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "다카이치가 중국에 받은 대우",
+   "start": 6.25
+  },
+  {
+   "title": "경찰서에서 전청조와 남현희의 만남",
+   "start": 14.66
+  },
+  {
+   "title": "수능 및 대학 관련 게시글",
+   "start": 27.38
+  },
+  {
+   "title": "국내 주식 시장 및 경제 동향",
+   "start": 47.85
+  },
+  {
+   "title": "게임 관련 이슈",
+   "start": 70.83
+  },
+  {
+   "title": "배우 정보석 회사의 점심식사",
+   "start": 83.28
+  },
+  {
+   "title": "기타 생활 및 사회 이슈",
+   "start": 100.51
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-21T00:20:37+09:00",
+ "latency": 27.5
+}

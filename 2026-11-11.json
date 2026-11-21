@@ -1,0 +1,47 @@
+{
+ "date": "2026-11-11",
+ "source_sha": "2322c23cbb3bfb1b",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 136.48,
+ "bytes": 819216,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "일본서 산 마운자로 국내 반입 허용",
+   "start": 7.03
+  },
+  {
+   "title": "AI 안경과 세무사 근황",
+   "start": 17.51
+  },
+  {
+   "title": "젠슨 황 관련 유출 소식",
+   "start": 27.87
+  },
+  {
+   "title": "순찰 로봇 도입 현황",
+   "start": 42.07
+  },
+  {
+   "title": "e스포츠 및 엔터테인먼트 소식",
+   "start": 57.99
+  },
+  {
+   "title": "정치인 및 기타 사회 게시글",
+   "start": 78.41
+  },
+  {
+   "title": "가정 및 시댁 관련 사연",
+   "start": 91.4
+  },
+  {
+   "title": "기타 유머 및 인물 이미지 게시글",
+   "start": 119.94
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-12T00:40:27+09:00",
+ "latency": 27.1
+}

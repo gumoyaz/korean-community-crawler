@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-21",
+ "source_sha": "cf3424857e069cc1",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 112.12,
+ "bytes": 673056,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "수능 부정행위와 보상금 이슈",
+   "start": 6.29
+  },
+  {
+   "title": "주식 시장 및 경제 상황",
+   "start": 20.12
+  },
+  {
+   "title": "UN 결의안 수정안 제출",
+   "start": 35.77
+  },
+  {
+   "title": "배우 정보석 회사의 점심식사",
+   "start": 50.94
+  },
+  {
+   "title": "사귀지 않는 사람과의 모텔 방문 사연",
+   "start": 67.53
+  },
+  {
+   "title": "일상 및 기타 주제 모음",
+   "start": 80.59
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-22T00:20:33+09:00",
+ "latency": 23.8
+}
