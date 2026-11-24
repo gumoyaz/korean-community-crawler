@@ -21,6 +21,7 @@
 | `.github/workflows/pages.yml` | 빌드·배포 워크플로 (+ 수집 이상 알림 `health` 잡) |
 | `.github/workflows/source-probe.yml` · `tools/probe_sources.py` | 수동 실행 전용 소스 실측 프로브(러너 IP에서 TBS·직접 스크래핑·이슈링크·후보 URL의 상태·차단·행 수). 배포·state 없음 |
 | `.github/workflows/watchdog.yml` | 실행 감시. 15분마다 `pages.yml` 실행 중 30분 넘게 대기(queued·waiting·requested)인 것을 취소(안 되면 force-cancel). `pages` concurrency와 따로라 막히지 않음 |
+| `.github/workflows/ops-check.yml` · `tools/ops_check.py` | 운영 점검. 하루 한 번(09:23 KST) 사이트 갱신 멈춤(마지막 수집 3시간 넘음)·외부 트리거 끊김(24시간 workflow_dispatch 0회)이면 `ops-alert` 이슈를 열고, 풀리면 닫는다. 그달 첫 실행은 지난 30일 요약(실행 수·실패, 수집 이상 이슈, 데일리 유무·모델)을 `monthly-report` 이슈로 올린다. 크롤 실행 밖이라 실행이 멈춘 것도 잡는다. 검색·방문 분석은 키가 없어 넣지 않았다 |
 | `tools/import_daily_db.py` | 옛 SQLite `daily.db` → JSON 변환 |
 | `data/daily/` | **커밋되는** 데일리 리포트 아카이브 (Actions 봇이 커밋) |
 
@@ -103,6 +104,7 @@ python tools/probe_sources.py --only tbs,issuelink --no-ipinfo   # 소스 실측
 
 - 실행이 대기에 굳는 장애: 2026-10-06 02:10 KST에 실행 하나가 시작을 못 하고 15시간 대기로 남아 `pages` concurrency를 붙잡았고, 그 뒤 dispatch가 전부 pending → 취소돼 사이트가 02:00에 멈췄다(GitHub 쪽 문제). 그 실행을 API로 취소하자 바로 돌아왔다. 같은 날 19:00~다음 날 05:20에 또 10시간 멈췄는데, `watchdog.yml`의 15분 schedule이 실제로는 몇 시간에 한 번만 돌아(10/6 16시간에 3회) 늦게 잡았다. 그래서 동시 실행 제한을 실행 전체에서 잡 단위(`pages-build`·`pages-deploy`)로 옮기고, pages.yml 실행마다 그룹 밖의 `watchdog` 잡이 먼저 돌아 30분 넘게 대기인 다른 실행을 취소한다(10분 dispatch마다 점검). `watchdog.yml`은 dispatch가 끊겼을 때를 위한 보조다.
 - 호스트 루트(`https://gumoyaz.github.io/`)는 별도 리포 `gumoyaz/gumoyaz.github.io`(2026-10-07)다. 커트로 넘기는 index.html(네이버 서치어드바이저 소유 확인 메타태그 포함), 호스트 전체 robots.txt(검색엔진은 루트의 것만 읽는다 — 이 리포의 `_site/robots.txt`는 서브경로라 읽히지 않음, sitemap·rss 위치 안내), `.nojekyll`. 네이버는 호스트 단위로만 등록돼서 `https://gumoyaz.github.io`로 등록했다.
+- 운영 점검(2026-11-17): `source-health` 알림은 크롤 실행 안에서 나서 실행이 멈추면 아무도 모른다. 그래서 `ops-check.yml`이 따로 하루 한 번 본다. 30일 실측(10-18~11-17): 실행 4461회 중 workflow_dispatch 4319회(10분 간격 기대치 4320), 백업 schedule은 하루 약 5회뿐이라 dispatch가 끊기면 3시간 기준에 곧 걸린다. 실행 목록 API의 `total_count`는 2500에서 잘려서 3일 구간으로 나눠 센다. 로컬 확인은 `DRY_RUN=true`(이슈를 건드리지 않음).
 - 수동 실행: Actions → Build and deploy → Run workflow. "간격 가드 무시"를 체크하면 바로 크롤한다.
 - 외부 트리거: cron-job.org가 10분마다 `POST /repos/gumoyaz/korean-community-crawler/actions/workflows/pages.yml/dispatches`를 호출한다.
   - 헤더에 `User-Agent`가 없으면 GitHub가 403을 준다.

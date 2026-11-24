@@ -1,0 +1,43 @@
+# 운영 점검: 하루 한 번 사이트 갱신 멈춤·외부 트리거(cron-job.org) 끊김을 확인해 'ops-alert' 이슈를 열고 닫는다.
+# 그달 첫 실행은 지난 30일 요약을 'monthly-report' 이슈로 올린다. 크롤 실행(pages.yml)과 따로 돌아서
+# 실행 자체가 멈춘 것도 잡는다. 내용은 tools/ops_check.py
+name: Ops check
+
+on:
+  schedule:
+    - cron: '23 0 * * *'   # 09:23 KST (정각은 GitHub 스케줄러 고부하라 피한다)
+  workflow_dispatch:
+    inputs:
+      report:
+        description: '이번 달 보고가 있어도 월간 보고를 다시 올림'
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: ops-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write    # 경고·월간 보고 이슈, 라벨
+      actions: read    # pages.yml 실행 수
+      contents: read   # data/daily
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Check and report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          FORCE_REPORT: ${{ inputs.report && 'true' || 'false' }}
+        run: python tools/ops_check.py
