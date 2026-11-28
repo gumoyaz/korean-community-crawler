@@ -1,0 +1,35 @@
+{
+ "date": "2026-11-19",
+ "source_sha": "7a5beecb01c0f059",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 111.08,
+ "bytes": 666864,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "리트냥이, 이진우 관련 상황",
+   "start": 6.45
+  },
+  {
+   "title": "수능 부정행위자 적발 및 교직원 상황 공유",
+   "start": 49.89
+  },
+  {
+   "title": "일상 및 오프라인 목격담",
+   "start": 65.53
+  },
+  {
+   "title": "인물 및 사회 관련 게시글",
+   "start": 77.84
+  },
+  {
+   "title": "게임 및 기타 소식",
+   "start": 103.6
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-20T00:20:34+09:00",
+ "latency": 27.6
+}

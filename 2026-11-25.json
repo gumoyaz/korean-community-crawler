@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-25",
+ "source_sha": "3ae7ae529f94c629",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 135.22,
+ "bytes": 811728,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "수능 관련 소식",
+   "start": 6.49
+  },
+  {
+   "title": "재산 손실 및 기업 문제",
+   "start": 25.84
+  },
+  {
+   "title": "방송 및 연예계 이슈",
+   "start": 59.13
+  },
+  {
+   "title": "건강 및 의료 관련",
+   "start": 81.98
+  },
+  {
+   "title": "공직 및 제도 관련 논란",
+   "start": 96.04
+  },
+  {
+   "title": "기타 주제",
+   "start": 116.09
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-26T00:20:28+09:00",
+ "latency": 27.6
+}

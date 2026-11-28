@@ -1,0 +1,43 @@
+{
+ "date": "2026-11-24",
+ "source_sha": "be700556a3660708",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 114.0,
+ "bytes": 684288,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "원현주, 양홍원 이혼 및 인스타그램 게시글",
+   "start": 7.12
+  },
+  {
+   "title": "젠슨 황 추가 불륜 사실 공개",
+   "start": 22.11
+  },
+  {
+   "title": "디저트 '파블로바' 유행 양상",
+   "start": 33.52
+  },
+  {
+   "title": "장원영, 안유진 포즈 논란",
+   "start": 47.26
+  },
+  {
+   "title": "러시아의 우주 인공위성 관련 보도",
+   "start": 59.26
+  },
+  {
+   "title": "미국 의료 및 사회 이슈 관련 게시글",
+   "start": 71.68
+  },
+  {
+   "title": "인공지능 및 기타 방송, 인물 소식",
+   "start": 86.06
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-25T01:20:32+09:00",
+ "latency": 28.4
+}

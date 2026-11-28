@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-18",
+ "source_sha": "01d7306c2cd09ffa",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 134.08,
+ "bytes": 804816,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "T1 최우제 리턴설 및 커뮤니티 지형 변화",
+   "start": 7.27
+  },
+  {
+   "title": "연예계 및 미디어 이슈",
+   "start": 25.45
+  },
+  {
+   "title": "사회 및 사건, 사고",
+   "start": 50.35
+  },
+  {
+   "title": "커뮤니티 내 화제 및 논란",
+   "start": 78.18
+  },
+  {
+   "title": "일상 및 기타 정보",
+   "start": 101.47
+  },
+  {
+   "title": "개인적인 고민 및 폭로",
+   "start": 118.58
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-19T00:20:29+09:00",
+ "latency": 30.9
+}

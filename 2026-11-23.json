@@ -1,0 +1,35 @@
+{
+ "date": "2026-11-23",
+ "source_sha": "7fb2168b8987604e",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 121.64,
+ "bytes": 730224,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "방송인 및 연예계 소식",
+   "start": 7.01
+  },
+  {
+   "title": "사회 이슈 및 일상 논쟁",
+   "start": 36.69
+  },
+  {
+   "title": "게임 및 콘텐츠 동향",
+   "start": 69.78
+  },
+  {
+   "title": "증시 및 경제 동향",
+   "start": 87.22
+  },
+  {
+   "title": "기타 화제 게시글",
+   "start": 101.38
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-24T00:20:32+09:00",
+ "latency": 27.1
+}

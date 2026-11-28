@@ -1,0 +1,43 @@
+{
+ "date": "2026-11-17",
+ "source_sha": "c562d9415cc840f9",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 124.16,
+ "bytes": 745344,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "수능 부정행위 방지 대책",
+   "start": 6.88
+  },
+  {
+   "title": "유튜버 뒷광고 의혹",
+   "start": 33.23
+  },
+  {
+   "title": "수능 관련 기타 소식",
+   "start": 44.8
+  },
+  {
+   "title": "사회, 기술 이슈 및 논란",
+   "start": 57.83
+  },
+  {
+   "title": "사건, 사고 및 기타 에피소드",
+   "start": 76.64
+  },
+  {
+   "title": "정치 및 기업 동향",
+   "start": 98.37
+  },
+  {
+   "title": "커뮤니티 내부 게시글",
+   "start": 111.91
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-18T00:20:34+09:00",
+ "latency": 142.2
+}

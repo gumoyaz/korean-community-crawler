@@ -1,0 +1,43 @@
+{
+ "date": "2026-11-16",
+ "source_sha": "1aa4da2e92dfb7ba",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 118.32,
+ "bytes": 710208,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "수능 부정행위 관련 미미미누 방송 이슈",
+   "start": 6.07
+  },
+  {
+   "title": "전철 탈출 환자 신고한 간호대생",
+   "start": 23.26
+  },
+  {
+   "title": "예나와 사브리나 카펜터의 유사성 이슈",
+   "start": 35.24
+  },
+  {
+   "title": "결혼 초 시댁 김장 참여 갈등",
+   "start": 44.94
+  },
+  {
+   "title": "대치동 및 대한민국 사회 현황",
+   "start": 60.51
+  },
+  {
+   "title": "정치 및 사회 주요 이슈",
+   "start": 73.69
+  },
+  {
+   "title": "기타 사건 사고 및 인터넷 화제글",
+   "start": 90.56
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-17T00:20:32+09:00",
+ "latency": 28.6
+}

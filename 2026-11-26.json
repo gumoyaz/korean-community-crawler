@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-26",
+ "source_sha": "e6d2dcb976824b3d",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 131.53,
+ "bytes": 789552,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "대한민국 내수 경제와 국민연금 현황",
+   "start": 6.76
+  },
+  {
+   "title": "유통업계 및 직장인 근황",
+   "start": 24.74
+  },
+  {
+   "title": "사건, 사고 및 일상 소동",
+   "start": 40.67
+  },
+  {
+   "title": "방송 및 연예계, 인물 소식",
+   "start": 67.91
+  },
+  {
+   "title": "결혼 및 가족 관련 사연",
+   "start": 87.6
+  },
+  {
+   "title": "온라인 화제 게시물",
+   "start": 106.63
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-27T00:20:27+09:00",
+ "latency": 28.2
+}

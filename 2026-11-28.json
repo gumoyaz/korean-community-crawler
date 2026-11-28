@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-28",
+ "source_sha": "852aea53786f5d4f",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 141.45,
+ "bytes": 849024,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "2030 청년 특징 및 사회적 담론",
+   "start": 6.61
+  },
+  {
+   "title": "항공사 승무원 실수령액 논란",
+   "start": 32.22
+  },
+  {
+   "title": "연예계 및 인플루언서 동향",
+   "start": 41.61
+  },
+  {
+   "title": "게임 및 유튜버 근황",
+   "start": 63.81
+  },
+  {
+   "title": "직장 및 일상생활 속 경험",
+   "start": 88.86
+  },
+  {
+   "title": "신혼여행 및 소비 이슈",
+   "start": 115.88
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-28T12:10:31+09:00",
+ "latency": 27.1
+}

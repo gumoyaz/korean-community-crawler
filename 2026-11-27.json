@@ -1,0 +1,39 @@
+{
+ "date": "2026-11-27",
+ "source_sha": "293806e9675d3384",
+ "script_version": 1,
+ "model": "gemini-3.8-flash-tts",
+ "voice": "Kore",
+ "duration": 129.06,
+ "bytes": 774720,
+ "kbps": 48,
+ "sections": [
+  {
+   "title": "2030 청년층과 연령별 특징 및 게시글 이슈",
+   "start": 5.96
+  },
+  {
+   "title": "홍민기 전 여자친구 실종 수색",
+   "start": 29.45
+  },
+  {
+   "title": "주식 및 경제, 재산 관련 소식",
+   "start": 46.48
+  },
+  {
+   "title": "미국 거주 중년의 직장 퇴직 및 해외 관련 이슈",
+   "start": 69.68
+  },
+  {
+   "title": "방송, 연예계 및 기업 소식",
+   "start": 91.08
+  },
+  {
+   "title": "건강, 의료 및 사회적 이슈",
+   "start": 109.06
+  }
+ ],
+ "boundary": "snap",
+ "generated_at": "2026-11-28T00:20:32+09:00",
+ "latency": 28.7
+}
